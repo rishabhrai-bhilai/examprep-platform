@@ -20,6 +20,14 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Request Debug Logger (helpful for CORS/CSP troubleshooting)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  console.log(`[Request Log] Method: ${req.method} | Path: ${req.path} | Origin: ${origin || 'none'} | Host: ${host}`);
+  next();
+})
+
 // 1. Security Headers (Helmet)
 app.use(helmet({
   contentSecurityPolicy: {
@@ -30,7 +38,15 @@ app.use(helmet({
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://api.dicebear.com", "https://images.unsplash.com"],
       frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
-      connectSrc: ["'self'", "http://localhost:*", "ws://localhost:*", "http://10.*", "http://192.*"]
+      connectSrc: [
+        "'self'", 
+        "https://examprep-platform.onrender.com", 
+        "https://*.onrender.com", 
+        "http://localhost:*", 
+        "ws://localhost:*", 
+        "http://10.*", 
+        "http://192.*"
+      ]
     }
   }
 }))
@@ -39,22 +55,31 @@ app.use(helmet({
 const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173'
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true)
+    // Allow requests with no origin (like mobile apps, curl, or same-origin fetches)
+    if (!origin || origin === 'null') return callback(null, true)
     
     // In dev mode, allow wildcards or local IP prefixes for tablet/mobile testing
     if (NODE_ENV === 'development') {
       return callback(null, true)
     }
     
-    const isAllowed = origin === corsOrigin || origin.includes('onrender.com')
+    const originLower = origin.toLowerCase()
+    const isAllowed = 
+      origin === corsOrigin || 
+      originLower.includes('onrender.com') ||
+      originLower.includes('localhost') ||
+      originLower.includes('127.0.0.1')
+      
     if (isAllowed) {
       return callback(null, true)
     } else {
+      console.warn(`[CORS Blocked] Rejecting origin: ${origin}`)
       return callback(new Error('Not allowed by CORS'))
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }))
 
 // 3. Compression (Gzip)
