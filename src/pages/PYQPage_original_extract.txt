@@ -1,0 +1,84 @@
+Created At: 2026-05-28T14:42:26Z
+Completed At: 2026-05-28T14:42:27Z
+File Path: `file:///E:/examprep-platform/src/pages/PYQPage.jsx`
+Total Lines: 1192
+Total Bytes: 57845
+Showing lines 1 to 800
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import React, { useState, useEffect, useRef } from 'react'
+2: import { motion, AnimatePresence } from 'framer-motion'
+3: import { 
+4:   ThumbsUp, ThumbsDown, MessageSquare, Bookmark, Play, ChevronUp, ChevronDown, 
+5:   Check, X, AlertCircle, Calendar, BookOpen, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight,
+6:   Edit3
+7: } from 'lucide-react'
+8: import { useLocation } from 'react-router-dom'
+9: import { useAppStore } from '../store/useAppStore'
+10: import DiscussionDrawer from '../components/DiscussionDrawer'
+11: import VideoSolutionModal from '../components/VideoSolutionModal'
+12: import ScratchpadDrawer from '../components/ScratchpadDrawer'
+13: 
+14: export default function PYQPage() {
+15:   const {
+16:     activeQuestionIndex,
+17:     setActiveQuestionIndex,
+18:     bookmarks,
+19:     toggleBookmark,
+20:     votes,
+21:     upvoteQuestion,
+22:     downvoteQuestion,
+23:     setActiveDiscussionQuestionId,
+24:     setActiveVideoSolutionUrl,
+25:     scratchpadOpenQuestionId,
+26:     setScratchpadOpenQuestionId,
+27:     questionNotes,
+28:     questions
+29:   } = useAppStore()
+30: 
+31:   const location = useLocation()
+32: 
+33:   const [fetching, setFetching] = useState(false)
+34: 
+35:   // State Management for selection flow
+36:   // view: 'wizard' | 'reels'
+37:   const [view, setView] = useState('reels')
+38:   const [activeQuestions, setActiveQuestions] = useState([])
+39:   
+40:   // Category sub-sidebar states
+41:   const [activeFilterType, setActiveFilterType] = useState('all') // 'all' | 'year' | 'subject' | 'topic' | 'custom'
+42:   const [activeFilterValue, setActiveFilterValue] =
+<truncated 35220 bytes>
+                )
+769:                 })}
+770:               </div>
+771: 
+772:               <div className="flex justify-between pt-6 border-t border-border-light dark:border-border-dark">
+773:                 <button
+774:                   onClick={() => setWizardStep(3)}
+775:                   className="h-10 px-5 border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-400 font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900"
+776:                 >
+777:                   Back
+778:                 </button>
+779:                 <button
+780:                   onClick={handleGenerateCustomMock}
+781:                   className="h-10 px-6 bg-success text-white font-extrabold text-xs rounded-btn hover:bg-success/90 shadow-sm transition-all active:scale-95 flex items-center gap-1"
+782:                 >
+783:                   <Play size={12} className="fill-white text-white" />
+784:                   <span>Generate & Start</span>
+785:                 </button>
+786:               </div>
+787:             </div>
+788:           )}
+789:         </div>
+790:       )}
+791: 
+792:       {/* 6. Active practice reels viewport */}
+793:       {view === 'reels' && (
+794:         currentQuestion ? (
+795:           <div className="flex-grow flex flex-col min-w-0 h-full relative overflow-hidden bg-bg-light dark:bg-bg-dark w-full">
+796:           {/* Mobile Categories Selector Bar */}
+797:           <div className="flex md:hidden items-center justify-between px-4 py-2.5 bg-card-light dark:bg-card-dark border-b border-border-light dark:border-border-dark shrink-0">
+798:             <button
+799:               onClick={() => setMobileSubSidebarOpen(true)}
+800:               className="flex items-center gap-1.5 px-3 py-1.5 rounded-btn bg-primary/10 text-primary font-bold text-xs active:scale-95 transition-all"
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
