@@ -47,7 +47,8 @@ app.use(cors({
       return callback(null, true)
     }
     
-    if (origin === corsOrigin) {
+    const isAllowed = origin === corsOrigin || origin.includes('onrender.com')
+    if (isAllowed) {
       return callback(null, true)
     } else {
       return callback(new Error('Not allowed by CORS'))
