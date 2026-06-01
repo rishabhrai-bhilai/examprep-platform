@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { BookOpen, Clock, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain } from 'lucide-react'
+import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
 import { useAppStore } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
@@ -7,7 +7,7 @@ import confetti from 'canvas-confetti'
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
   const [activeTest, setActiveTest] = useState(null)
-  const { questions } = useAppStore()
+  const { questions, calculatorOpen, setCalculatorOpen } = useAppStore()
   
   // Testing State variables
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -469,7 +469,18 @@ export default function MockTestsPage() {
             <p className="text-[10px] text-slate-400">Section: {activeQuestion?.subject}</p>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Scientific Calculator Toggle Button */}
+            <button
+              onClick={() => setCalculatorOpen(!calculatorOpen)}
+              className={`p-2 rounded-btn transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                calculatorOpen ? 'text-primary bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-600 dark:text-slate-400'
+              }`}
+              title="Scientific Calculator"
+            >
+              <Calculator size={18} />
+            </button>
+
             {/* Timer display */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-btn bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-mono text-sm font-bold">
               <Clock size={16} />
@@ -571,24 +582,24 @@ export default function MockTestsPage() {
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Questions Grid</h3>
               
               {/* Grid buttons */}
-              <div className="grid grid-cols-5 gap-2 max-h-40 md:max-h-none overflow-y-auto pr-1">
+              <div className="grid grid-cols-5 gap-2 max-h-40 md:max-h-none overflow-y-auto p-1.5 pr-2">
                 {testQuestions.map((q, idx) => {
                   const isCurrent = idx === currentQuestionIndex
                   const isFlagged = flags[q.id]
                   const hasAnswered = answers[q.id] !== undefined
                   const hasVisited = visited[q.id]
 
-                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
                   if (hasAnswered) {
-                    btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                    btnClass = 'bg-emerald-500 text-white border-emerald-600 outline-none focus:outline-none'
                   } else if (isFlagged) {
-                    btnClass = 'bg-amber-500 text-white border-amber-600'
+                    btnClass = 'bg-amber-500 text-white border-amber-600 outline-none focus:outline-none'
                   } else if (hasVisited) {
-                    btnClass = 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    btnClass = 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 outline-none focus:outline-none'
                   }
 
                   if (isCurrent) {
-                    btnClass += ' ring-2 ring-primary ring-offset-2 dark:ring-offset-card-dark font-bold'
+                    btnClass += ' ring-2 ring-primary font-bold'
                   }
 
                   return (
