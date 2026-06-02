@@ -40,7 +40,7 @@ export default function Sidebar() {
         {/* Toggle Button for collapsing/expanding desktop sidebar */}
         <button
           onClick={toggleSidebarCollapsed}
-          className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-[60]"
+          className="hidden md:flex absolute top-8 -right-3 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-[60]"
         >
           {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>

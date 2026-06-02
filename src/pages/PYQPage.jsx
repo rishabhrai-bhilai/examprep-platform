@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ThumbsUp, ThumbsDown, MessageSquare, Bookmark, Play, ChevronUp, ChevronDown, 
+  ChevronLeft, ChevronRight,
   Check, X, AlertCircle, Calendar, BookOpen, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight,
   Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain
 } from 'lucide-react'
@@ -148,6 +149,7 @@ export default function PYQPage() {
 
   // Accordion state for Topic hierarchy
   const [expandedSubject, setExpandedSubject] = useState(null)
+  const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(false)
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
@@ -928,15 +930,15 @@ export default function PYQPage() {
 
       {/* 6. Active practice reels viewport */}
       {view === 'reels' && (
-        <div className="flex-1 h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-950">
+        <div className="flex-grow w-full h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-955">
           
           {/* Main Question Viewport */}
-          <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
+          <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4 md:pl-24 lg:pl-28">
           
           <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full flex flex-col justify-center relative select-none">
             
             {/* Reels indicators */}
-            <div className="absolute left-[-48px] top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-4">
+            <div className="absolute left-[-40px] top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-6">
               <button
                 onClick={goToPrevQuestion}
                 disabled={activeQuestionIndex === 0}
@@ -1297,55 +1299,74 @@ export default function PYQPage() {
 
             </div>
 
-          </div>
+          </div> {/* Closes Wrapper div */}
 
           </div> {/* Closes Main Question Viewport */}
 
-          {/* Right Panel: Question Navigator Grid */}
-          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-500 mb-4">Questions Grid</h3>
+          {/* Right Panel: Question Navigator Grid Wrapper */}
+          <div className={`relative flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+            isNavigatorCollapsed ? 'w-full md:w-0 border-l-0' : 'w-full md:w-64'
+          }`}>
             
-            <div className="grid grid-cols-5 gap-2 p-1">
-              {activeQuestions.map((q, idx) => {
-                const isCurrent = idx === activeQuestionIndex
-                const ansState = selectedAnswers[q.id]
-                const hasAnswered = ansState !== undefined
+            {/* Collapse Toggle Button */}
+            <button
+              onClick={() => setIsNavigatorCollapsed(!isNavigatorCollapsed)}
+              className={`hidden md:flex absolute top-8 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-30 ${
+                isNavigatorCollapsed ? '-left-7' : '-left-3'
+              }`}
+              title={isNavigatorCollapsed ? "Expand Questions Grid" : "Collapse Questions Grid"}
+            >
+              {isNavigatorCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+            </button>
 
-                let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
-                if (hasAnswered) {
-                  const isMSQSubmitted = q.type === 'MSQ' && ansState?.submitted
-                  const isMCQAnswered = q.type === 'MCQ'
-                  const isNATAnswered = q.type === 'NAT'
-                  
-                  if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
-                    const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
-                    const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
-                    const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+            {/* Content Container (collapsible) */}
+            <div className={`w-full md:w-64 p-5 flex flex-col overflow-y-auto custom-scrollbar h-full ${
+              isNavigatorCollapsed ? 'hidden md:hidden' : 'flex'
+            }`}>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-500 mb-4">Questions Grid</h3>
+              
+              <div className="grid grid-cols-5 gap-2 p-1">
+                {activeQuestions.map((q, idx) => {
+                  const isCurrent = idx === activeQuestionIndex
+                  const ansState = selectedAnswers[q.id]
+                  const hasAnswered = ansState !== undefined
+
+                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
+                  if (hasAnswered) {
+                    const isMSQSubmitted = q.type === 'MSQ' && ansState?.submitted
+                    const isMCQAnswered = q.type === 'MCQ'
+                    const isNATAnswered = q.type === 'NAT'
                     
-                    const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
-                    
-                    btnClass = correct
-                      ? 'bg-success text-white border-success outline-none focus:outline-none'
-                      : 'bg-error text-white border-error outline-none focus:outline-none'
-                  } else {
-                    btnClass = 'bg-primary/20 border-primary text-primary outline-none focus:outline-none'
+                    if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
+                      const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
+                      const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
+                      const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                      
+                      const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
+                      
+                      btnClass = correct
+                        ? 'bg-success text-white border-success outline-none focus:outline-none'
+                        : 'bg-error text-white border-error outline-none focus:outline-none'
+                    } else {
+                      btnClass = 'bg-primary/20 border-primary text-primary outline-none focus:outline-none'
+                    }
                   }
-                }
 
-                if (isCurrent) {
-                  btnClass += ' ring-2 ring-primary font-bold scale-105'
-                }
+                  if (isCurrent) {
+                    btnClass += ' ring-2 ring-primary font-bold scale-105'
+                  }
 
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => setActiveQuestionIndex(idx)}
-                    className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
-                  >
-                    {idx + 1}
-                  </button>
-                )
-              })}
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => setActiveQuestionIndex(idx)}
+                      className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </div>
 
