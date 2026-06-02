@@ -930,7 +930,7 @@ export default function PYQPage() {
       {view === 'reels' && (
         <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
           
-          <div className="w-full max-w-2xl h-full flex flex-col justify-center relative select-none">
+          <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full flex flex-col justify-center relative select-none">
             
             {/* Reels indicators */}
             <div className="absolute left-[-48px] top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-4">
@@ -1185,10 +1185,12 @@ export default function PYQPage() {
               {/* Back to practice menu */}
               <button
                 onClick={() => setView('hub')}
-                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
-                title="Exit Practice Mode"
+                className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
               >
                 <ArrowLeft size={16} className="sm:size-[18px]" />
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Exit Practice
+                </span>
               </button>
 
               <div className="h-px w-5 sm:w-6 bg-slate-200 dark:bg-slate-800"></div>
@@ -1197,13 +1199,16 @@ export default function PYQPage() {
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => upvoteQuestion(currentQuestion.id)}
-                  className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                  className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                     votes[currentQuestion.id] === 'up'
                       ? 'bg-primary border-primary text-white'
                       : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   <ThumbsUp size={16} className={votes[currentQuestion.id] === 'up' ? 'fill-white text-white' : 'text-slate-500'} />
+                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                    Upvote
+                  </span>
                 </button>
                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
                   {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
@@ -1214,13 +1219,16 @@ export default function PYQPage() {
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => downvoteQuestion(currentQuestion.id)}
-                  className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                  className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                     votes[currentQuestion.id] === 'down'
                       ? 'bg-error border-error text-white'
                       : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   <ThumbsDown size={16} className={votes[currentQuestion.id] === 'down' ? 'fill-white text-white' : 'text-slate-500'} />
+                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                    Downvote
+                  </span>
                 </button>
               </div>
 
@@ -1228,9 +1236,12 @@ export default function PYQPage() {
               <div className="flex flex-col items-center">
                 <button
                   onClick={() => setActiveDiscussionQuestionId(currentQuestion.id)}
-                  className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
+                  className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
                 >
                   <MessageSquare size={16} className="sm:size-[18px]" />
+                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                    Discussion
+                  </span>
                 </button>
                 <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
                   {currentQuestion.commentsCount}
@@ -1240,37 +1251,45 @@ export default function PYQPage() {
               {/* Bookmark Button */}
               <button
                 onClick={() => toggleBookmark(currentQuestion.id)}
-                className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                   bookmarks.includes(currentQuestion.id)
                     ? 'bg-primary border-primary text-white'
                     : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
                 <Bookmark size={16} className={bookmarks.includes(currentQuestion.id) ? 'fill-white text-white' : 'text-slate-500'} />
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Bookmark
+                </span>
               </button>
 
               {/* Scratchpad & Notes Button */}
               <button
                 onClick={() => setScratchpadOpenQuestionId(currentQuestion.id)}
-                className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 relative ${
+                className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 relative ${
                   questionNotes[currentQuestion.id]
                     ? 'bg-success/15 border-success text-success hover:bg-success/20'
                     : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
-                title="Scratchpad & Notes"
               >
                 <Edit3 size={16} className="sm:size-[18px]" />
                 {questionNotes[currentQuestion.id] && (
                   <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success border-2 border-white dark:border-slate-900 animate-pulse" />
                 )}
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Scratchpad
+                </span>
               </button>
 
               {/* Video Solution Button */}
               <button
                 onClick={() => setActiveVideoSolutionUrl(currentQuestion.videoSolutionUrl)}
-                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
+                className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
               >
                 <Play size={16} className="fill-slate-500 text-slate-500 sm:size-[18px]" />
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Video Solution
+                </span>
               </button>
 
             </div>

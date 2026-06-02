@@ -774,14 +774,16 @@ export default function ScratchpadDrawer({
             <div className="flex flex-col items-center">
               <button
                 onClick={() => upvoteQuestion(currentQuestion.id)}
-                className={`h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                   votes[currentQuestion.id] === 'up'
                     ? 'bg-primary border-primary text-white'
                     : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
                 }`}
-                title="Upvote question"
               >
                 <ThumbsUp size={14} className={votes[currentQuestion.id] === 'up' ? 'fill-white text-white' : 'text-slate-500'} />
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Upvote
+                </span>
               </button>
               <span className="text-[9px] font-bold text-slate-500 mt-0.5">
                 {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
@@ -791,24 +793,28 @@ export default function ScratchpadDrawer({
             {/* Downvote */}
             <button
               onClick={() => downvoteQuestion(currentQuestion.id)}
-              className={`h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+              className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                 votes[currentQuestion.id] === 'down'
                   ? 'bg-error border-error text-white'
                   : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
               }`}
-              title="Downvote question"
             >
               <ThumbsDown size={14} className={votes[currentQuestion.id] === 'down' ? 'fill-white text-white' : 'text-slate-500'} />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                Downvote
+              </span>
             </button>
 
             {/* Discussion */}
             <div className="flex flex-col items-center">
               <button
                 onClick={() => setActiveDiscussionQuestionId(currentQuestion.id)}
-                className="h-9 w-9 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
-                title="Open discussion thread"
+                className="group relative h-9 w-9 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
               >
                 <MessageSquare size={14} />
+                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                  Discussion
+                </span>
               </button>
               <span className="text-[9px] font-bold text-slate-500 mt-0.5">
                 {currentQuestion.commentsCount}
@@ -818,23 +824,27 @@ export default function ScratchpadDrawer({
             {/* Bookmark */}
             <button
               onClick={() => toggleBookmark(currentQuestion.id)}
-              className={`h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+              className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
                 bookmarks.includes(currentQuestion.id)
                   ? 'bg-primary border-primary text-white'
-                  : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
+                  : 'bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
               }`}
-              title="Bookmark question"
             >
               <Bookmark size={14} className={bookmarks.includes(currentQuestion.id) ? 'fill-white text-white' : 'text-slate-500'} />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                Bookmark
+              </span>
             </button>
 
             {/* Video Solution */}
             <button
               onClick={() => setActiveVideoSolutionUrl(currentQuestion.videoSolutionUrl)}
-              className="h-9 w-9 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
-              title="Watch video solution"
+              className="group relative h-9 w-9 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
             >
               <Play size={14} className="fill-slate-500 text-slate-500" />
+              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                Video Solution
+              </span>
             </button>
           </div>
         </div>
