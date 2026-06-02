@@ -151,6 +151,7 @@ export default function PYQPage() {
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
+  const wheelAccumulatorRef = useRef(0)
 
   const currentQuestion = activeQuestions[activeQuestionIndex]
   const totalQuestions = activeQuestions.length
@@ -237,17 +238,35 @@ export default function PYQPage() {
   // Mouse wheel scroll boundary logic
   const handleWheel = (e) => {
     const el = scrollContainerRef.current
-    if (!el || cooldown) return
+    if (!el || cooldown) {
+      wheelAccumulatorRef.current = 0
+      return
+    }
 
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
-    const isAtTop = el.scrollTop === 0
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
+    const isAtTop = el.scrollTop <= 2
 
-    if (e.deltaY > 30 && isAtBottom) {
+    // If we are at the bottom and scrolling down
+    if (e.deltaY > 0 && isAtBottom) {
       e.preventDefault()
-      goToNextQuestion()
-    } else if (e.deltaY < -30 && isAtTop) {
+      wheelAccumulatorRef.current += e.deltaY
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToNextQuestion()
+      }
+    } 
+    // If we are at the top and scrolling up
+    else if (e.deltaY < 0 && isAtTop) {
       e.preventDefault()
-      goToPrevQuestion()
+      wheelAccumulatorRef.current += Math.abs(e.deltaY)
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToPrevQuestion()
+      }
+    } 
+    // Reset accumulator when scrolling inside boundaries
+    else {
+      wheelAccumulatorRef.current = 0
     }
   }
 
