@@ -149,7 +149,11 @@ export default function PYQPage() {
 
   // Accordion state for Topic hierarchy
   const [expandedSubject, setExpandedSubject] = useState(null)
+  const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(false)
   const [selectedSubjects, setSelectedSubjects] = useState([])
+  const [showQuestionLimitModal, setShowQuestionLimitModal] = useState(false)
+  const [limitQuestionsCount, setLimitQuestionsCount] = useState(15)
+  const [maxAvailableQuestions, setMaxAvailableQuestions] = useState(0)
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
@@ -295,7 +299,7 @@ export default function PYQPage() {
 
   // Start a reels session with specific questions
   // Start a reels session with specific filter
-  const startReelsSession = async (filterFunc, filterName, queryParams = '') => {
+  const startReelsSession = async (filterFunc, filterName, queryParams = '', limit = null) => {
     setFetching(true)
     try {
       const url = queryParams ? `/api/questions?${queryParams}` : '/api/questions'
@@ -305,6 +309,10 @@ export default function PYQPage() {
       
       if (filterName === "Random Mode") {
         filtered = filtered.sort(() => Math.random() - 0.5)
+      }
+
+      if (limit && limit > 0) {
+        filtered = filtered.sort(() => Math.random() - 0.5).slice(0, limit)
       }
 
       setTimeout(() => {
@@ -326,27 +334,14 @@ export default function PYQPage() {
     }
   }
 
-  // Reset selected subjects when leaving the subject view
-  useEffect(() => {
-    if (view !== 'subject') {
-      setSelectedSubjects([])
-    }
-  }, [view])
-
-  const toggleSubjectSelection = (sub) => {
-    setSelectedSubjects(prev =>
-      prev.includes(sub)
-        ? prev.filter(s => s !== sub)
-        : [...prev, sub]
+  const handleConfirmStartPractice = () => {
+    setShowQuestionLimitModal(false)
+    startReelsSession(
+      q => selectedSubjects.includes(q.subject),
+      selectedSubjects.join(', '),
+      '',
+      limitQuestionsCount
     )
-  }
-
-  const handleStartSelectedSubjectsPractice = () => {
-    if (selectedSubjects.length === 0) return
-    const filterFn = q => selectedSubjects.includes(q.subject)
-    const title = selectedSubjects.length === 1 ? selectedSubjects[0] : `${selectedSubjects.length} Subjects`
-    const path = `subject=${encodeURIComponent(selectedSubjects.join(','))}`
-    startReelsSession(filterFn, title, path)
   }
 
   // --- MOCK BUILDER GENERATOR ---
@@ -501,7 +496,10 @@ export default function PYQPage() {
 
             {/* Subject-wise card */}
             <div 
-              onClick={() => setView('subject')}
+              onClick={() => {
+                setView('subject')
+                setSelectedSubjects([])
+              }}
               className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
             >
               <div className="h-12 w-12 rounded-btn bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
@@ -604,7 +602,7 @@ export default function PYQPage() {
       {/* 3. Subject-wise List */}
       {view === 'subject' && (
         <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark min-h-screen">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Subject Wise</h2>
               <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more core subjects to start practicing.</p>
@@ -613,17 +611,24 @@ export default function PYQPage() {
             <div className="flex items-center gap-3 shrink-0">
               {selectedSubjects.length > 0 && (
                 <button
-                  onClick={handleStartSelectedSubjectsPractice}
-                  className="flex items-center gap-1.5 h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn transition-all shadow-md active:scale-95 shrink-0"
+                  onClick={() => {
+                    const totalAvailable = selectedSubjects.reduce((sum, s) => sum + (subjectsMap[s] || 0), 0)
+                    setMaxAvailableQuestions(totalAvailable)
+                    setLimitQuestionsCount(Math.min(15, totalAvailable))
+                    setShowQuestionLimitModal(true)
+                  }}
+                  className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
                 >
                   <Play size={12} className="fill-white text-white" />
                   <span>Start Practice ({selectedSubjects.length})</span>
                 </button>
               )}
-              
               <button 
-                onClick={() => setView('hub')} 
-                className="flex items-center gap-1.5 h-10 px-4 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-650 dark:text-slate-350 hover:text-primary dark:hover:text-primary font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm active:scale-95 shrink-0"
+                onClick={() => {
+                  setView('hub')
+                  setSelectedSubjects([])
+                }} 
+                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
               >
                 <ArrowLeft size={14} />
                 <span>Back to Categories</span>
@@ -639,25 +644,27 @@ export default function PYQPage() {
               return (
                 <div
                   key={sub}
-                  onClick={() => toggleSubjectSelection(sub)}
-                  className={`p-4.5 rounded-card border bg-white dark:bg-slate-900 bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[135px] group hover:-translate-y-1 relative ${
-                    isSelected 
-                      ? 'border-primary dark:border-primary ring-2 ring-primary/20 bg-primary/[0.03] dark:bg-primary/[0.08]' 
-                      : 'border-slate-200 dark:border-slate-800/80 shadow-sm'
+                  onClick={() => {
+                    setSelectedSubjects(prev => 
+                      prev.includes(sub) ? prev.filter(s => s !== sub) : [...prev, sub]
+                    )
+                  }}
+                  className={`relative p-4.5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[135px] group hover:-translate-y-1 ${
+                    isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
                   }`}
                 >
+                  {isSelected && (
+                    <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center border border-primary z-10 shadow-sm animate-fade-in">
+                      <Check size={12} strokeWidth={3.5} />
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-3">
                     <div className={`h-9 w-9 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass} group-hover:scale-105 transition-transform duration-300`}>
                       <SubjectIcon size={16} />
                     </div>
-                    <h3 className="font-bold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-1 pr-5">{sub}</h3>
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-1">{sub}</h3>
                   </div>
-
-                  {isSelected && (
-                    <div className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
-                      <Check size={12} strokeWidth={3} />
-                    </div>
-                  )}
                   
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-850 flex justify-between items-center shrink-0">
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Weight: Core</span>
@@ -978,7 +985,10 @@ export default function PYQPage() {
 
       {/* 6. Active practice reels viewport */}
       {view === 'reels' && (
-        <div className="flex-grow w-full h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4 md:pl-24 lg:pl-28 bg-slate-50 dark:bg-slate-955">
+        <div className="flex-grow w-full h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-955">
+          
+          {/* Main Question Viewport */}
+          <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4 md:pl-24 lg:pl-28">
           
           <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full flex flex-col justify-center relative select-none">
             
@@ -1346,6 +1356,75 @@ export default function PYQPage() {
 
           </div> {/* Closes Wrapper div */}
 
+          </div> {/* Closes Main Question Viewport */}
+
+          {/* Right Panel: Question Navigator Grid Wrapper */}
+          <div className={`relative flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+            isNavigatorCollapsed ? 'w-full md:w-0 border-l-0' : 'w-full md:w-64'
+          }`}>
+            
+            {/* Collapse Toggle Button */}
+            <button
+              onClick={() => setIsNavigatorCollapsed(!isNavigatorCollapsed)}
+              className={`hidden md:flex absolute top-8 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-30 ${
+                isNavigatorCollapsed ? '-left-7' : '-left-3'
+              }`}
+              title={isNavigatorCollapsed ? "Expand Questions Grid" : "Collapse Questions Grid"}
+            >
+              {isNavigatorCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+            </button>
+
+            {/* Content Container (collapsible) */}
+            <div className={`w-full md:w-64 p-5 flex flex-col overflow-y-auto custom-scrollbar h-full ${
+              isNavigatorCollapsed ? 'hidden md:hidden' : 'flex'
+            }`}>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-500 mb-4">Questions Grid</h3>
+              
+              <div className="grid grid-cols-5 gap-2 p-1">
+                {activeQuestions.map((q, idx) => {
+                  const isCurrent = idx === activeQuestionIndex
+                  const ansState = selectedAnswers[q.id]
+                  const hasAnswered = ansState !== undefined
+
+                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
+                  if (hasAnswered) {
+                    const isMSQSubmitted = q.type === 'MSQ' && ansState?.submitted
+                    const isMCQAnswered = q.type === 'MCQ'
+                    const isNATAnswered = q.type === 'NAT'
+                    
+                    if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
+                      const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
+                      const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
+                      const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                      
+                      const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
+                      
+                      btnClass = correct
+                        ? 'bg-success text-white border-success outline-none focus:outline-none'
+                        : 'bg-error text-white border-error outline-none focus:outline-none'
+                    } else {
+                      btnClass = 'bg-primary/20 border-primary text-primary outline-none focus:outline-none'
+                    }
+                  }
+
+                  if (isCurrent) {
+                    btnClass += ' ring-2 ring-primary font-bold scale-105'
+                  }
+
+                  return (
+                    <button
+                      key={q.id}
+                      onClick={() => setActiveQuestionIndex(idx)}
+                      className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
           <DiscussionDrawer
             currentQuestion={currentQuestion}
             selectedAnswers={selectedAnswers}
@@ -1371,6 +1450,138 @@ export default function PYQPage() {
           />
         </div>
       )}
+
+      {/* Question Limit Selector Modal */}
+      <AnimatePresence>
+        {showQuestionLimitModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowQuestionLimitModal(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              className="relative w-full max-w-md bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft-lg p-6 space-y-6 z-10"
+            >
+              {/* Header */}
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-extrabold text-slate-850 dark:text-slate-100 flex items-center gap-2">
+                  <BookOpen size={20} className="text-primary" />
+                  <span>Customize Practice Session</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Select the number of questions you want to practice out of the total available.
+                </p>
+              </div>
+
+              {/* Stats Card */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-btn border border-border-light/60 dark:border-border-dark/60 flex justify-between items-center">
+                <div className="min-w-0 flex-1 mr-2">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Selected Subjects</span>
+                  <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                    {selectedSubjects.join(', ')}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Total Questions</span>
+                  <div className="text-sm font-black text-primary">
+                    {maxAvailableQuestions} Qs
+                  </div>
+                </div>
+              </div>
+
+              {/* Slider and Manual Input */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Question Limit</label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={maxAvailableQuestions}
+                      value={limitQuestionsCount}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value, 10)
+                        if (isNaN(val)) val = 1
+                        if (val > maxAvailableQuestions) val = maxAvailableQuestions
+                        if (val < 1) val = 1
+                        setLimitQuestionsCount(val)
+                      }}
+                      className="w-14 h-8 text-center text-xs font-extrabold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100"
+                    />
+                    <span className="text-xs font-bold text-slate-400">Questions</span>
+                  </div>
+                </div>
+
+                <input
+                  type="range"
+                  min={1}
+                  max={maxAvailableQuestions}
+                  value={limitQuestionsCount}
+                  onChange={(e) => setLimitQuestionsCount(parseInt(e.target.value, 10))}
+                  className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
+                />
+              </div>
+
+              {/* Quick Select Buttons */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide block">Quick Select</span>
+                <div className="flex flex-wrap gap-2">
+                  {[5, 10, 15, 20, 25].filter(q => q <= maxAvailableQuestions).map(num => (
+                    <button
+                      key={num}
+                      onClick={() => setLimitQuestionsCount(num)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-btn transition-all border ${
+                        limitQuestionsCount === num
+                          ? 'bg-primary border-primary text-white shadow-sm'
+                          : 'bg-slate-50 dark:bg-slate-900 border-border-light dark:border-border-dark text-slate-650 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                      }`}
+                    >
+                      {num} Qs
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setLimitQuestionsCount(maxAvailableQuestions)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-btn transition-all border ${
+                      limitQuestionsCount === maxAvailableQuestions
+                        ? 'bg-primary border-primary text-white shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900 border-border-light dark:border-border-dark text-slate-650 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                    }`}
+                  >
+                    All ({maxAvailableQuestions})
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-between items-center gap-3 pt-3 border-t border-border-light dark:border-border-dark">
+                <button
+                  onClick={() => setShowQuestionLimitModal(false)}
+                  className="flex-1 h-10 border border-border-light dark:border-border-dark text-slate-650 dark:text-slate-400 font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-98"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmStartPractice}
+                  className="flex-grow flex-grow-1 h-10 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  <Play size={12} className="fill-white text-white" />
+                  <span>Start Practice</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
