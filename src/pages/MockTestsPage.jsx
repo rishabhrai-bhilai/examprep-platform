@@ -34,6 +34,9 @@ export default function MockTestsPage() {
           testId: 'test-1',
           testTitle: 'GATE Computer Science - Mini Mock Test',
           date: '15 May 2026',
+          time: '04:15 PM',
+          timestamp: 1778931300000,
+          questionsCount: 20,
           score: 12.0,
           maxScore: 20,
           percentage: '75.0',
@@ -55,6 +58,9 @@ export default function MockTestsPage() {
           testId: 'test-1',
           testTitle: 'GATE Computer Science - Mini Mock Test',
           date: '18 May 2026',
+          time: '11:20 AM',
+          timestamp: 1779192000000,
+          questionsCount: 20,
           score: 14.5,
           maxScore: 20,
           percentage: '80.0',
@@ -76,6 +82,9 @@ export default function MockTestsPage() {
           testId: 'test-1',
           testTitle: 'GATE Computer Science - Mini Mock Test',
           date: '22 May 2026',
+          time: '08:45 PM',
+          timestamp: 1779537900000,
+          questionsCount: 20,
           score: 11.0,
           maxScore: 20,
           percentage: '60.0',
@@ -97,6 +106,9 @@ export default function MockTestsPage() {
           testId: 'test-1',
           testTitle: 'GATE Computer Science - Mini Mock Test',
           date: '26 May 2026',
+          time: '02:30 PM',
+          timestamp: 1779885000000,
+          questionsCount: 20,
           score: 16.0,
           maxScore: 20,
           percentage: '90.0',
@@ -176,6 +188,13 @@ export default function MockTestsPage() {
     setCurrentQuestionIndex(0)
     setTimeLeft(test.durationMinutes * 60)
     setView('testing')
+
+    // Auto-enter fullscreen mode
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.warn("Could not enter fullscreen automatically:", err);
+      });
+    }
   }
 
   const handleSelectOption = (questionId, optionIndex) => {
@@ -234,6 +253,13 @@ export default function MockTestsPage() {
 
   const handleSubmitTest = () => {
     if (timerRef.current) clearInterval(timerRef.current)
+
+    // Auto-exit fullscreen mode
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch((err) => {
+        console.warn("Could not exit fullscreen mode:", err);
+      });
+    }
 
     // Calculate score
     let correct = 0
@@ -358,10 +384,18 @@ export default function MockTestsPage() {
     // Estimate rank: rank decreases exponentially as score increases
     const estimatedRank = Math.max(1, Math.round(50000 * Math.pow(0.93, Math.max(0, scaledScore - 15))))
 
+    // Save to local storage history
+    const existingHistory = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
+    const testNum = existingHistory.length + 1
+
     const data = {
       testId: activeTest.id,
       testTitle: activeTest.title,
+      displayName: `Mock Test ${testNum}`,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      timestamp: Date.now(),
+      questionsCount: testQuestions.length,
       correct,
       incorrect,
       unanswered,
@@ -387,8 +421,6 @@ export default function MockTestsPage() {
 
     setReportData(data)
 
-    // Save to local storage history
-    const existingHistory = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
     const updatedHistory = [data, ...existingHistory]
     localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
 

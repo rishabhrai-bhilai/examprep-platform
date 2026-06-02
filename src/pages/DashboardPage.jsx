@@ -99,7 +99,7 @@ export default function DashboardPage() {
             <p className="text-xs text-white/80 leading-relaxed max-w-md">
               Start our Reels-style Previous Year Questions (PYQs) flow to practice distraction-free. The system automatically saves your response history.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Link
                 to="/pyq"
                 className="px-4 py-2.5 bg-white text-primary font-bold text-xs rounded-btn hover:bg-slate-100 transition-colors shadow-sm inline-flex items-center gap-1.5"
@@ -108,8 +108,14 @@ export default function DashboardPage() {
                 <span>Start Practice</span>
               </Link>
               <Link
+                to="/pyq-mock"
+                className="px-4 py-2.5 bg-white/25 text-white border border-white/35 font-bold text-xs rounded-btn hover:bg-white/35 transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>Take PYQ Mock</span>
+              </Link>
+              <Link
                 to="/mock-tests"
-                className="px-4 py-2.5 bg-white/10 text-white border border-white/20 font-bold text-xs rounded-btn hover:bg-white/20 transition-colors"
+                className="px-4 py-2.5 bg-white/15 text-white border border-white/20 font-bold text-xs rounded-btn hover:bg-white/25 transition-colors"
               >
                 Take Mock Test
               </Link>

@@ -1,6 +1,6 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function Sidebar() {
@@ -10,6 +10,7 @@ export default function Sidebar() {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Practice PYQs', path: '/pyq', icon: FileText },
+    { name: 'PYQ Mock Tests', path: '/pyq-mock', icon: Clock },
     { name: 'Mock Tests', path: '/mock-tests', icon: BookOpen },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark },
     { name: 'Profile', path: '/profile', icon: User },

@@ -12,6 +12,7 @@ import SignupPage from './pages/SignupPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import PYQPage from './pages/PYQPage'
+import PYQMockTestsPage from './pages/PYQMockTestsPage'
 import MockTestsPage from './pages/MockTestsPage'
 import BookmarksPage from './pages/BookmarksPage'
 import ProfilePage from './pages/ProfilePage'
@@ -49,6 +50,7 @@ function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/pyq" element={<PYQPage />} />
+          <Route path="/pyq-mock" element={<PYQMockTestsPage />} />
           <Route path="/mock-tests" element={<MockTestsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/profile" element={<ProfilePage />} />
