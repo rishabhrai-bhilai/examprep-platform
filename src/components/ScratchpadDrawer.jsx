@@ -48,7 +48,8 @@ export default function ScratchpadDrawer({
   // Scribing Tool: Infinite Panning and Zooming
   const [zoomScale, setZoomScale] = useState(1)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 })
-  const [toolMode, setToolMode] = useState('draw') // 'draw' | 'pan'
+  const [toolMode, setToolMode] = useState('draw') // 'draw' | 'pan' | 'text'
+  const [activeTextInput, setActiveTextInput] = useState(null) // null | { x, y, screenX, screenY, value }
 
   // Mobile Tabs Layout
   const [mobileTab, setMobileTab] = useState('question') // 'question' | 'scratchpad'
@@ -96,11 +97,12 @@ export default function ScratchpadDrawer({
       setPdfFile(null)
       setUploadError('')
       
-      // Reset zoom, pan and tool
+      // Reset zoom, pan, tool and text input
       setZoomScale(1)
       setPanOffset({ x: 0, y: 0 })
       setToolMode('draw')
       setMobileTab('question')
+      setActiveTextInput(null)
     }
   }, [scratchpadOpenQuestionId, savedNote])
 
@@ -150,6 +152,14 @@ export default function ScratchpadDrawer({
     
     // Helper to draw a single vector stroke
     const drawStroke = (stroke) => {
+      if (stroke.type === 'text') {
+        ctx.fillStyle = stroke.color
+        ctx.font = `bold ${stroke.size * 3 + 10}px Inter, sans-serif`
+        ctx.textBaseline = 'middle'
+        ctx.fillText(stroke.text, stroke.x, stroke.y)
+        return
+      }
+
       const pts = stroke.points
       if (!pts || pts.length === 0) return
       
@@ -258,8 +268,30 @@ export default function ScratchpadDrawer({
     return { x, y }
   }
 
+  const commitTextInput = () => {
+    if (activeTextInput && activeTextInput.value.trim()) {
+      const activeColorVal = colorValues[activeColor]
+      const newStroke = {
+        type: 'text',
+        text: activeTextInput.value,
+        x: activeTextInput.x,
+        y: activeTextInput.y,
+        color: activeColorVal,
+        size: penSize
+      }
+      setStrokes(prev => [...prev, newStroke])
+      setUndoStack([])
+    }
+    setActiveTextInput(null)
+  }
+
   // --- DRAWING & PANNING EVENTS ---
   const handleStart = (e) => {
+    if (activeTextInput) {
+      commitTextInput()
+      return
+    }
+
     e.preventDefault()
     
     // Check for mobile 2-finger panning gesture
@@ -282,6 +314,31 @@ export default function ScratchpadDrawer({
       const clientY = e.touches ? e.touches[0].clientY : e.clientY
       startPanPosRef.current = { x: clientX, y: clientY }
       initialPanOffsetRef.current = { ...panOffsetRef.current }
+    } else if (toolMode === 'text') {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      
+      let clientX, clientY
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX
+        clientY = e.touches[0].clientY
+      } else {
+        clientX = e.clientX
+        clientY = e.clientY
+      }
+      
+      const screenX = clientX - rect.left
+      const screenY = clientY - rect.top
+      const coords = getConvertedCoords(e)
+      
+      setActiveTextInput({
+        x: coords.x,
+        y: coords.y,
+        screenX,
+        screenY,
+        value: ''
+      })
     } else {
       isDrawingRef.current = true
       const coords = getConvertedCoords(e)
@@ -369,6 +426,14 @@ export default function ScratchpadDrawer({
     ctx.fillRect(0, 0, offscreen.width, offscreen.height)
     
     strokes.forEach(stroke => {
+      if (stroke.type === 'text') {
+        ctx.fillStyle = stroke.color
+        ctx.font = `bold ${stroke.size * 3 + 10}px Inter, sans-serif`
+        ctx.textBaseline = 'middle'
+        ctx.fillText(stroke.text, stroke.x, stroke.y)
+        return
+      }
+
       if (!stroke.points || stroke.points.length === 0) return
       
       ctx.beginPath()
@@ -918,7 +983,7 @@ export default function ScratchpadDrawer({
                   </button>
                 </div>
 
-                {/* Draw vs Pan Tool */}
+                {/* Draw vs Pan vs Text Tool */}
                 <div className="flex border border-border-light dark:border-border-dark rounded-btn overflow-hidden bg-white dark:bg-slate-950">
                   <button
                     onClick={() => {
@@ -934,6 +999,21 @@ export default function ScratchpadDrawer({
                   >
                     <Edit3 size={12} />
                     <span className="hidden sm:inline">Draw</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setToolMode('text')
+                      setIsEraser(false)
+                    }}
+                    className={`h-7 px-2.5 text-xs font-bold transition-all flex items-center gap-1 ${
+                      toolMode === 'text'
+                        ? 'bg-primary text-white'
+                        : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'
+                    }`}
+                    title="Text Tool (Click canvas to type)"
+                  >
+                    <FileText size={12} />
+                    <span className="hidden sm:inline">Text</span>
                   </button>
                   <button
                     onClick={() => setToolMode('pan')}
@@ -1024,9 +1104,39 @@ export default function ScratchpadDrawer({
                   onTouchMove={handleMove}
                   onTouchEnd={handleEnd}
                   className={`bg-white dark:bg-slate-900 shadow-inner w-full h-full touch-none select-none ${
-                    toolMode === 'pan' ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'
+                    toolMode === 'pan' 
+                      ? 'cursor-grab active:cursor-grabbing' 
+                      : toolMode === 'text' 
+                      ? 'cursor-text' 
+                      : 'cursor-crosshair'
                   }`}
                 />
+                
+                {activeTextInput && (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={activeTextInput.value}
+                    onChange={(e) => setActiveTextInput(prev => ({ ...prev, value: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        commitTextInput()
+                      } else if (e.key === 'Escape') {
+                        setActiveTextInput(null)
+                      }
+                    }}
+                    onBlur={commitTextInput}
+                    className="absolute bg-white/95 dark:bg-slate-900/95 border border-primary/50 shadow-md rounded px-2 py-1 outline-none text-text-primary-light dark:text-text-primary-dark z-[80]"
+                    style={{
+                      left: `${activeTextInput.screenX}px`,
+                      top: `${activeTextInput.screenY}px`,
+                      fontSize: `${Math.max(12, (penSize * 3 + 10) * zoomScale)}px`,
+                      color: colorValues[activeColor],
+                      transform: 'translate(-5px, -50%)',
+                      minWidth: '150px'
+                    }}
+                  />
+                )}
               </div>
 
               {/* Actions Footer */}

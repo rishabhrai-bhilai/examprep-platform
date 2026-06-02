@@ -1277,7 +1277,17 @@ export default function PYQPage() {
 
           </div>
 
-          <DiscussionDrawer />
+          <DiscussionDrawer
+            currentQuestion={currentQuestion}
+            selectedAnswers={selectedAnswers}
+            setSelectedAnswers={setSelectedAnswers}
+            isMSQCorrect={isMSQCorrect}
+            isNATCorrect={isNATCorrect}
+            handleSelectMCQ={handleSelectMCQ}
+            handleToggleMSQ={handleToggleMSQ}
+            handleSubmitMSQ={handleSubmitMSQ}
+            handleNATSubmit={handleNATSubmit}
+          />
           <VideoSolutionModal />
           <ScratchpadDrawer
             currentQuestion={currentQuestion}
