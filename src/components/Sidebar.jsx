@@ -5,7 +5,7 @@ import { useAppStore } from '../store/useAppStore'
 
 export default function Sidebar() {
   const location = useLocation()
-  const { sidebarOpen, setSidebarOpen } = useAppStore()
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, toggleSidebarCollapsed } = useAppStore()
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -20,9 +20,6 @@ export default function Sidebar() {
     setSidebarOpen(false)
   }
 
-  // Sidebar wrapper styling
-  // Desktop: Fixed sidebar
-  // Mobile: Overlay drawer menu
   return (
     <>
       {/* Mobile Drawer Overlay */}
@@ -34,10 +31,20 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100vh-4rem)] w-64 flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100vh-4rem)] flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+          sidebarCollapsed ? 'md:w-20' : 'md:w-64'
+        } ${
+          sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-x-0'
         }`}
       >
+        {/* Toggle Button for collapsing/expanding desktop sidebar */}
+        <button
+          onClick={toggleSidebarCollapsed}
+          className="hidden md:flex absolute top-1/2 -right-3 -translate-y-1/2 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-[60]"
+        >
+          {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        </button>
+
         {/* Mobile Close Button in Sidebar Header */}
         <div className="flex items-center justify-between p-4 md:hidden border-b border-border-light dark:border-border-dark">
           <span className="font-bold text-text-primary-light dark:text-text-primary-dark">Menu</span>
@@ -61,7 +68,9 @@ export default function Sidebar() {
                 to={item.path}
                 onClick={handleLinkClick}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${
+                  `group relative flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${
+                    sidebarCollapsed ? 'md:justify-center md:px-0' : ''
+                  } ${
                     isActive
                       ? 'text-primary bg-indigo-50 dark:bg-indigo-950/40'
                       : 'text-slate-600 dark:text-slate-400 hover:text-text-primary-light dark:hover:text-text-primary-dark hover:bg-slate-50 dark:hover:bg-slate-900/60'
@@ -69,9 +78,18 @@ export default function Sidebar() {
                 }
               >
                 <Icon size={20} className={isActive ? 'text-primary' : 'text-slate-400 dark:text-slate-500'} />
-                <span>{item.name}</span>
+                <span className={`transition-opacity duration-300 ${sidebarCollapsed ? 'md:hidden' : 'block'}`}>
+                  {item.name}
+                </span>
+
+                {/* Collapsed Tooltip */}
+                {sidebarCollapsed && (
+                  <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10 z-[70]">
+                    {item.name}
+                  </span>
+                )}
               </NavLink>
-            );
+            )
           })}
         </nav>
 
@@ -81,7 +99,9 @@ export default function Sidebar() {
             to="/settings"
             onClick={handleLinkClick}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${
+              `group relative flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${
+                sidebarCollapsed ? 'md:justify-center md:px-0' : ''
+              } ${
                 isActive
                   ? 'text-primary bg-indigo-50 dark:bg-indigo-950/40'
                   : 'text-slate-600 dark:text-slate-400 hover:text-text-primary-light dark:hover:text-text-primary-dark hover:bg-slate-50 dark:hover:bg-slate-900/60'
@@ -89,7 +109,16 @@ export default function Sidebar() {
             }
           >
             <Settings size={20} className="text-slate-400 dark:text-slate-500" />
-            <span>Settings</span>
+            <span className={`transition-opacity duration-300 ${sidebarCollapsed ? 'md:hidden' : 'block'}`}>
+              Settings
+            </span>
+
+            {/* Collapsed Tooltip */}
+            {sidebarCollapsed && (
+              <span className="absolute left-full ml-4 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10 z-[70]">
+                Settings
+              </span>
+            )}
           </NavLink>
         </div>
       </aside>

@@ -928,7 +928,10 @@ export default function PYQPage() {
 
       {/* 6. Active practice reels viewport */}
       {view === 'reels' && (
-        <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
+        <div className="flex-1 h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-950">
+          
+          {/* Main Question Viewport */}
+          <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
           
           <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full flex flex-col justify-center relative select-none">
             
@@ -1294,6 +1297,56 @@ export default function PYQPage() {
 
             </div>
 
+          </div>
+
+          </div> {/* Closes Main Question Viewport */}
+
+          {/* Right Panel: Question Navigator Grid */}
+          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-5 flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-500 mb-4">Questions Grid</h3>
+            
+            <div className="grid grid-cols-5 gap-2 p-1">
+              {activeQuestions.map((q, idx) => {
+                const isCurrent = idx === activeQuestionIndex
+                const ansState = selectedAnswers[q.id]
+                const hasAnswered = ansState !== undefined
+
+                let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
+                if (hasAnswered) {
+                  const isMSQSubmitted = q.type === 'MSQ' && ansState?.submitted
+                  const isMCQAnswered = q.type === 'MCQ'
+                  const isNATAnswered = q.type === 'NAT'
+                  
+                  if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
+                    const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
+                    const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
+                    const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                    
+                    const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
+                    
+                    btnClass = correct
+                      ? 'bg-success text-white border-success outline-none focus:outline-none'
+                      : 'bg-error text-white border-error outline-none focus:outline-none'
+                  } else {
+                    btnClass = 'bg-primary/20 border-primary text-primary outline-none focus:outline-none'
+                  }
+                }
+
+                if (isCurrent) {
+                  btnClass += ' ring-2 ring-primary font-bold scale-105'
+                }
+
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setActiveQuestionIndex(idx)}
+                    className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
+                  >
+                    {idx + 1}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
           <DiscussionDrawer

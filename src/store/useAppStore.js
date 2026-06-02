@@ -25,6 +25,7 @@ export const useAppStore = create((set, get) => ({
   activeVideoSolutionUrl: null, // null if closed, otherwise youtubeUrl
   scratchpadOpenQuestionId: null, // null if closed, otherwise questionId
   sidebarOpen: false,
+  sidebarCollapsed: JSON.parse(localStorage.getItem('sidebarCollapsed') || 'false'),
   questions: [],
   loadingQuestions: false,
 
@@ -97,6 +98,11 @@ export const useAppStore = create((set, get) => ({
   setScratchpadOpenQuestionId: (questionId) => set({ scratchpadOpenQuestionId: questionId }),
   setSidebarOpen: (isOpen) => set({ sidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  toggleSidebarCollapsed: () => {
+    const nextCollapsed = !get().sidebarCollapsed
+    set({ sidebarCollapsed: nextCollapsed })
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(nextCollapsed))
+  },
 
   fetchQuestions: async () => {
     if (get().questions.length > 0) return
