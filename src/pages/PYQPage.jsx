@@ -151,6 +151,7 @@ export default function PYQPage() {
   const [expandedSubject, setExpandedSubject] = useState(null)
   const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(false)
   const [selectedSubjects, setSelectedSubjects] = useState([])
+  const [selectedTopics, setSelectedTopics] = useState([])
   const [showQuestionLimitModal, setShowQuestionLimitModal] = useState(false)
   const [limitQuestionsCount, setLimitQuestionsCount] = useState(15)
   const [maxAvailableQuestions, setMaxAvailableQuestions] = useState(0)
@@ -336,12 +337,21 @@ export default function PYQPage() {
 
   const handleConfirmStartPractice = () => {
     setShowQuestionLimitModal(false)
-    startReelsSession(
-      q => selectedSubjects.includes(q.subject),
-      selectedSubjects.join(', '),
-      '',
-      limitQuestionsCount
-    )
+    if (view === 'subject') {
+      startReelsSession(
+        q => selectedSubjects.includes(q.subject),
+        selectedSubjects.join(', '),
+        '',
+        limitQuestionsCount
+      )
+    } else if (view === 'topic') {
+      startReelsSession(
+        q => selectedTopics.includes(q.topic),
+        selectedTopics.join(', '),
+        '',
+        limitQuestionsCount
+      )
+    }
   }
 
   // --- MOCK BUILDER GENERATOR ---
@@ -513,7 +523,10 @@ export default function PYQPage() {
 
             {/* Topic-wise card */}
             <div 
-              onClick={() => setView('topic')}
+              onClick={() => {
+                setView('topic')
+                setSelectedTopics([])
+              }}
               className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
             >
               <div className="h-12 w-12 rounded-btn bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
@@ -566,17 +579,21 @@ export default function PYQPage() {
       {/* 2. Year-wise List */}
       {view === 'year' && (
         <div className="flex-1 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-4xl mx-auto space-y-6">
-          <button 
-            onClick={() => setView('hub')} 
-            className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Categories</span>
-          </button>
-          
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Year Wise</h2>
-            <p className="text-sm text-slate-500 mt-1">Select a year to load its complete set of questions.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Year Wise</h2>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Select a year to load its complete set of questions.</p>
+            </div>
+            
+            <div className="flex items-center gap-3 shrink-0">
+              <button 
+                onClick={() => setView('hub')} 
+                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Categories</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -679,85 +696,115 @@ export default function PYQPage() {
         </div>
       )}
 
-      {/* 4. Topic-wise nested hierarchy */}
+      {/* 4. Topic-wise List */}
       {view === 'topic' && (
         <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark min-h-screen">
-          <button 
-            onClick={() => setView('hub')} 
-            className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline transition-all"
-          >
-            <ArrowLeft size={14} />
-            <span>Back to Categories</span>
-          </button>
-
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Topic Wise</h2>
-            <p className="text-sm text-slate-500 mt-1">Explore subject chapters and select individual topics.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Topic Wise</h2>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice.</p>
+            </div>
+            
+            <div className="flex items-center gap-3 shrink-0">
+              {selectedTopics.length > 0 && (
+                <button
+                  onClick={() => {
+                    const totalAvailable = selectedTopics.reduce((sum, topic) => {
+                      let count = 0
+                      Object.keys(topicsMap).forEach(sub => {
+                        if (topicsMap[sub][topic]) {
+                          count += topicsMap[sub][topic]
+                        }
+                      })
+                      return sum + count
+                    }, 0)
+                    setMaxAvailableQuestions(totalAvailable)
+                    setLimitQuestionsCount(Math.min(15, totalAvailable))
+                    setShowQuestionLimitModal(true)
+                  }}
+                  className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <Play size={12} className="fill-white text-white" />
+                  <span>Start Practice ({selectedTopics.length})</span>
+                </button>
+              )}
+              <button 
+                onClick={() => {
+                  setView('hub')
+                  setSelectedTopics([])
+                }} 
+                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Categories</span>
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {Object.keys(topicsMap).map(sub => {
-              const isExpanded = expandedSubject === sub
               const config = getSubjectConfig(sub)
               const SubjectIcon = config.icon
+              const subjectTopics = topicsMap[sub]
+              
               return (
-                <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
-                  {/* Subject Accordion Header */}
-                  <div
-                    onClick={() => setExpandedSubject(isExpanded ? null : sub)}
-                    className={`p-4 flex justify-between items-center bg-card-light dark:bg-card-dark cursor-pointer border-l-4 ${
-                      isExpanded 
-                        ? 'border-primary bg-slate-50/50 dark:bg-slate-900/30' 
-                        : 'border-transparent hover:bg-slate-50/30 dark:hover:bg-slate-900/10'
-                    } transition-all`}
-                  >
-                    <div className="flex items-center gap-3">
+                <div 
+                  key={sub} 
+                  className="p-5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4"
+                >
+                  {/* Subject Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/60">
+                    <div className="flex items-center gap-2.5">
                       <div className={`h-8 w-8 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
-                        <SubjectIcon size={16} />
+                        <SubjectIcon size={15} />
                       </div>
-                      <span className="font-bold text-sm text-slate-850 dark:text-slate-100">{sub}</span>
+                      <span className="font-extrabold text-sm text-slate-850 dark:text-slate-100">{sub}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] text-slate-450 font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        {Object.keys(topicsMap[sub]).length} Chapters
-                      </span>
-                      <span className="text-slate-450 transition-transform duration-200">
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </span>
-                    </div>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
+                      {Object.keys(subjectTopics).length} Topics
+                    </span>
                   </div>
 
-                  {/* Accordion Topics List */}
-                  {isExpanded && (
-                    <div className="p-5 bg-slate-50/30 dark:bg-slate-900/10 border-t border-border-light dark:border-border-dark relative pl-10 sm:pl-12 space-y-4">
-                      {/* Vertical Connecting Line */}
-                      <div className="absolute left-[31px] sm:left-[35px] top-6 bottom-8 w-[1.5px] border-l-2 border-dashed border-slate-200 dark:border-slate-800" />
-                      
-                      {Object.keys(topicsMap[sub]).map((topic, index) => (
+                  {/* Topics List */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {Object.keys(subjectTopics).map(topic => {
+                      const isSelected = selectedTopics.includes(topic)
+                      const count = subjectTopics[topic]
+                      return (
                         <div
                           key={topic}
-                          onClick={() => startReelsSession(q => q.topic === topic, topic, `topic=${encodeURIComponent(topic)}`)}
-                          className="relative flex items-center justify-between p-3.5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-sm cursor-pointer transition-all duration-200 group hover:-translate-x-1"
+                          onClick={() => {
+                            setSelectedTopics(prev =>
+                              prev.includes(topic)
+                                ? prev.filter(t => t !== topic)
+                                : [...prev, topic]
+                            )
+                          }}
+                          className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold cursor-pointer transition-all duration-200 select-none ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                              : 'border-border-light dark:border-border-dark bg-slate-50/40 dark:bg-slate-900/30 text-slate-700 dark:text-slate-350 hover:border-primary/55 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                          }`}
                         >
-                          {/* Timeline Node Bullet */}
-                          <div className="absolute -left-[24px] sm:-left-[28px] h-4.5 w-4.5 rounded-full border-2 border-slate-200 dark:border-slate-800 bg-bg-light dark:bg-bg-dark flex items-center justify-center z-10 group-hover:border-primary transition-colors">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 group-hover:bg-primary transition-colors" />
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isSelected ? (
+                              <Check size={12} className="shrink-0 text-primary" strokeWidth={3} />
+                            ) : (
+                              <div className="h-3 w-3 rounded-full border border-slate-300 dark:border-slate-700 shrink-0" />
+                            )}
+                            <span className="truncate">{topic}</span>
                           </div>
-                          
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold text-slate-750 dark:text-slate-250 group-hover:text-primary transition-colors break-words">
-                              {topic}
-                            </span>
-                            <span className="text-[9px] text-slate-455 block mt-0.5 font-medium">Chapter #{index + 1}</span>
-                          </div>
-                          
-                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded shrink-0 ${config.badgeColor}`}>
-                            {topicsMap[sub][topic]} Questions
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded shrink-0 ${
+                            isSelected 
+                              ? 'bg-primary/20 text-primary' 
+                              : 'bg-slate-100 dark:bg-slate-850 text-slate-400 dark:text-slate-500'
+                          }`}>
+                            {count} Qs
                           </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
@@ -1486,9 +1533,11 @@ export default function PYQPage() {
               {/* Stats Card */}
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-btn border border-border-light/60 dark:border-border-dark/60 flex justify-between items-center">
                 <div className="min-w-0 flex-1 mr-2">
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Selected Subjects</span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                    {view === 'topic' ? 'Selected Topics' : 'Selected Subjects'}
+                  </span>
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    {selectedSubjects.join(', ')}
+                    {view === 'topic' ? selectedTopics.join(', ') : selectedSubjects.join(', ')}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
