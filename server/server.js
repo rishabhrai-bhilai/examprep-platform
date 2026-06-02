@@ -135,7 +135,8 @@ app.get('/api/questions', (req, res) => {
   }
   
   if (subject) {
-    filtered = filtered.filter(q => q.subject.toLowerCase() === subject.toString().toLowerCase())
+    const subjectsList = subject.toString().split(',').map(s => s.trim().toLowerCase())
+    filtered = filtered.filter(q => subjectsList.includes(q.subject.toLowerCase()))
   }
   
   if (topic) {

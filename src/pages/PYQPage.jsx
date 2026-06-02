@@ -150,6 +150,7 @@ export default function PYQPage() {
   // Accordion state for Topic hierarchy
   const [expandedSubject, setExpandedSubject] = useState(null)
   const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(() => window.innerWidth < 768)
+  const [selectedSubjects, setSelectedSubjects] = useState([])
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
@@ -324,6 +325,29 @@ export default function PYQPage() {
       alert("Error contacting the backend database!")
       setFetching(false)
     }
+  }
+
+  // Reset selected subjects when leaving the subject view
+  useEffect(() => {
+    if (view !== 'subject') {
+      setSelectedSubjects([])
+    }
+  }, [view])
+
+  const toggleSubjectSelection = (sub) => {
+    setSelectedSubjects(prev =>
+      prev.includes(sub)
+        ? prev.filter(s => s !== sub)
+        : [...prev, sub]
+    )
+  }
+
+  const handleStartSelectedSubjectsPractice = () => {
+    if (selectedSubjects.length === 0) return
+    const filterFn = q => selectedSubjects.includes(q.subject)
+    const title = selectedSubjects.length === 1 ? selectedSubjects[0] : `${selectedSubjects.length} Subjects`
+    const path = `subject=${encodeURIComponent(selectedSubjects.join(','))}`
+    startReelsSession(filterFn, title, path)
   }
 
   // --- MOCK BUILDER GENERATOR ---
@@ -581,35 +605,60 @@ export default function PYQPage() {
       {/* 3. Subject-wise List */}
       {view === 'subject' && (
         <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark min-h-screen">
-          <button 
-            onClick={() => setView('hub')} 
-            className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline transition-all"
-          >
-            <ArrowLeft size={14} />
-            <span>Back to Categories</span>
-          </button>
-
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Subject Wise</h2>
-            <p className="text-sm text-slate-500 mt-1 font-medium">Select a core subject to start practicing.</p>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Subject Wise</h2>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more core subjects to start practicing.</p>
+            </div>
+            
+            <div className="flex items-center gap-3 shrink-0">
+              {selectedSubjects.length > 0 && (
+                <button
+                  onClick={handleStartSelectedSubjectsPractice}
+                  className="flex items-center gap-1.5 h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn transition-all shadow-md active:scale-95 shrink-0"
+                >
+                  <Play size={12} className="fill-white text-white" />
+                  <span>Start Practice ({selectedSubjects.length})</span>
+                </button>
+              )}
+              
+              <button 
+                onClick={() => setView('hub')} 
+                className="flex items-center gap-1.5 h-10 px-4 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-650 dark:text-slate-350 hover:text-primary dark:hover:text-primary font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm active:scale-95 shrink-0"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Categories</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Object.keys(subjectsMap).map(sub => {
               const config = getSubjectConfig(sub)
               const SubjectIcon = config.icon
+              const isSelected = selectedSubjects.includes(sub)
               return (
                 <div
                   key={sub}
-                  onClick={() => startReelsSession(q => q.subject === sub, sub, `subject=${encodeURIComponent(sub)}`)}
-                  className={`p-4.5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[135px] group hover:-translate-y-1`}
+                  onClick={() => toggleSubjectSelection(sub)}
+                  className={`p-4.5 rounded-card border bg-white dark:bg-slate-900 bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[135px] group hover:-translate-y-1 relative ${
+                    isSelected 
+                      ? 'border-primary dark:border-primary ring-2 ring-primary/20 bg-primary/[0.03] dark:bg-primary/[0.08]' 
+                      : 'border-slate-200 dark:border-slate-800/80 shadow-sm'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`h-9 w-9 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass} group-hover:scale-105 transition-transform duration-300`}>
                       <SubjectIcon size={16} />
                     </div>
-                    <h3 className="font-bold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-1">{sub}</h3>
+                    <h3 className="font-bold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-2 leading-tight flex-1 pr-5">{sub}</h3>
                   </div>
+
+                  {isSelected && (
+                    <div className="absolute top-2.5 right-2.5 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
+                      <Check size={12} strokeWidth={3} />
+                    </div>
+                  )}
                   
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-850 flex justify-between items-center shrink-0">
                     <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Weight: Core</span>
