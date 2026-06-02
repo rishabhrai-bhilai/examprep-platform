@@ -149,7 +149,7 @@ export default function PYQPage() {
 
   // Accordion state for Topic hierarchy
   const [expandedSubject, setExpandedSubject] = useState(null)
-  const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(false)
+  const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(() => window.innerWidth < 768)
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
@@ -1304,19 +1304,26 @@ export default function PYQPage() {
           </div> {/* Closes Main Question Viewport */}
 
           {/* Right Panel: Question Navigator Grid Wrapper */}
-          <div className={`relative flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
-            isNavigatorCollapsed ? 'w-full md:w-0 border-l-0' : 'w-full md:w-64'
+          <div className={`relative flex flex-col shrink-0 border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+            isNavigatorCollapsed 
+              ? 'h-0 border-t-0 md:h-full md:w-0 md:border-l-0' 
+              : 'h-64 border-t md:h-full md:w-64 md:border-t-0 md:border-l'
           }`}>
             
             {/* Collapse Toggle Button */}
             <button
               onClick={() => setIsNavigatorCollapsed(!isNavigatorCollapsed)}
-              className={`hidden md:flex absolute top-8 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-30 ${
-                isNavigatorCollapsed ? '-left-7' : '-left-3'
+              className={`absolute -top-3 left-1/2 -translate-x-1/2 md:translate-x-0 md:left-auto md:top-8 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm flex items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-30 ${
+                isNavigatorCollapsed ? 'md:-left-7' : 'md:-left-3'
               }`}
               title={isNavigatorCollapsed ? "Expand Questions Grid" : "Collapse Questions Grid"}
             >
-              {isNavigatorCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+              <span className="md:hidden flex items-center justify-center">
+                {isNavigatorCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </span>
+              <span className="hidden md:flex items-center justify-center">
+                {isNavigatorCollapsed ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+              </span>
             </button>
 
             {/* Content Container (collapsible) */}
