@@ -141,11 +141,12 @@ export default function PYQPage() {
   // Custom Mock Wizard State
   const [wizardStep, setWizardStep] = useState(1)
   const [wizardConfig, setWizardConfig] = useState({
-    subjects: [],
     topics: [],
-    types: [], // MCQ, MSQ, NAT
-    marks: []  // 1, 2
+    types: ['MCQ', 'MSQ', 'NAT'], // default all
+    marks: [1, 2], // default all
+    limit: 15
   })
+  const [expandedWizardSubject, setExpandedWizardSubject] = useState(null)
 
   // Accordion state for Topic hierarchy
   const [expandedSubject, setExpandedSubject] = useState(null)
@@ -155,6 +156,7 @@ export default function PYQPage() {
   const [showQuestionLimitModal, setShowQuestionLimitModal] = useState(false)
   const [limitQuestionsCount, setLimitQuestionsCount] = useState(15)
   const [maxAvailableQuestions, setMaxAvailableQuestions] = useState(0)
+  const [randomPracticePending, setRandomPracticePending] = useState(false)
 
   const scrollContainerRef = useRef(null)
   const touchStartRef = useRef(0)
@@ -182,6 +184,17 @@ export default function PYQPage() {
 
   // All unique topics across all subjects
   const allTopics = Array.from(new Set(questions.map(q => q.topic)))
+
+  const flatTopicsList = Object.keys(topicsMap).reduce((acc, sub) => {
+    Object.keys(topicsMap[sub]).forEach(topic => {
+      acc.push({
+        topicName: topic,
+        subjectName: sub,
+        questionCount: topicsMap[sub][topic]
+      })
+    })
+    return acc
+  }, []).sort((a, b) => b.questionCount - a.questionCount)
 
   // --- NAVIGATION ACTIONS ---
   const goToNextQuestion = () => {
@@ -337,7 +350,15 @@ export default function PYQPage() {
 
   const handleConfirmStartPractice = () => {
     setShowQuestionLimitModal(false)
-    if (view === 'subject') {
+    if (randomPracticePending) {
+      setRandomPracticePending(false)
+      startReelsSession(
+        () => true,
+        "Random Mode",
+        '',
+        limitQuestionsCount
+      )
+    } else if (view === 'subject') {
       startReelsSession(
         q => selectedSubjects.includes(q.subject),
         selectedSubjects.join(', '),
@@ -357,44 +378,64 @@ export default function PYQPage() {
   // --- MOCK BUILDER GENERATOR ---
   const handleGenerateCustomMock = () => {
     const filterFunc = q => {
-      // 1. Subject filter
-      if (wizardConfig.subjects.length > 0 && !wizardConfig.subjects.includes(q.subject)) return false
-      // 2. Topic filter
+      // 1. Topic filter
       if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
-      // 3. Type filter
+      // 2. Type filter
       if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
-      // 4. Marks filter
+      // 3. Marks filter
       if (wizardConfig.marks.length > 0 && !wizardConfig.marks.includes(q.marks)) return false
       
       return true
     }
 
-    startReelsSession(filterFunc, "Custom Mock")
+    startReelsSession(
+      filterFunc,
+      "Custom Mock",
+      '',
+      wizardConfig.limit
+    )
   }
 
   const handleToggleWizardItem = (field, value) => {
     setWizardConfig(prev => {
-      const list = prev[field]
+      const list = prev[field] || []
       const updatedList = list.includes(value) 
         ? list.filter(item => item !== value)
         : [...list, value]
       
-      // If we are modifying subjects, reset topics that are no longer in scope
-      let updatedTopics = prev.topics
-      if (field === 'subjects') {
-        updatedTopics = prev.topics.filter(t => {
-          // Find if topic's subject is in the updated subjects list
-          const q = questions.find(dq => dq.topic === t)
-          return q ? updatedList.includes(q.subject) : false
-        })
-      }
-
       return {
         ...prev,
-        [field]: updatedList,
-        topics: updatedTopics
+        [field]: updatedList
       }
     })
+  }
+
+  const handleToggleAllSubjectTopics = (sub) => {
+    const subTopics = Object.keys(topicsMap[sub] || {})
+    const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
+    
+    if (allSelected) {
+      // Deselect all
+      setWizardConfig(prev => ({
+        ...prev,
+        topics: prev.topics.filter(t => !subTopics.includes(t))
+      }))
+    } else {
+      // Select all
+      setWizardConfig(prev => ({
+        ...prev,
+        topics: Array.from(new Set([...prev.topics, ...subTopics]))
+      }))
+    }
+  }
+
+  const getWizardAvailableQuestionsCount = () => {
+    return questions.filter(q => {
+      if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
+      if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
+      if (wizardConfig.marks.length > 0 && !wizardConfig.marks.includes(q.marks)) return false
+      return true
+    }).length
   }
 
   // --- MC/MS/NAT VALUE HANDLING ---
@@ -541,7 +582,11 @@ export default function PYQPage() {
             {/* Random Mode card */}
             <div 
               onClick={() => {
-                startReelsSession(() => true, "Random Mode")
+                const total = questions.length
+                setMaxAvailableQuestions(total)
+                setLimitQuestionsCount(Math.min(15, total))
+                setRandomPracticePending(true)
+                setShowQuestionLimitModal(true)
               }}
               className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
             >
@@ -558,7 +603,8 @@ export default function PYQPage() {
             <div 
               onClick={() => {
                 setWizardStep(1)
-                setWizardConfig({ subjects: [], topics: [], types: [], marks: [] })
+                setWizardConfig({ topics: [], types: ['MCQ', 'MSQ', 'NAT'], marks: [1, 2], limit: 15 })
+                setExpandedWizardSubject(null)
                 setView('wizard')
               }}
               className="md:col-span-2 p-6 rounded-card border border-primary/20 bg-indigo-500/5 dark:bg-indigo-950/20 shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
@@ -702,7 +748,7 @@ export default function PYQPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Topic Wise</h2>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice.</p>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice. Sorted by available questions (highest first).</p>
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
@@ -741,69 +787,52 @@ export default function PYQPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {Object.keys(topicsMap).map(sub => {
-              const config = getSubjectConfig(sub)
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {flatTopicsList.map(({ topicName, subjectName, questionCount }) => {
+              const config = getSubjectConfig(subjectName)
               const SubjectIcon = config.icon
-              const subjectTopics = topicsMap[sub]
-              
+              const isSelected = selectedTopics.includes(topicName)
               return (
-                <div 
-                  key={sub} 
-                  className="p-5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4"
+                <div
+                  key={topicName}
+                  onClick={() => {
+                    setSelectedTopics(prev =>
+                      prev.includes(topicName)
+                        ? prev.filter(t => t !== topicName)
+                        : [...prev, topicName]
+                    )
+                  }}
+                  className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
+                    isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
+                  }`}
                 >
-                  {/* Subject Header */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/60">
-                    <div className="flex items-center gap-2.5">
-                      <div className={`h-8 w-8 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
-                        <SubjectIcon size={15} />
-                      </div>
-                      <span className="font-extrabold text-sm text-slate-850 dark:text-slate-100">{sub}</span>
+                  {isSelected && (
+                    <div className="absolute top-3.5 right-3.5 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center border border-primary z-10 shadow-sm animate-fade-in">
+                      <Check size={12} strokeWidth={3.5} />
                     </div>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                      {Object.keys(subjectTopics).length} Topics
-                    </span>
+                  )}
+
+                  <div className="space-y-2">
+                    {/* Subject Tag */}
+                    <div className="flex items-center gap-1.5">
+                      <div className={`h-6 w-6 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
+                        <SubjectIcon size={12} />
+                      </div>
+                      <span className="text-[10px] font-extrabold text-slate-450 dark:text-slate-500 uppercase tracking-wide truncate max-w-[180px]">
+                        {subjectName}
+                      </span>
+                    </div>
+
+                    <h3 className="font-extrabold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors leading-snug line-clamp-2 pr-4">
+                      {topicName}
+                    </h3>
                   </div>
 
-                  {/* Topics List */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {Object.keys(subjectTopics).map(topic => {
-                      const isSelected = selectedTopics.includes(topic)
-                      const count = subjectTopics[topic]
-                      return (
-                        <div
-                          key={topic}
-                          onClick={() => {
-                            setSelectedTopics(prev =>
-                              prev.includes(topic)
-                                ? prev.filter(t => t !== topic)
-                                : [...prev, topic]
-                            )
-                          }}
-                          className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold cursor-pointer transition-all duration-200 select-none ${
-                            isSelected
-                              ? 'border-primary bg-primary/10 text-primary shadow-sm'
-                              : 'border-border-light dark:border-border-dark bg-slate-50/40 dark:bg-slate-900/30 text-slate-700 dark:text-slate-350 hover:border-primary/55 hover:bg-slate-50 dark:hover:bg-slate-900/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            {isSelected ? (
-                              <Check size={12} className="shrink-0 text-primary" strokeWidth={3} />
-                            ) : (
-                              <div className="h-3 w-3 rounded-full border border-slate-300 dark:border-slate-700 shrink-0" />
-                            )}
-                            <span className="truncate">{topic}</span>
-                          </div>
-                          <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded shrink-0 ${
-                            isSelected 
-                              ? 'bg-primary/20 text-primary' 
-                              : 'bg-slate-100 dark:bg-slate-850 text-slate-400 dark:text-slate-500'
-                          }`}>
-                            {count} Qs
-                          </span>
-                        </div>
-                      )
-                    })}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-850/80 flex justify-between items-center shrink-0">
+                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Weight: Core</span>
+                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded shrink-0 ${config.badgeColor} border border-black/5 dark:border-white/5`}>
+                      {questionCount} Questions
+                    </span>
                   </div>
                 </div>
               )
@@ -814,60 +843,129 @@ export default function PYQPage() {
 
       {/* 5. Custom Mock Builder Wizard */}
       {view === 'wizard' && (
-        <div className="flex-1 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-3xl mx-auto space-y-6">
-          <button 
-            onClick={() => setView('hub')} 
-            className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Categories</span>
-          </button>
-
-          {/* Header */}
-          <div className="flex justify-between items-center pb-4 border-b border-border-light dark:border-border-dark">
+        <div className="flex-1 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-4xl mx-auto space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-light dark:border-border-dark">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Set Own Mock Paper</h2>
-              <p className="text-sm text-slate-500 mt-1">Configure your paper filters step-by-step.</p>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Configure your custom practice set step-by-step.</p>
             </div>
-            <div className="text-xs font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded">
-              Step {wizardStep} of 4
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="text-xs font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-3.5 py-2 rounded shadow-sm">
+                Step {wizardStep} of 3
+              </div>
+              <button 
+                onClick={() => setView('hub')} 
+                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Categories</span>
+              </button>
             </div>
           </div>
 
-          {/* STEP 1: SELECT SUBJECTS */}
+          {/* STEP 1: SELECT TOPICS (COLLAPSED SUBJECTS VIEW WITH SELECT ALL TABS) */}
           {wizardStep === 1 && (
             <div className="space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Subjects</h3>
-              <p className="text-xs text-slate-500">Pick one or more subjects to fetch questions from.</p>
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Topics</h3>
+                <p className="text-xs text-slate-550">Click on any subject to expand and select its chapters.</p>
+              </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {Object.keys(subjectsMap).map(sub => {
-                  const isChecked = wizardConfig.subjects.includes(sub)
+              <div className="space-y-3 pt-2">
+                {Object.keys(topicsMap).map(sub => {
+                  const isExpanded = expandedWizardSubject === sub
+                  const config = getSubjectConfig(sub)
+                  const SubjectIcon = config.icon
+                  const subTopics = Object.keys(topicsMap[sub] || {})
+                  const selectedInSub = subTopics.filter(t => wizardConfig.topics.includes(t)).length
+                  const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
+                  
                   return (
-                    <label
-                      key={sub}
-                      className={`p-4 rounded-btn border text-xs font-medium flex items-center justify-between cursor-pointer transition-all ${
-                        isChecked 
-                          ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary' 
-                          : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <span>{sub}</span>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleWizardItem('subjects', sub)}
-                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary"
-                      />
-                    </label>
+                    <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
+                      {/* Subject Header */}
+                      <div
+                        onClick={() => setExpandedWizardSubject(isExpanded ? null : sub)}
+                        className={`p-4 flex justify-between items-center bg-card-light dark:bg-card-dark cursor-pointer border-l-4 ${
+                          isExpanded 
+                            ? 'border-primary bg-slate-50/50 dark:bg-slate-900/30' 
+                            : 'border-transparent hover:bg-slate-50/30 dark:hover:bg-slate-900/10'
+                        } transition-all select-none`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={`h-8 w-8 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
+                            <SubjectIcon size={15} />
+                          </div>
+                          <span className="font-bold text-sm text-slate-855 dark:text-slate-100">{sub}</span>
+                          {selectedInSub > 0 && (
+                            <span className="text-[10px] font-extrabold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                              {selectedInSub} selected
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          {isExpanded && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleToggleAllSubjectTopics(sub)
+                              }}
+                              className="text-[10px] font-extrabold text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded transition-all active:scale-95 z-10"
+                            >
+                              {allSelected ? 'Deselect All' : 'Select All'}
+                            </button>
+                          )}
+                          <span className="text-slate-400 transition-transform duration-200">
+                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Topics List */}
+                      {isExpanded && (
+                        <div className="p-4 bg-slate-50/30 dark:bg-slate-900/10 border-t border-border-light dark:border-border-dark grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
+                          {subTopics.map(topic => {
+                            const isChecked = wizardConfig.topics.includes(topic)
+                            const count = topicsMap[sub][topic]
+                            return (
+                              <div
+                                key={topic}
+                                onClick={() => handleToggleWizardItem('topics', topic)}
+                                className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold cursor-pointer transition-all duration-200 select-none ${
+                                  isChecked 
+                                    ? 'border-primary bg-primary/10 text-primary shadow-sm'
+                                    : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/55 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {isChecked ? (
+                                    <Check size={12} className="shrink-0 text-primary" strokeWidth={3} />
+                                  ) : (
+                                    <div className="h-3 w-3 rounded-full border border-slate-300 dark:border-slate-700 shrink-0" />
+                                  )}
+                                  <span className="truncate">{topic}</span>
+                                </div>
+                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded shrink-0 ${
+                                  isChecked 
+                                    ? 'bg-primary/20 text-primary' 
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-555'
+                                }`}>
+                                  {count} Qs
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
 
-              <div className="flex justify-end pt-6">
+              <div className="flex justify-end pt-6 border-t border-border-light dark:border-border-dark">
                 <button
                   onClick={() => setWizardStep(2)}
-                  disabled={wizardConfig.subjects.length === 0}
+                  disabled={wizardConfig.topics.length === 0}
                   className="h-10 px-5 bg-primary text-white font-bold text-xs rounded-btn hover:bg-primary-hover disabled:opacity-40 shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
                 >
                   <span>Next Step</span>
@@ -877,40 +975,66 @@ export default function PYQPage() {
             </div>
           )}
 
-          {/* STEP 2: SELECT TOPICS */}
+          {/* STEP 2: SELECT QUESTION TYPES & MARKS */}
           {wizardStep === 2 && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">2. Select Topics</h3>
-              <p className="text-xs text-slate-500">Select specific topics within your chosen subjects (leave all empty to select all topics).</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                {questions
-                  .filter(q => wizardConfig.subjects.includes(q.subject))
-                  .reduce((acc, q) => {
-                    if (!acc.includes(q.topic)) acc.push(q.topic)
-                    return acc
-                  }, [])
-                  .map(topic => {
-                    const isChecked = wizardConfig.topics.includes(topic)
+            <div className="space-y-6">
+              {/* Question Types */}
+              <div className="space-y-3">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">2. Select Question Types</h3>
+                <p className="text-xs text-slate-505">Filter by format types (MCQ, MSQ, or NAT numerical inputs).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  {['MCQ', 'MSQ', 'NAT'].map(type => {
+                    const isChecked = wizardConfig.types.includes(type)
+                    const label = type === 'MCQ' ? 'Multiple Choice (MCQ)' : type === 'MSQ' ? 'Multiple Select (MSQ)' : 'Numerical Answer (NAT)'
                     return (
                       <label
-                        key={topic}
-                        className={`p-4 rounded-btn border text-xs font-medium flex items-center justify-between cursor-pointer transition-all ${
+                        key={type}
+                        className={`p-4 rounded-btn border text-xs font-semibold flex flex-col justify-between items-center text-center cursor-pointer transition-all space-y-4 select-none ${
                           isChecked 
                             ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary' 
-                            : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300'
+                            : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-350'
                         }`}
                       >
-                        <span>{topic}</span>
+                        <span>{label}</span>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => handleToggleWizardItem('topics', topic)}
+                          onChange={() => handleToggleWizardItem('types', type)}
                           className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary"
                         />
                       </label>
                     )
                   })}
+                </div>
+              </div>
+
+              {/* Marks weightage */}
+              <div className="space-y-3">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">3. Select Marks Weightage</h3>
+                <p className="text-xs text-slate-505">Filter questions by weight score marks (1 Mark, 2 Marks, or both).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {[1, 2].map(mark => {
+                    const isChecked = wizardConfig.marks.includes(mark)
+                    return (
+                      <label
+                        key={mark}
+                        className={`p-4 rounded-btn border text-xs font-semibold flex items-center justify-between cursor-pointer transition-all select-none ${
+                          isChecked 
+                            ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary' 
+                            : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-350'
+                        }`}
+                      >
+                        <span>{mark} Mark Question</span>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleToggleWizardItem('marks', mark)}
+                          className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary"
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
 
               <div className="flex justify-between pt-6 border-t border-border-light dark:border-border-dark">
@@ -922,7 +1046,8 @@ export default function PYQPage() {
                 </button>
                 <button
                   onClick={() => setWizardStep(3)}
-                  className="h-10 px-5 bg-primary text-white font-bold text-xs rounded-btn hover:bg-primary-hover shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                  disabled={wizardConfig.types.length === 0 || wizardConfig.marks.length === 0}
+                  className="h-10 px-5 bg-primary text-white font-bold text-xs rounded-btn hover:bg-primary-hover disabled:opacity-40 shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
                 >
                   <span>Next Step</span>
                   <ArrowRight size={14} />
@@ -931,100 +1056,125 @@ export default function PYQPage() {
             </div>
           )}
 
-          {/* STEP 3: SELECT QUESTION TYPES */}
+          {/* STEP 3: SELECT QUESTION LIMIT */}
           {wizardStep === 3 && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">3. Select Question Types</h3>
-              <p className="text-xs text-slate-500">Filter by format types (MCQ, MSQ, or NAT numerical inputs).</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                {['MCQ', 'MSQ', 'NAT'].map(type => {
-                  const isChecked = wizardConfig.types.includes(type)
-                  const label = type === 'MCQ' ? 'Multiple Choice (MCQ)' : type === 'MSQ' ? 'Multiple Select (MSQ)' : 'Numerical Answer (NAT)'
-                  return (
-                    <label
-                      key={type}
-                      className={`p-4 rounded-btn border text-xs font-semibold flex flex-col justify-between items-center text-center cursor-pointer transition-all space-y-4 ${
-                        isChecked 
-                          ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary' 
-                          : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <span>{label}</span>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleWizardItem('types', type)}
-                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary"
-                      />
-                    </label>
-                  )
-                })}
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">4. Select Practice Limit</h3>
+                <p className="text-xs text-slate-500">Configure how many questions you want to practice out of the total available matching your selections.</p>
               </div>
 
-              <div className="flex justify-between pt-6 border-t border-border-light dark:border-border-dark">
-                <button
-                  onClick={() => setWizardStep(2)}
-                  className="h-10 px-5 border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-400 font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => setWizardStep(4)}
-                  className="h-10 px-5 bg-primary text-white font-bold text-xs rounded-btn hover:bg-primary-hover shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
-                >
-                  <span>Next Step</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
+              {/* Stats Card */}
+              {(() => {
+                const availableCount = getWizardAvailableQuestionsCount()
+                return (
+                  <>
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-btn border border-border-light/60 dark:border-border-dark/60 flex justify-between items-center">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Selected Chapters</span>
+                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-350 truncate">
+                          {wizardConfig.topics.join(', ')}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Matching Questions</span>
+                        <div className="text-sm font-black text-primary">
+                          {availableCount} Qs
+                        </div>
+                      </div>
+                    </div>
 
-          {/* STEP 4: SELECT MARKS WEIGHTAGE */}
-          {wizardStep === 4 && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">4. Select Marks weightage</h3>
-              <p className="text-xs text-slate-500">Filter questions by weight score marks (1 Mark, 2 Marks, or both).</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                {[1, 2].map(mark => {
-                  const isChecked = wizardConfig.marks.includes(mark)
-                  return (
-                    <label
-                      key={mark}
-                      className={`p-4 rounded-btn border text-xs font-semibold flex items-center justify-between cursor-pointer transition-all ${
-                        isChecked 
-                          ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary' 
-                          : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-900/60 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <span>{mark} Mark Question</span>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleWizardItem('marks', mark)}
-                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary accent-primary"
-                      />
-                    </label>
-                  )
-                })}
-              </div>
+                    {availableCount > 0 ? (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-slate-500 uppercase">Question Limit</label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={1}
+                              max={availableCount}
+                              value={wizardConfig.limit}
+                              onChange={(e) => {
+                                let val = parseInt(e.target.value, 10)
+                                if (isNaN(val)) val = 1
+                                if (val > availableCount) val = availableCount
+                                if (val < 1) val = 1
+                                setWizardConfig(prev => ({ ...prev, limit: val }))
+                              }}
+                              className="w-14 h-8 text-center text-xs font-extrabold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-855 rounded focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100"
+                            />
+                            <span className="text-xs font-bold text-slate-400">Questions</span>
+                          </div>
+                        </div>
 
-              <div className="flex justify-between pt-6 border-t border-border-light dark:border-border-dark">
-                <button
-                  onClick={() => setWizardStep(3)}
-                  className="h-10 px-5 border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-400 font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleGenerateCustomMock}
-                  className="h-10 px-6 bg-success text-white font-extrabold text-xs rounded-btn hover:bg-success/90 shadow-sm transition-all active:scale-95 flex items-center gap-1"
-                >
-                  <Play size={12} className="fill-white text-white" />
-                  <span>Generate & Start</span>
-                </button>
-              </div>
+                        <input
+                          type="range"
+                          min={1}
+                          max={availableCount}
+                          value={wizardConfig.limit}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            setWizardConfig(prev => ({ ...prev, limit: val }))
+                          }}
+                          className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
+                        />
+
+                        {/* Quick Select Buttons */}
+                        <div className="space-y-2 pt-2">
+                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wide block">Quick Select</span>
+                          <div className="flex flex-wrap gap-2">
+                            {[5, 10, 15, 20, 25].filter(num => num <= availableCount).map(num => (
+                              <button
+                                key={num}
+                                onClick={() => setWizardConfig(prev => ({ ...prev, limit: num }))}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-btn transition-all border ${
+                                  wizardConfig.limit === num
+                                    ? 'bg-primary border-primary text-white shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-900 border-border-light dark:border-border-dark text-slate-650 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                                }`}
+                              >
+                                {num} Qs
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setWizardConfig(prev => ({ ...prev, limit: availableCount }))}
+                              className={`px-3.5 py-1.5 text-xs font-bold rounded-btn transition-all border ${
+                                wizardConfig.limit === availableCount
+                                  ? 'bg-primary border-primary text-white shadow-sm'
+                                  : 'bg-slate-50 dark:bg-slate-900 border-border-light dark:border-border-dark text-slate-650 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80'
+                                }`}
+                            >
+                              All ({availableCount})
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 border border-warning/20 bg-warning/5 rounded-btn text-warning text-xs font-semibold flex items-center gap-2">
+                        <AlertCircle size={16} />
+                        <span>No questions match your current combination of filters. Please go back and select more options.</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between pt-6 border-t border-border-light dark:border-border-dark">
+                      <button
+                        onClick={() => setWizardStep(2)}
+                        className="h-10 px-5 border border-border-light dark:border-border-dark text-slate-600 dark:text-slate-400 font-bold text-xs rounded-btn hover:bg-slate-50 dark:hover:bg-slate-900"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleGenerateCustomMock}
+                        disabled={availableCount === 0}
+                        className="h-10 px-6 bg-success text-white font-extrabold text-xs rounded-btn hover:bg-success/90 disabled:opacity-40 shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                      >
+                        <Play size={12} className="fill-white text-white" />
+                        <span>Generate & Start</span>
+                      </button>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -1534,10 +1684,10 @@ export default function PYQPage() {
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-btn border border-border-light/60 dark:border-border-dark/60 flex justify-between items-center">
                 <div className="min-w-0 flex-1 mr-2">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-                    {view === 'topic' ? 'Selected Topics' : 'Selected Subjects'}
+                    {randomPracticePending ? 'Mode' : view === 'topic' ? 'Selected Topics' : 'Selected Subjects'}
                   </span>
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    {view === 'topic' ? selectedTopics.join(', ') : selectedSubjects.join(', ')}
+                    {randomPracticePending ? 'Random Question Mode' : view === 'topic' ? selectedTopics.join(', ') : selectedSubjects.join(', ')}
                   </div>
                 </div>
                 <div className="text-right shrink-0">
