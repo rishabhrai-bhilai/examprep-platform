@@ -938,7 +938,7 @@ export default function PYQPage() {
           <div className="w-full max-w-2xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl h-full flex flex-col justify-center relative select-none">
             
             {/* Reels indicators */}
-            <div className="absolute left-[-40px] top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-6">
+            <div className="absolute -left-16 top-1/2 -translate-y-1/2 hidden lg:flex flex-col gap-6">
               <button
                 onClick={goToPrevQuestion}
                 disabled={activeQuestionIndex === 0}
