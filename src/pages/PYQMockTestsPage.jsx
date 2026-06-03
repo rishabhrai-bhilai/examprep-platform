@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, 
-  Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, 
-  AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight, Check, X
+  ChevronUp, ChevronDown, Play, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, 
+  Target, BarChart2, Zap, AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, 
+  Settings2, ArrowLeft, ArrowRight, Check, X
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
