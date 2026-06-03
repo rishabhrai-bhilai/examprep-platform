@@ -16,6 +16,7 @@ import PYQMockTestsPage from './pages/PYQMockTestsPage'
 import MockTestsPage from './pages/MockTestsPage'
 import BookmarksPage from './pages/BookmarksPage'
 import ProfilePage from './pages/ProfilePage'
+import DiscussionPage from './pages/DiscussionPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -53,6 +54,7 @@ function App() {
           <Route path="/pyq-mock" element={<PYQMockTestsPage />} />
           <Route path="/mock-tests" element={<MockTestsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/* Settings page falls back to Profile or custom view */}
           <Route path="/settings" element={<ProfilePage />} />
