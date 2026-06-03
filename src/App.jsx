@@ -20,6 +20,7 @@ import DiscussionPage from './pages/DiscussionPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
+import BookmarkSelectorModal from './components/BookmarkSelectorModal'
 
 function App() {
   const { theme, fetchQuestions } = useAppStore()
@@ -66,6 +67,7 @@ function App() {
 
       {/* Global Overlays */}
       <ScientificCalculator />
+      <BookmarkSelectorModal />
     </BrowserRouter>
   )
 }

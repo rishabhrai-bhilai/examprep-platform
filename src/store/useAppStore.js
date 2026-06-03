@@ -14,9 +14,34 @@ const getInitialTheme = () => {
   return 'light'
 }
 
+const getInitialBookmarks = () => {
+  try {
+    const stored = localStorage.getItem('bookmarks')
+    if (!stored) return []
+    return JSON.parse(stored)
+  } catch (e) {
+    return []
+  }
+}
+
+const getInitialBookmarkFolders = () => {
+  try {
+    const stored = localStorage.getItem('bookmarkFolders')
+    if (stored) return JSON.parse(stored)
+    
+    // Migration: Move existing bookmarks to General folder
+    const flat = getInitialBookmarks()
+    return { "General": flat }
+  } catch (e) {
+    return { "General": [] }
+  }
+}
+
 export const useAppStore = create((set, get) => ({
   theme: getInitialTheme(),
-  bookmarks: JSON.parse(localStorage.getItem('bookmarks') || '[]'),
+  bookmarks: getInitialBookmarks(),
+  bookmarkFolders: getInitialBookmarkFolders(),
+  bookmarkSelectorQuestionId: null,
   votes: JSON.parse(localStorage.getItem('votes') || '{}'), // { [questionId]: 'up' | 'down' | null }
   questionNotes: JSON.parse(localStorage.getItem('questionNotes') || '{}'), // { [questionId]: { type: 'canvas' | 'pdf', data: string, name: string } }
   activeQuestionIndex: 0,
@@ -53,13 +78,62 @@ export const useAppStore = create((set, get) => ({
   },
 
   toggleBookmark: (questionId) => {
-    const bookmarks = get().bookmarks
-    const isBookmarked = bookmarks.includes(questionId)
-    const nextBookmarks = isBookmarked
-      ? bookmarks.filter((id) => id !== questionId)
-      : [...bookmarks, questionId]
-    
-    set({ bookmarks: nextBookmarks })
+    set({ bookmarkSelectorQuestionId: questionId })
+  },
+
+  setBookmarkSelectorQuestionId: (questionId) => {
+    set({ bookmarkSelectorQuestionId: questionId })
+  },
+
+  createBookmarkFolder: (folderName) => {
+    if (!folderName.trim()) return
+    const folders = { ...get().bookmarkFolders }
+    if (folders[folderName]) return
+    folders[folderName] = []
+    set({ bookmarkFolders: folders })
+    localStorage.setItem('bookmarkFolders', JSON.stringify(folders))
+  },
+
+  deleteBookmarkFolder: (folderName) => {
+    const folders = { ...get().bookmarkFolders }
+    delete folders[folderName]
+    const nextBookmarks = Array.from(new Set(Object.values(folders).flat()))
+    set({ bookmarkFolders: folders, bookmarks: nextBookmarks })
+    localStorage.setItem('bookmarkFolders', JSON.stringify(folders))
+    localStorage.setItem('bookmarks', JSON.stringify(nextBookmarks))
+  },
+
+  toggleQuestionInFolder: (folderName, questionId) => {
+    const folders = { ...get().bookmarkFolders }
+    if (!folders[folderName]) return
+    const list = folders[folderName]
+    const nextList = list.includes(questionId)
+      ? list.filter(id => id !== questionId)
+      : [...list, questionId]
+    folders[folderName] = nextList
+    const nextBookmarks = Array.from(new Set(Object.values(folders).flat()))
+    set({ bookmarkFolders: folders, bookmarks: nextBookmarks })
+    localStorage.setItem('bookmarkFolders', JSON.stringify(folders))
+    localStorage.setItem('bookmarks', JSON.stringify(nextBookmarks))
+  },
+
+  removeQuestionFromFolder: (folderName, questionId) => {
+    const folders = { ...get().bookmarkFolders }
+    if (!folders[folderName]) return
+    folders[folderName] = folders[folderName].filter(id => id !== questionId)
+    const nextBookmarks = Array.from(new Set(Object.values(folders).flat()))
+    set({ bookmarkFolders: folders, bookmarks: nextBookmarks })
+    localStorage.setItem('bookmarkFolders', JSON.stringify(folders))
+    localStorage.setItem('bookmarks', JSON.stringify(nextBookmarks))
+  },
+
+  removeQuestionsFromFolder: (folderName, questionIds) => {
+    const folders = { ...get().bookmarkFolders }
+    if (!folders[folderName]) return
+    folders[folderName] = folders[folderName].filter(id => !questionIds.includes(id))
+    const nextBookmarks = Array.from(new Set(Object.values(folders).flat()))
+    set({ bookmarkFolders: folders, bookmarks: nextBookmarks })
+    localStorage.setItem('bookmarkFolders', JSON.stringify(folders))
     localStorage.setItem('bookmarks', JSON.stringify(nextBookmarks))
   },
 

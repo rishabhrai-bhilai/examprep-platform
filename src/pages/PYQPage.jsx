@@ -219,9 +219,16 @@ export default function PYQPage() {
   useEffect(() => {
     if (location.state?.startReels && location.state?.questionId) {
       const questionId = location.state.questionId
-      const targetIdx = questions.findIndex((q) => q.id === questionId)
+      
+      let practiceSubset = questions
+      if (location.state?.bookmarkFolderQuestions) {
+        // Load only questions present in the bookmark folder
+        practiceSubset = questions.filter(q => location.state.bookmarkFolderQuestions.includes(q.id))
+      }
+      
+      const targetIdx = practiceSubset.findIndex((q) => q.id === questionId)
       if (targetIdx !== -1) {
-        setActiveQuestions(questions)
+        setActiveQuestions(practiceSubset)
         setActiveQuestionIndex(targetIdx)
         setView('reels')
         
