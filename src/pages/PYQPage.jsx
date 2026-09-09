@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   ThumbsUp, ThumbsDown, MessageSquare, Bookmark, Play, ChevronUp, ChevronDown, 
   ChevronLeft, ChevronRight,
   Check, X, AlertCircle, Calendar, BookOpen, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight,
-  Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain
+  Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain, Search, Filter, Grid
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import DiscussionDrawer from '../components/DiscussionDrawer'
-import VideoSolutionModal from '../components/VideoSolutionModal'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
+import QuestionImage from '../components/QuestionImage'
 
 export default function PYQPage() {
   const {
@@ -21,17 +21,22 @@ export default function PYQPage() {
     votes,
     upvoteQuestion,
     downvoteQuestion,
+    activeDiscussionQuestionId,
     setActiveDiscussionQuestionId,
     setActiveVideoSolutionUrl,
     scratchpadOpenQuestionId,
     setScratchpadOpenQuestionId,
     questionNotes,
-    questions
+    questions,
+    setIsPracticeActive
   } = useAppStore()
 
   const getSubjectConfig = (subject) => {
     switch (subject) {
       case 'Algorithms & Data Structures':
+      case 'Algorithms':
+      case 'Data Structures':
+      case 'Programming in C':
         return {
           icon: Layers,
           colorClass: 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20',
@@ -47,7 +52,9 @@ export default function PYQPage() {
           badgeColor: 'bg-teal-500/10 text-teal-650 dark:text-teal-400',
           label: 'Paging, CPU scheduling, threads, sync'
         }
+      case 'Database Management Systems':
       case 'Databases (DBMS)':
+      case 'Database Management':
         return {
           icon: Database,
           colorClass: 'text-blue-500 bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/20',
@@ -80,6 +87,7 @@ export default function PYQPage() {
           label: 'Parsers, syntax trees, optimization'
         }
       case 'Computer Organization & Architecture':
+      case 'Computer Organization':
         return {
           icon: Cpu,
           colorClass: 'text-amber-500 bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20',
@@ -104,12 +112,15 @@ export default function PYQPage() {
           label: 'Graph coloring, logic, combinatorics'
         }
       case 'Engineering Mathematics':
+      case 'Linear Algebra':
+      case 'Calculus':
+      case 'Probability':
         return {
           icon: Hash,
           colorClass: 'text-fuchsia-500 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 border-fuchsia-500/20',
           gradientClass: 'from-fuchsia-500/5 to-pink-500/5 hover:border-fuchsia-500 dark:hover:border-fuchsia-500',
           badgeColor: 'bg-fuchsia-500/10 text-fuchsia-650 dark:text-fuchsia-400',
-          label: 'Probability, statistics, calculus'
+          label: 'Probability, statistics, calculus, linear algebra'
         }
       case 'General Aptitude':
       default:
@@ -130,6 +141,11 @@ export default function PYQPage() {
   // State Management for selection flow
   // view: 'hub' | 'year' | 'subject' | 'topic' | 'wizard' | 'reels'
   const [view, setView] = useState('hub')
+
+  useEffect(() => {
+    setIsPracticeActive(view === 'reels')
+    return () => setIsPracticeActive(false)
+  }, [view, setIsPracticeActive])
   const [activeQuestions, setActiveQuestions] = useState([])
   
   // MCQ/MSQ/NAT answer states
@@ -153,6 +169,9 @@ export default function PYQPage() {
   const [isNavigatorCollapsed, setIsNavigatorCollapsed] = useState(false)
   const [selectedSubjects, setSelectedSubjects] = useState([])
   const [selectedTopics, setSelectedTopics] = useState([])
+  const [topicSearchQuery, setTopicSearchQuery] = useState('')
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('All')
+  const [showMobilePalette, setShowMobilePalette] = useState(false)
   const [showQuestionLimitModal, setShowQuestionLimitModal] = useState(false)
   const [limitQuestionsCount, setLimitQuestionsCount] = useState(15)
   const [maxAvailableQuestions, setMaxAvailableQuestions] = useState(0)
@@ -162,7 +181,8 @@ export default function PYQPage() {
   const touchStartRef = useRef(0)
   const wheelAccumulatorRef = useRef(0)
 
-  const currentQuestion = activeQuestions[activeQuestionIndex]
+  const safeIndex = (activeQuestionIndex >= 0 && activeQuestionIndex < activeQuestions.length) ? activeQuestionIndex : 0
+  const currentQuestion = activeQuestions[safeIndex] || null
   const totalQuestions = activeQuestions.length
 
   // --- STATS COMPILING ---
@@ -185,16 +205,76 @@ export default function PYQPage() {
   // All unique topics across all subjects
   const allTopics = Array.from(new Set(questions.map(q => q.topic)))
 
-  const flatTopicsList = Object.keys(topicsMap).reduce((acc, sub) => {
-    Object.keys(topicsMap[sub]).forEach(topic => {
-      acc.push({
-        topicName: topic,
-        subjectName: sub,
-        questionCount: topicsMap[sub][topic]
+  // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems", "dbms" -> Database)
+  const subjectAliases = {
+    'os': ['operating systems', 'os'],
+    'cn': ['computer networks', 'networking', 'network'],
+    'dbms': ['database', 'dbms'],
+    'db': ['database', 'db'],
+    'coa': ['computer organization', 'architecture', 'coa'],
+    'cao': ['computer organization', 'architecture', 'cao'],
+    'co': ['computer organization', 'co'],
+    'toc': ['theory of computation', 'automata', 'toc'],
+    'cd': ['compiler', 'cd'],
+    'algo': ['algorithm', 'algo'],
+    'ds': ['data structure', 'ds'],
+    'dsa': ['data structure', 'algorithm', 'dsa'],
+    'dl': ['digital logic', 'dl'],
+    'dld': ['digital logic', 'dld'],
+    'dm': ['discrete mathematics', 'discrete math', 'dm'],
+    'em': ['engineering mathematics', 'linear algebra', 'calculus', 'probability'],
+    'maths': ['mathematics', 'math', 'linear algebra', 'calculus', 'probability'],
+    'math': ['mathematics', 'math', 'linear algebra', 'calculus', 'probability'],
+    'ga': ['general aptitude', 'aptitude', 'verbal', 'quantitative'],
+    'apti': ['general aptitude', 'aptitude'],
+    'aptitude': ['general aptitude', 'aptitude'],
+    'prog': ['programming', 'programming in c'],
+    'c': ['programming in c']
+  }
+
+  const flatTopicsList = useMemo(() => {
+    return Object.keys(topicsMap).reduce((acc, sub) => {
+      Object.keys(topicsMap[sub]).forEach(topic => {
+        const topicQuestions = questions.filter(q => q.subject === sub && q.topic === topic)
+        const years = Array.from(new Set(topicQuestions.map(q => q.year).filter(Boolean))).join(' ')
+        acc.push({
+          topicName: topic,
+          subjectName: sub,
+          questionCount: topicsMap[sub][topic],
+          years
+        })
+      })
+      return acc
+    }, []).sort((a, b) => b.questionCount - a.questionCount)
+  }, [topicsMap, questions])
+
+  const filteredTopicsList = useMemo(() => {
+    return flatTopicsList.filter(({ topicName, subjectName, years }) => {
+      // 1. Subject filter dropdown
+      if (selectedSubjectFilter !== 'All' && subjectName !== selectedSubjectFilter) {
+        return false
+      }
+      // 2. Search query filter
+      const trimmed = topicSearchQuery.trim().toLowerCase()
+      if (!trimmed) return true
+
+      const tokens = trimmed.split(/\s+/).filter(Boolean)
+      return tokens.every(token => {
+        // Direct match on topic name
+        if (topicName.toLowerCase().includes(token)) return true
+        // Direct match on subject name
+        if (subjectName.toLowerCase().includes(token)) return true
+        // Direct match on year
+        if (years && years.toLowerCase().includes(token)) return true
+        // Match subject alias
+        const aliasList = subjectAliases[token]
+        if (aliasList && aliasList.some(alias => subjectName.toLowerCase().includes(alias) || topicName.toLowerCase().includes(alias))) {
+          return true
+        }
+        return false
       })
     })
-    return acc
-  }, []).sort((a, b) => b.questionCount - a.questionCount)
+  }, [flatTopicsList, selectedSubjectFilter, topicSearchQuery])
 
   // --- NAVIGATION ACTIONS ---
   const goToNextQuestion = () => {
@@ -318,39 +398,35 @@ export default function PYQPage() {
     }
   }
 
-  // Start a reels session with specific questions
   // Start a reels session with specific filter
-  const startReelsSession = async (filterFunc, filterName, queryParams = '', limit = null) => {
+  const startReelsSession = (filterFunc, filterName, queryParams = '', limit = null) => {
     setFetching(true)
     try {
-      const url = queryParams ? `/api/questions?${queryParams}` : '/api/questions'
-      const response = await fetch(url)
-      const allQs = await response.json()
-      let filtered = allQs.filter(filterFunc)
+      let sourceQuestions = questions && questions.length > 0 ? questions : []
+      let filtered = sourceQuestions.filter(filterFunc)
       
       if (filterName === "Random Mode") {
-        filtered = filtered.sort(() => Math.random() - 0.5)
+        filtered = [...filtered].sort(() => Math.random() - 0.5)
       }
 
       if (limit && limit > 0) {
-        filtered = filtered.sort(() => Math.random() - 0.5).slice(0, limit)
+        filtered = [...filtered].sort(() => Math.random() - 0.5).slice(0, limit)
       }
 
-      setTimeout(() => {
-        if (filtered.length === 0) {
-          alert(`No questions found matching ${filterName}!`)
-          setFetching(false)
-          return
-        }
-        setActiveQuestions(filtered)
-        setActiveQuestionIndex(0)
-        setSelectedAnswers({})
-        setView('reels')
+      if (filtered.length === 0) {
+        alert(`No questions found matching ${filterName}!`)
         setFetching(false)
-      }, 500)
+        return
+      }
+
+      setActiveQuestions(filtered)
+      setActiveQuestionIndex(0)
+      setSelectedAnswers({})
+      setView('reels')
+      setFetching(false)
     } catch (err) {
       console.error(err)
-      alert("Error contacting the backend database!")
+      alert("Error starting practice session!")
       setFetching(false)
     }
   }
@@ -651,11 +727,11 @@ export default function PYQPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {years.map(year => {
-              const count = questions.filter(q => q.year === year).length
+              const count = questions.filter(q => String(q.year) === String(year)).length
               return (
                 <div
                   key={year}
-                  onClick={() => startReelsSession(q => q.year === year, `Year ${year}`, `year=${year}`)}
+                  onClick={() => startReelsSession(q => String(q.year) === String(year), `Year ${year}`, `year=${year}`)}
                   className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center"
                 >
                   <span className="font-bold text-sm text-slate-850 dark:text-slate-100">{year}</span>
@@ -755,7 +831,7 @@ export default function PYQPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Topic Wise</h2>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice. Sorted by available questions (highest first).</p>
+              <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice.</p>
             </div>
             
             <div className="flex items-center gap-3 shrink-0">
@@ -794,56 +870,134 @@ export default function PYQPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {flatTopicsList.map(({ topicName, subjectName, questionCount }) => {
-              const config = getSubjectConfig(subjectName)
-              const SubjectIcon = config.icon
-              const isSelected = selectedTopics.includes(topicName)
-              return (
-                <div
-                  key={topicName}
-                  onClick={() => {
-                    setSelectedTopics(prev =>
-                      prev.includes(topicName)
-                        ? prev.filter(t => t !== topicName)
-                        : [...prev, topicName]
-                    )
-                  }}
-                  className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
-                    isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
-                  }`}
+          {/* Search Bar & Subject Filter Controls */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-1">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search topics by name..."
+                value={topicSearchQuery}
+                onChange={(e) => setTopicSearchQuery(e.target.value)}
+                className="w-full h-10 pl-10 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 shadow-sm"
+              />
+              {topicSearchQuery && (
+                <button
+                  onClick={() => setTopicSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
-                  {isSelected && (
-                    <div className="absolute top-3.5 right-3.5 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center border border-primary z-10 shadow-sm animate-fade-in">
-                      <Check size={12} strokeWidth={3.5} />
-                    </div>
-                  )}
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
-                  <div className="space-y-2">
-                    {/* Subject Tag */}
-                    <div className="flex items-center gap-1.5">
-                      <div className={`h-6 w-6 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
-                        <SubjectIcon size={12} />
+            {/* Subject Selector Dropdown */}
+            <div className="relative sm:w-64">
+              <Filter size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedSubjectFilter}
+                onChange={(e) => {
+                  setSelectedSubjectFilter(e.target.value)
+                  setTopicSearchQuery('')
+                }}
+                className="w-full h-10 pl-9 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 appearance-none cursor-pointer shadow-sm"
+              >
+                <option value="All">All Subjects ({Object.keys(subjectsMap).length})</option>
+                {Object.keys(subjectsMap).map(sub => (
+                  <option key={sub} value={sub}>{sub}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Result Count and Helper Bar */}
+          <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+            <span>
+              Showing {filteredTopicsList.length} of {flatTopicsList.length} topics
+            </span>
+            {selectedSubjectFilter !== 'All' && (
+              <button
+                onClick={() => setSelectedSubjectFilter('All')}
+                className="text-primary hover:underline text-xs font-semibold"
+              >
+                Filtered by {selectedSubjectFilter} (Reset to All)
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredTopicsList.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-center p-6 bg-card-light dark:bg-card-dark rounded-card border border-dashed border-border-light dark:border-border-dark">
+                <Search size={32} className="text-slate-400 mb-3 opacity-60" />
+                <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200">No topics match your search</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  {topicSearchQuery 
+                    ? `No topics found matching "${topicSearchQuery}". Try searching by subject acronym (e.g. OS, CN, DBMS, TOC), topic keyword, or year.`
+                    : `No topics found in "${selectedSubjectFilter}".`}
+                </p>
+                <button
+                  onClick={() => {
+                    setTopicSearchQuery('')
+                    setSelectedSubjectFilter('All')
+                  }}
+                  className="mt-4 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-btn transition-colors"
+                >
+                  Clear Search & Filters
+                </button>
+              </div>
+            ) : (
+              filteredTopicsList.map(({ topicName, subjectName, questionCount }) => {
+                const config = getSubjectConfig(subjectName)
+                const SubjectIcon = config.icon
+                const isSelected = selectedTopics.includes(topicName)
+                return (
+                  <div
+                    key={`${subjectName}-${topicName}`}
+                    onClick={() => {
+                      setSelectedTopics(prev =>
+                        prev.includes(topicName)
+                          ? prev.filter(t => t !== topicName)
+                          : [...prev, topicName]
+                      )
+                    }}
+                    className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
+                      isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-3.5 right-3.5 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center border border-primary z-10 shadow-sm animate-fade-in">
+                        <Check size={12} strokeWidth={3.5} />
                       </div>
-                      <span className="text-[10px] font-extrabold text-slate-450 dark:text-slate-500 uppercase tracking-wide truncate max-w-[180px]">
-                        {subjectName}
+                    )}
+
+                    <div className="space-y-2">
+                      {/* Subject Tag */}
+                      <div className="flex items-center gap-1.5">
+                        <div className={`h-6 w-6 rounded-btn flex items-center justify-center shrink-0 border ${config.colorClass}`}>
+                          <SubjectIcon size={12} />
+                        </div>
+                        <span className="text-[10px] font-extrabold text-slate-450 dark:text-slate-500 uppercase tracking-wide truncate max-w-[180px]">
+                          {subjectName}
+                        </span>
+                      </div>
+
+                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors leading-snug line-clamp-2 pr-4">
+                        {topicName}
+                      </h3>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-850/80 flex justify-between items-center shrink-0">
+                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Weight: Core</span>
+                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded shrink-0 ${config.badgeColor} border border-black/5 dark:border-white/5`}>
+                        {questionCount} Questions
                       </span>
                     </div>
-
-                    <h3 className="font-extrabold text-xs sm:text-sm text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors leading-snug line-clamp-2 pr-4">
-                      {topicName}
-                    </h3>
                   </div>
-
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-850/80 flex justify-between items-center shrink-0">
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Weight: Core</span>
-                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded shrink-0 ${config.badgeColor} border border-black/5 dark:border-white/5`}>
-                      {questionCount} Questions
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })
+            )}
           </div>
         </div>
       )}
@@ -1189,7 +1343,16 @@ export default function PYQPage() {
 
       {/* 6. Active practice reels viewport */}
       {view === 'reels' && (
-        <div className="flex-grow w-full h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-955">
+        !currentQuestion ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4 text-center">
+            <AlertCircle size={48} className="text-amber-500" />
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No questions found for this selection</h3>
+            <button onClick={() => setView('hub')} className="px-5 py-2.5 bg-primary text-white font-bold text-xs rounded-btn shadow-sm">
+              Back to Categories
+            </button>
+          </div>
+        ) : (
+          <div className="flex-grow w-full h-full flex flex-col md:flex-row overflow-hidden min-h-0 bg-slate-50 dark:bg-slate-950">
           
           {/* Main Question Viewport */}
           <div className="flex-1 h-full relative overflow-hidden flex items-center justify-center p-2 sm:p-4 md:pl-24 lg:pl-28">
@@ -1260,6 +1423,12 @@ export default function PYQPage() {
                     <div className="text-sm sm:text-base font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
                       {currentQuestion.question}
                     </div>
+
+                    {/* Question Diagram / Image (if present) */}
+                    <QuestionImage 
+                      src={currentQuestion.imageUrl || currentQuestion.diagramUrl || currentQuestion.image} 
+                      alt={currentQuestion.imageAlt || 'Question Diagram'} 
+                    />
 
                     {/* --- TYPE 1: MCQ UI --- */}
                     {currentQuestion.type === 'MCQ' && (
@@ -1435,6 +1604,11 @@ export default function PYQPage() {
                         <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                           {currentQuestion.explanation}
                         </p>
+                        {/* Explanation Diagram / Image (if present) */}
+                        <QuestionImage 
+                          src={currentQuestion.explanationImageUrl || currentQuestion.solutionImageUrl} 
+                          alt="Explanation Diagram" 
+                        />
                       </motion.div>
                     )}
 
@@ -1443,127 +1617,129 @@ export default function PYQPage() {
               </AnimatePresence>
             </div>
 
-            {/* Reels Floating Buttons Panel */}
-            <div className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 sm:gap-3.5 z-20">
-              
-              {/* Back to practice menu */}
-              <button
-                onClick={() => setView('hub')}
-                className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
-              >
-                <ArrowLeft size={16} className="sm:size-[18px]" />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Exit Practice
-                </span>
-              </button>
-
-              <div className="h-px w-5 sm:w-6 bg-slate-200 dark:bg-slate-800"></div>
-
-              {/* Upvote Button */}
-              <div className="flex flex-col items-center">
+            {/* Reels Floating Buttons Panel (Hidden when Discussion is open) */}
+            {!activeDiscussionQuestionId && (
+              <div className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 sm:gap-3.5 z-20">
+                
+                {/* Back to practice menu */}
                 <button
-                  onClick={() => upvoteQuestion(currentQuestion.id)}
+                  onClick={() => setView('hub')}
+                  className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
+                >
+                  <ArrowLeft size={16} className="sm:size-[18px]" />
+                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                    Exit Practice
+                  </span>
+                </button>
+
+                <div className="h-px w-5 sm:w-6 bg-slate-200 dark:bg-slate-800"></div>
+
+                {/* Upvote Button */}
+                <div className="flex flex-col items-center">
+                  <button
+                    onClick={() => upvoteQuestion(currentQuestion.id)}
+                    className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                      votes[currentQuestion.id] === 'up'
+                        ? 'bg-primary border-primary text-white'
+                        : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <ThumbsUp size={16} className={votes[currentQuestion.id] === 'up' ? 'fill-white text-white' : 'text-slate-500'} />
+                    <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                      Upvote
+                    </span>
+                  </button>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                    {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
+                  </span>
+                </div>
+
+                {/* Downvote Button */}
+                <div className="flex flex-col items-center">
+                  <button
+                    onClick={() => downvoteQuestion(currentQuestion.id)}
+                    className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
+                      votes[currentQuestion.id] === 'down'
+                        ? 'bg-error border-error text-white'
+                        : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <ThumbsDown size={16} className={votes[currentQuestion.id] === 'down' ? 'fill-white text-white' : 'text-slate-500'} />
+                    <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                      Downvote
+                    </span>
+                  </button>
+                </div>
+
+                {/* Discussion Drawer Toggle */}
+                <div className="flex flex-col items-center">
+                  <button
+                    onClick={() => setActiveDiscussionQuestionId(currentQuestion.id)}
+                    className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
+                  >
+                    <MessageSquare size={16} className="sm:size-[18px]" />
+                    <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
+                      Discussion
+                    </span>
+                  </button>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                    {currentQuestion.commentsCount}
+                  </span>
+                </div>
+
+                {/* Bookmark Button */}
+                <button
+                  onClick={() => toggleBookmark(currentQuestion.id)}
                   className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                    votes[currentQuestion.id] === 'up'
+                    bookmarks.includes(currentQuestion.id)
                       ? 'bg-primary border-primary text-white'
                       : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <ThumbsUp size={16} className={votes[currentQuestion.id] === 'up' ? 'fill-white text-white' : 'text-slate-500'} />
+                  <Bookmark size={16} className={bookmarks.includes(currentQuestion.id) ? 'fill-white text-white' : 'text-slate-500'} />
                   <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Upvote
+                    Bookmark
                   </span>
                 </button>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                  {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
-                </span>
-              </div>
 
-              {/* Downvote Button */}
-              <div className="flex flex-col items-center">
+                {/* Scratchpad & Notes Button */}
                 <button
-                  onClick={() => downvoteQuestion(currentQuestion.id)}
-                  className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                    votes[currentQuestion.id] === 'down'
-                      ? 'bg-error border-error text-white'
+                  onClick={() => setScratchpadOpenQuestionId(currentQuestion.id)}
+                  className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 relative ${
+                    questionNotes[currentQuestion.id]
+                      ? 'bg-success/15 border-success text-success hover:bg-success/20'
                       : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <ThumbsDown size={16} className={votes[currentQuestion.id] === 'down' ? 'fill-white text-white' : 'text-slate-500'} />
+                  <Edit3 size={16} className="sm:size-[18px]" />
+                  {questionNotes[currentQuestion.id] && (
+                    <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success border-2 border-white dark:border-slate-900 animate-pulse" />
+                  )}
                   <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Downvote
+                    Scratchpad
                   </span>
                 </button>
-              </div>
 
-              {/* Discussion Drawer Toggle */}
-              <div className="flex flex-col items-center">
+                {/* Video Solution Button */}
                 <button
-                  onClick={() => setActiveDiscussionQuestionId(currentQuestion.id)}
+                  onClick={() => setActiveVideoSolutionUrl(currentQuestion?.videoSolutionUrl, currentQuestion)}
                   className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
                 >
-                  <MessageSquare size={16} className="sm:size-[18px]" />
+                  <Play size={16} className="fill-slate-500 text-slate-500 sm:size-[18px]" />
                   <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Discussion
+                    Video Solution
                   </span>
                 </button>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                  {currentQuestion.commentsCount}
-                </span>
+
               </div>
-
-              {/* Bookmark Button */}
-              <button
-                onClick={() => toggleBookmark(currentQuestion.id)}
-                className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                  bookmarks.includes(currentQuestion.id)
-                    ? 'bg-primary border-primary text-white'
-                    : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Bookmark size={16} className={bookmarks.includes(currentQuestion.id) ? 'fill-white text-white' : 'text-slate-500'} />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Bookmark
-                </span>
-              </button>
-
-              {/* Scratchpad & Notes Button */}
-              <button
-                onClick={() => setScratchpadOpenQuestionId(currentQuestion.id)}
-                className={`group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 relative ${
-                  questionNotes[currentQuestion.id]
-                    ? 'bg-success/15 border-success text-success hover:bg-success/20'
-                    : 'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Edit3 size={16} className="sm:size-[18px]" />
-                {questionNotes[currentQuestion.id] && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success border-2 border-white dark:border-slate-900 animate-pulse" />
-                )}
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Scratchpad
-                </span>
-              </button>
-
-              {/* Video Solution Button */}
-              <button
-                onClick={() => setActiveVideoSolutionUrl(currentQuestion.videoSolutionUrl)}
-                className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
-              >
-                <Play size={16} className="fill-slate-500 text-slate-500 sm:size-[18px]" />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Video Solution
-                </span>
-              </button>
-
-            </div>
+            )}
 
           </div> {/* Closes Wrapper div */}
 
           </div> {/* Closes Main Question Viewport */}
 
-          {/* Right Panel: Question Navigator Grid Wrapper */}
-          <div className={`relative flex flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+          {/* Right Panel: Question Navigator Grid Wrapper (Desktop Only) */}
+          <div className={`hidden md:flex relative flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
             isNavigatorCollapsed ? 'w-full md:w-0 border-l-0' : 'w-full md:w-64'
           }`}>
             
@@ -1582,7 +1758,7 @@ export default function PYQPage() {
             <div className={`w-full md:w-64 p-5 flex flex-col overflow-y-auto custom-scrollbar h-full ${
               isNavigatorCollapsed ? 'hidden md:hidden' : 'flex'
             }`}>
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-450 dark:text-slate-500 mb-4">Questions Grid</h3>
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-455 dark:text-slate-500 mb-4">Questions Grid</h3>
               
               <div className="grid grid-cols-5 gap-2 p-1">
                 {activeQuestions.map((q, idx) => {
@@ -1629,31 +1805,129 @@ export default function PYQPage() {
             </div>
           </div>
 
-          <DiscussionDrawer
-            currentQuestion={currentQuestion}
-            selectedAnswers={selectedAnswers}
-            setSelectedAnswers={setSelectedAnswers}
-            isMSQCorrect={isMSQCorrect}
-            isNATCorrect={isNATCorrect}
-            handleSelectMCQ={handleSelectMCQ}
-            handleToggleMSQ={handleToggleMSQ}
-            handleSubmitMSQ={handleSubmitMSQ}
-            handleNATSubmit={handleNATSubmit}
-          />
-          <VideoSolutionModal />
-          <ScratchpadDrawer
-            currentQuestion={currentQuestion}
-            selectedAnswers={selectedAnswers}
-            setSelectedAnswers={setSelectedAnswers}
-            isMSQCorrect={isMSQCorrect}
-            isNATCorrect={isNATCorrect}
-            handleSelectMCQ={handleSelectMCQ}
-            handleToggleMSQ={handleToggleMSQ}
-            handleSubmitMSQ={handleSubmitMSQ}
-            handleNATSubmit={handleNATSubmit}
-          />
+          {/* Mobile Question Palette Drawer */}
+          {showMobilePalette && (
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-center items-end md:hidden">
+              <div className="w-full max-w-lg h-[50vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-y-auto animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
+                <div>
+                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-4">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Questions Palette</h3>
+                    <button
+                      onClick={() => setShowMobilePalette(false)}
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2">
+                    {activeQuestions.map((q, idx) => {
+                      const isCurrent = idx === activeQuestionIndex
+                      const ansState = selectedAnswers[q.id]
+                      const hasAnswered = ansState !== undefined
+
+                      let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                      if (hasAnswered) {
+                        const isMSQSubmitted = q.type === 'MSQ' && ansState?.submitted
+                        const isMCQAnswered = q.type === 'MCQ'
+                        const isNATAnswered = q.type === 'NAT'
+                        
+                        if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
+                          const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
+                          const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
+                          const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                          
+                          const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
+                          
+                          btnClass = correct
+                            ? 'bg-success text-white border-success'
+                            : 'bg-error text-white border-error'
+                        } else {
+                          btnClass = 'bg-primary/20 border-primary text-primary'
+                        }
+                      }
+
+                      if (isCurrent) {
+                        btnClass += ' ring-2 ring-primary font-bold'
+                      }
+
+                      return (
+                        <button
+                          key={q.id}
+                          onClick={() => {
+                            setActiveQuestionIndex(idx)
+                            setShowMobilePalette(false)
+                          }}
+                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-bold border transition-all ${btnClass}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 flex justify-around text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-success shrink-0"></span>
+                      <span>Correct</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-error shrink-0"></span>
+                      <span>Incorrect</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0"></span>
+                      <span>Unattempted</span>
+                    </div>
+                  </div>
+
+                  {/* Clearance space reserved for floating button */}
+                  <div className="h-16 w-full shrink-0" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Single Bottom-Center Floating Question Grid Toggle Button (Icon Only) */}
+          <button
+            onClick={() => setShowMobilePalette(prev => !prev)}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full bg-primary hover:bg-primary-hover text-white shadow-2xl flex items-center justify-center border border-white/20 active:scale-95 transition-all md:hidden"
+            title={showMobilePalette ? 'Close Palette' : 'Question Palette'}
+          >
+            {showMobilePalette ? <X size={22} /> : <Grid size={22} />}
+          </button>
         </div>
+        )
       )}
+
+          {currentQuestion && (
+            <>
+              <DiscussionDrawer
+                currentQuestion={currentQuestion}
+                selectedAnswers={selectedAnswers}
+                setSelectedAnswers={setSelectedAnswers}
+                isMSQCorrect={isMSQCorrect}
+                isNATCorrect={isNATCorrect}
+                handleSelectMCQ={handleSelectMCQ}
+                handleToggleMSQ={handleToggleMSQ}
+                handleSubmitMSQ={handleSubmitMSQ}
+                handleNATSubmit={handleNATSubmit}
+              />
+              <ScratchpadDrawer
+                currentQuestion={currentQuestion}
+                selectedAnswers={selectedAnswers}
+                setSelectedAnswers={setSelectedAnswers}
+                isMSQCorrect={isMSQCorrect}
+                isNATCorrect={isNATCorrect}
+                handleSelectMCQ={handleSelectMCQ}
+                handleToggleMSQ={handleToggleMSQ}
+                handleSubmitMSQ={handleSubmitMSQ}
+                handleNATSubmit={handleNATSubmit}
+              />
+            </>
+          )}
 
       {/* Question Limit Selector Modal */}
       <AnimatePresence>

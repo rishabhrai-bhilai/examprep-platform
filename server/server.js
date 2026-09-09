@@ -36,7 +36,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https://api.dicebear.com", "https://images.unsplash.com"],
+      imgSrc: ["'self'", "data:", "https:"],
       frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com"],
       connectSrc: [
         "'self'", 
@@ -166,10 +166,16 @@ app.get('/api/questions/:id', (req, res) => {
   res.status(200).json(question)
 })
 
-// --- STATIC FILES SERVING IN PRODUCTION ---
+// --- STATIC ASSETS & PRODUCTION SERVING ---
+const publicPath = path.join(__dirname, '..', 'public')
+app.use(express.static(publicPath))
+app.use('/diagrams', express.static(path.join(publicPath, 'diagrams')))
+
 if (NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist')
-  app.use(express.static(distPath))
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath))
+  }
   
   // React routing fallback
   app.get('*', (req, res) => {

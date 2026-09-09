@@ -3,10 +3,10 @@ import { X, Play, BookOpen, Check } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function VideoSolutionModal() {
-  const { activeVideoSolutionUrl, setActiveVideoSolutionUrl, activeQuestionIndex, questions } = useAppStore()
+  const { activeVideoSolutionUrl, setActiveVideoSolutionUrl, activeVideoQuestion, activeQuestionIndex, questions } = useAppStore()
   
-  // Find current question object
-  const currentQuestion = questions[activeQuestionIndex]
+  // Find current question object (either explicitly passed or from active index)
+  const currentQuestion = activeVideoQuestion || questions[activeQuestionIndex]
   const questionId = currentQuestion?.id
 
   const [note, setNote] = useState('')
@@ -64,11 +64,18 @@ export default function VideoSolutionModal() {
           
           {/* Video Title and info */}
           <div className="p-4 bg-slate-900 text-white">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
-              {currentQuestion?.subject} • {currentQuestion?.topic}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
+                {currentQuestion?.subject} • {currentQuestion?.topic}
+              </span>
+              {currentQuestion?.year && (
+                <span className="text-[10px] font-bold text-amber-400 px-1.5 py-0.5 bg-amber-400/10 rounded">
+                  GATE {currentQuestion.year}
+                </span>
+              )}
+            </div>
             <h4 className="font-semibold text-sm mt-2 line-clamp-2">
-              Video Solution: {currentQuestion?.question}
+              {currentQuestion?.videoSolutionUrl ? `Video Solution: ${currentQuestion?.question}` : `Topic Walkthrough & Lecture: ${currentQuestion?.topic || currentQuestion?.subject || 'GATE Preparation'}`}
             </h4>
           </div>
 

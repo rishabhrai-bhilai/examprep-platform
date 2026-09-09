@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 740 320" width="740" height="320">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+
+  <defs>
+    <marker id="jc-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="370" y="30" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#4338ca" text-anchor="middle">
+    4-bit Johnson (Twisted-Ring) Counter
+  </text>
+
+  <!-- Flip-Flop 0 (FF0) -->
+  <g transform="translate(60, 70)">
+    <rect x="0" y="0" width="100" height="130" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+    <text x="50" y="25" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="middle">FF0</text>
+    <text x="15" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">D₀</text>
+    <text x="75" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">Q₀</text>
+    <!-- Clock triangle -->
+    <polygon points="0,90 15,100 0,110" fill="none" stroke="#334155" stroke-width="1.5"/>
+  </g>
+
+  <!-- Connection FF0 -> FF1 -->
+  <line x1="160" y1="120" x2="220" y2="120" stroke="#334155" stroke-width="2" marker-end="url(#jc-arrow)"/>
+
+  <!-- Flip-Flop 1 (FF1) -->
+  <g transform="translate(220, 70)">
+    <rect x="0" y="0" width="100" height="130" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+    <text x="50" y="25" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="middle">FF1</text>
+    <text x="15" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">D₁</text>
+    <text x="75" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">Q₁</text>
+    <polygon points="0,90 15,100 0,110" fill="none" stroke="#334155" stroke-width="1.5"/>
+  </g>
+
+  <!-- Connection FF1 -> FF2 -->
+  <line x1="320" y1="120" x2="380" y2="120" stroke="#334155" stroke-width="2" marker-end="url(#jc-arrow)"/>
+
+  <!-- Flip-Flop 2 (FF2) -->
+  <g transform="translate(380, 70)">
+    <rect x="0" y="0" width="100" height="130" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+    <text x="50" y="25" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="middle">FF2</text>
+    <text x="15" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">D₂</text>
+    <text x="75" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">Q₂</text>
+    <polygon points="0,90 15,100 0,110" fill="none" stroke="#334155" stroke-width="1.5"/>
+  </g>
+
+  <!-- Connection FF2 -> FF3 -->
+  <line x1="480" y1="120" x2="540" y2="120" stroke="#334155" stroke-width="2" marker-end="url(#jc-arrow)"/>
+
+  <!-- Flip-Flop 3 (FF3) -->
+  <g transform="translate(540, 70)">
+    <rect x="0" y="0" width="100" height="130" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+    <text x="50" y="25" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="middle">FF3</text>
+    <text x="15" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">D₃</text>
+    <text x="75" y="55" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#0f172a">Q₃</text>
+    <text x="70" y="105" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#ef4444">Q̄₃</text>
+    <!-- Inversion circle at Q̄3 -->
+    <circle cx="106" cy="100" r="4" fill="#ffffff" stroke="#ef4444" stroke-width="1.5"/>
+    <polygon points="0,90 15,100 0,110" fill="none" stroke="#334155" stroke-width="1.5"/>
+  </g>
+
+  <!-- Feedback Line from Q̄3 back to D0 (Inverted feedback / Twisted Ring) -->
+  <path d="M 650 170 L 690 170 L 690 260 L 25 260 L 25 120 L 55 120" fill="none" stroke="#ef4444" stroke-width="2.5" marker-end="url(#jc-arrow)"/>
+  <text x="360" y="250" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#ef4444" text-anchor="middle">
+    Twisted Feedback (Q̄₃ → D₀)
+  </text>
+
+  <!-- Common Clock Line -->
+  <line x1="20" y1="210" x2="600" y2="210" stroke="#0ea5e9" stroke-width="2"/>
+  <text x="15" y="200" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#0284c7">CLK</text>
+  <line x1="60" y1="170" x2="60" y2="210" stroke="#0ea5e9" stroke-width="2"/>
+  <line x1="220" y1="170" x2="220" y2="210" stroke="#0ea5e9" stroke-width="2"/>
+  <line x1="380" y1="170" x2="380" y2="210" stroke="#0ea5e9" stroke-width="2"/>
+  <line x1="540" y1="170" x2="540" y2="210" stroke="#0ea5e9" stroke-width="2"/>
+</svg>

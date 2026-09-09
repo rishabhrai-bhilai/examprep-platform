@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 300" width="650" height="300">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+
+  <!-- Step I: Unfolded square -->
+  <g transform="translate(30, 40)">
+    <rect x="0" y="0" width="100" height="100" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+    <line x1="0" y1="0" x2="100" y2="100" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <text x="50" y="130" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">(I)</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 145 90 L 175 90 M 170 85 L 175 90 L 170 95" stroke="#64748b" stroke-width="2" fill="none"/>
+
+  <!-- Step II: Folded once -->
+  <g transform="translate(190, 40)">
+    <polygon points="0,0 100,0 100,100" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2"/>
+    <line x1="0" y1="0" x2="100" y2="100" stroke="#334155" stroke-width="1.5"/>
+    <line x1="100" y1="0" x2="50" y2="50" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <text x="65" y="130" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">(II)</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 305 90 L 335 90 M 330 85 L 335 90 L 330 95" stroke="#64748b" stroke-width="2" fill="none"/>
+
+  <!-- Step III: Folded twice -->
+  <g transform="translate(350, 40)">
+    <polygon points="100,0 100,100 50,50" fill="#c7d2fe" stroke="#4338ca" stroke-width="2"/>
+    <text x="80" y="130" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">(III)</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 465 90 L 495 90 M 490 85 L 495 90 L 490 95" stroke="#64748b" stroke-width="2" fill="none"/>
+
+  <!-- Step IV: Cuts made -->
+  <g transform="translate(510, 40)">
+    <polygon points="100,0 100,100 50,50" fill="#c7d2fe" stroke="#4338ca" stroke-width="2"/>
+    <!-- Triangular notch cut -->
+    <polygon points="100,40 85,50 100,60" fill="#ffffff" stroke="#ef4444" stroke-width="1.5"/>
+    <!-- Circular hole cut -->
+    <circle cx="75" cy="50" r="7" fill="#ffffff" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="80" y="130" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">(IV) Cuts</text>
+  </g>
+
+  <!-- Bottom caption -->
+  <text x="325" y="220" font-family="system-ui, sans-serif" font-size="13" font-weight="semibold" fill="#475569" text-anchor="middle">
+    Paper is folded along diagonal axes (I → II → III) and punched/cut (IV).
+  </text>
+  <text x="325" y="245" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#4f46e5" text-anchor="middle">
+    Upon unfolding, the 4-fold radial symmetry reproduces Pattern (A).
+  </text>
+</svg>

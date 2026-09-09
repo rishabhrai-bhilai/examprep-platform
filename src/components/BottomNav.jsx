@@ -1,8 +1,13 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, FileText, BookOpen, Bookmark, User } from 'lucide-react'
+import { useAppStore } from '../store/useAppStore'
 
 export default function BottomNav() {
+  const { isPracticeActive } = useAppStore()
+
+  if (isPracticeActive) return null
+
   const items = [
     { name: 'Home', path: '/dashboard', icon: LayoutDashboard },
     { name: 'PYQs', path: '/pyq', icon: FileText },

@@ -4,21 +4,29 @@ import {
   BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, 
   ChevronUp, ChevronDown, Play, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, 
   Target, BarChart2, Zap, AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, 
-  Settings2, ArrowLeft, ArrowRight, Check, X
+  Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
+import QuestionImage from '../components/QuestionImage'
 
 export default function PYQMockTestsPage() {
-  const { questions, calculatorOpen, setCalculatorOpen } = useAppStore()
+  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
   
   // Selection Hub State
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
+
+  useEffect(() => {
+    setIsPracticeActive(view === 'testing')
+    return () => setIsPracticeActive(false)
+  }, [view, setIsPracticeActive])
   const [subView, setSubView] = useState('hub') // 'hub' | 'year' | 'subject' | 'topic' | 'wizard'
   
   // Selection state
   const [selectedSubjects, setSelectedSubjects] = useState([])
   const [selectedTopics, setSelectedTopics] = useState([])
+  const [topicSearchQuery, setTopicSearchQuery] = useState('')
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('All')
   const [expandedSubject, setExpandedSubject] = useState(null)
   const [expandedWizardSubject, setExpandedWizardSubject] = useState(null)
   const [showQuestionLimitModal, setShowQuestionLimitModal] = useState(false)
@@ -47,9 +55,18 @@ export default function PYQMockTestsPage() {
   const [timeLeft, setTimeLeft] = useState(0) // seconds
   const [timeSpent, setTimeSpent] = useState({}) // { questionId: seconds }
   const [answerTimes, setAnswerTimes] = useState({}) // { questionId: timeLeftWhenAnswered }
+  const [showMobilePalette, setShowMobilePalette] = useState(false)
   
   const timerRef = useRef(null)
   const activeQuestionIdRef = useRef(null)
+
+  const handleClearResponse = (questionId) => {
+    setAnswers(prev => {
+      const updated = { ...prev }
+      delete updated[questionId]
+      return updated
+    })
+  }
 
   // Report State variables
   const [reportData, setReportData] = useState(null)
@@ -165,12 +182,42 @@ export default function PYQMockTestsPage() {
     return acc
   }, {})
 
+  // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems")
+  const subjectAliases = {
+    'os': 'operating systems',
+    'cn': 'computer networks',
+    'dbms': 'databases (dbms)',
+    'db': 'databases (dbms)',
+    'coa': 'computer organization & architecture',
+    'cao': 'computer organization & architecture',
+    'co': 'computer organization & architecture',
+    'toc': 'theory of computation',
+    'cd': 'compiler design',
+    'algo': 'algorithms & data structures',
+    'ds': 'algorithms & data structures',
+    'dsa': 'algorithms & data structures',
+    'dl': 'digital logic',
+    'dld': 'digital logic',
+    'dm': 'discrete mathematics',
+    'em': 'engineering mathematics',
+    'maths': 'engineering mathematics',
+    'math': 'engineering mathematics',
+    'ga': 'general aptitude',
+    'apti': 'general aptitude',
+    'aptitude': 'general aptitude'
+  }
+
   const flatTopicsList = Object.keys(topicsMap).reduce((acc, sub) => {
     Object.keys(topicsMap[sub]).forEach(topic => {
+      const topicQuestions = questions.filter(q => q.subject === sub && q.topic === topic)
+      const years = Array.from(new Set(topicQuestions.map(q => q.year).filter(Boolean))).join(' ')
+      const sampleQuestionKeywords = topicQuestions.map(q => q.question.toLowerCase()).slice(0, 5).join(' ')
       acc.push({
         topicName: topic,
         subjectName: sub,
-        questionCount: topicsMap[sub][topic]
+        questionCount: topicsMap[sub][topic],
+        years,
+        searchCorpus: `${topic} ${sub} ${years} ${sampleQuestionKeywords}`.toLowerCase()
       })
     })
     return acc
@@ -277,7 +324,7 @@ export default function PYQMockTestsPage() {
   }
 
   const handleStartYearMock = (year) => {
-    const filtered = questions.filter(q => q.year === year)
+    const filtered = questions.filter(q => String(q.year) === String(year))
     startMockTestSession(filtered, `PYQ Year Mock Test (${year})`, `Exam year ${year}`)
   }
 
@@ -361,13 +408,127 @@ export default function PYQMockTestsPage() {
     setFlags(prev => ({ ...prev, [qId]: !prev[qId] }))
   }
 
-  const navigateQuestion = (index) => {
+  // Reels navigation states & gestures
+  const [direction, setDirection] = useState('next')
+  const [cooldown, setCooldown] = useState(false)
+  const scrollContainerRef = useRef(null)
+  const touchStartRef = useRef(0)
+  const wheelAccumulatorRef = useRef(0)
+
+  const variants = {
+    initial: (dir) => ({
+      y: dir === 'next' ? '100%' : '-100%',
+      opacity: 0
+    }),
+    animate: {
+      y: 0,
+      opacity: 1,
+      transition: { type: 'spring', stiffness: 220, damping: 24, mass: 0.8 }
+    },
+    exit: (dir) => ({
+      y: dir === 'next' ? '-100%' : '100%',
+      opacity: 0,
+      transition: { duration: 0.25 }
+    })
+  }
+
+  const navigateQuestion = (index, forcedDir = null) => {
     if (index >= 0 && index < activeTestQuestions.length) {
+      setDirection(forcedDir || (index > currentQuestionIndex ? 'next' : 'prev'))
       const targetQ = activeTestQuestions[index]
       setVisited(prev => ({ ...prev, [targetQ.id]: true }))
       setCurrentQuestionIndex(index)
     }
   }
+
+  const goToNextQuestion = () => {
+    if (currentQuestionIndex < activeTestQuestions.length - 1 && !cooldown) {
+      setDirection('next')
+      setCooldown(true)
+      navigateQuestion(currentQuestionIndex + 1, 'next')
+      setTimeout(() => setCooldown(false), 600)
+    }
+  }
+
+  const goToPrevQuestion = () => {
+    if (currentQuestionIndex > 0 && !cooldown) {
+      setDirection('prev')
+      setCooldown(true)
+      navigateQuestion(currentQuestionIndex - 1, 'prev')
+      setTimeout(() => setCooldown(false), 600)
+    }
+  }
+
+  const handleTouchStart = (e) => {
+    touchStartRef.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e) => {
+    const el = scrollContainerRef.current
+    if (!el || cooldown) return
+
+    const touchEnd = e.changedTouches[0].clientY
+    const deltaY = touchStartRef.current - touchEnd
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
+    const isAtTop = el.scrollTop === 0
+
+    if (deltaY > 60 && isAtBottom) {
+      goToNextQuestion()
+    } else if (deltaY < -60 && isAtTop) {
+      goToPrevQuestion()
+    }
+  }
+
+  const handleWheel = (e) => {
+    const el = scrollContainerRef.current
+    if (!el || cooldown) {
+      wheelAccumulatorRef.current = 0
+      return
+    }
+
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
+    const isAtTop = el.scrollTop <= 2
+
+    if (e.deltaY > 0 && isAtBottom) {
+      e.preventDefault()
+      wheelAccumulatorRef.current += e.deltaY
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToNextQuestion()
+      }
+    } else if (e.deltaY < 0 && isAtTop) {
+      e.preventDefault()
+      wheelAccumulatorRef.current += Math.abs(e.deltaY)
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToPrevQuestion()
+      }
+    } else {
+      wheelAccumulatorRef.current = 0
+    }
+  }
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (view !== 'testing') return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown') {
+        const el = scrollContainerRef.current
+        if (el && el.scrollHeight - el.scrollTop <= el.clientHeight + 2) {
+          goToNextQuestion()
+        }
+      } else if (e.key === 'ArrowUp') {
+        const el = scrollContainerRef.current
+        if (el && el.scrollTop === 0) {
+          goToPrevQuestion()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentQuestionIndex, cooldown, view, activeTestQuestions])
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -725,7 +886,7 @@ export default function PYQMockTestsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {years.map(year => {
-                const count = questions.filter(q => q.year === year).length
+                const count = questions.filter(q => String(q.year) === String(year)).length
                 return (
                   <div
                     key={year}
@@ -860,8 +1021,114 @@ export default function PYQMockTestsPage() {
               </div>
             </div>
 
+            {/* Search Bar & Subject Filter Controls */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              {/* Search Input */}
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search topics by name..."
+                  value={topicSearchQuery}
+                  onChange={(e) => setTopicSearchQuery(e.target.value)}
+                  className="w-full h-10 pl-10 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 shadow-sm"
+                />
+                {topicSearchQuery && (
+                  <button
+                    onClick={() => setTopicSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Subject Selector Dropdown */}
+              <div className="relative sm:w-64">
+                <Filter size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <select
+                  value={selectedSubjectFilter}
+                  onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                  className="w-full h-10 pl-9 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 appearance-none cursor-pointer shadow-sm"
+                >
+                  <option value="All">All Subjects ({Object.keys(subjectsMap).length})</option>
+                  {Object.keys(subjectsMap).map(sub => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Result Count and Helper Bar */}
+            <div className="flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+              <span>
+                Showing {
+                  flatTopicsList.filter(({ topicName, subjectName, searchCorpus }) => {
+                    const matchesSubject = selectedSubjectFilter === 'All' || subjectName === selectedSubjectFilter
+                    if (!matchesSubject) return false
+                    if (!topicSearchQuery.trim()) return true
+                    const queryTokens = topicSearchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean)
+                    return queryTokens.every(token => {
+                      const aliasList = subjectAliases[token]
+                      if (aliasList && aliasList.some(alias => subjectName.toLowerCase().includes(alias) || topicName.toLowerCase().includes(alias))) {
+                        return true
+                      }
+                      return searchCorpus.includes(token)
+                    })
+                  }).length
+                } of {flatTopicsList.length} topics
+              </span>
+              {selectedSubjectFilter !== 'All' && (
+                <button
+                  onClick={() => setSelectedSubjectFilter('All')}
+                  className="text-primary hover:underline text-xs font-semibold"
+                >
+                  Filtered by {selectedSubjectFilter} (Reset to All)
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {flatTopicsList.map(({ topicName, subjectName, questionCount }) => {
+              {(() => {
+                const matched = flatTopicsList.filter(({ topicName, subjectName, searchCorpus }) => {
+                  const matchesSubject = selectedSubjectFilter === 'All' || subjectName === selectedSubjectFilter
+                  if (!matchesSubject) return false
+                  if (!topicSearchQuery.trim()) return true
+                  const queryTokens = topicSearchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean)
+                  return queryTokens.every(token => {
+                    const aliasList = subjectAliases[token]
+                    if (aliasList && aliasList.some(alias => subjectName.toLowerCase().includes(alias) || topicName.toLowerCase().includes(alias))) {
+                      return true
+                    }
+                    return searchCorpus.includes(token)
+                  })
+                })
+
+                if (matched.length === 0) {
+                  return (
+                    <div className="col-span-full py-12 flex flex-col items-center justify-center text-center p-6 bg-card-light dark:bg-card-dark rounded-card border border-dashed border-border-light dark:border-border-dark">
+                      <Search size={32} className="text-slate-400 mb-3 opacity-60" />
+                      <h3 className="font-bold text-sm text-slate-700 dark:text-slate-200">No topics match your search</h3>
+                      <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                        {topicSearchQuery 
+                          ? `No topics found matching "${topicSearchQuery}". Try searching by subject acronym (e.g. OS, CN, DBMS, TOC), topic keyword, or year.`
+                          : `No topics found in "${selectedSubjectFilter}".`}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setTopicSearchQuery('')
+                          setSelectedSubjectFilter('All')
+                        }}
+                        className="mt-4 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs rounded-btn transition-colors"
+                      >
+                        Clear Search & Filters
+                      </button>
+                    </div>
+                  )
+                }
+
+                return matched.map(({ topicName, subjectName, questionCount }) => {
                 const config = getSubjectConfig(subjectName)
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.includes(topicName)
@@ -905,8 +1172,9 @@ export default function PYQMockTestsPage() {
                     </div>
                   </div>
                 )
-              })}
-            </div>
+              })
+            })()}
+          </div>
           </div>
         )}
 
@@ -1408,138 +1676,197 @@ export default function PYQMockTestsPage() {
         <div className="flex-1 flex min-h-0 relative flex-col md:flex-row">
           
           {/* Question View (Left Pane) */}
-          <div className="flex-1 flex flex-col overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          <div className="flex-1 flex flex-col min-h-0 p-3 sm:p-4 md:p-8 relative overflow-hidden">
             
-            <div className="p-6 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft space-y-4">
-              <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
-                <span className="font-bold text-primary">Question {currentQuestionIndex + 1} of {activeTestQuestions.length}</span>
-                <div className="flex gap-2">
-                  <span className="font-bold text-[9px] uppercase tracking-wide text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded">
-                    {activeQuestion?.type}
-                  </span>
-                  <span className="font-bold text-[9px] uppercase tracking-wide text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                    {activeQuestion?.marks} Marks
-                  </span>
-                  <span className="font-semibold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
-                    {activeQuestion?.difficulty}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                {activeQuestion?.question}
-              </div>
-
-              {/* MCQ Options */}
-              {activeQuestion?.type === 'MCQ' && (
-                <div className="space-y-2.5 pt-4">
-                  {activeQuestion?.options.map((option, idx) => {
-                    const isSelected = answers[activeQuestion.id] === idx
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleMCQSelect(activeQuestion.id, idx)}
-                        className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
-                          isSelected
-                            ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
-                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
-                        }`}
-                      >
-                        <span className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
-                          isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
-                        }`}>
-                          {String.fromCharCode(65 + idx)}
+            {/* Questions Sliding Container (Reel effect) */}
+            <div className="flex-1 relative rounded-card overflow-hidden">
+              <AnimatePresence initial={false} custom={direction} mode="wait">
+                <motion.div
+                  key={activeQuestion?.id}
+                  custom={direction}
+                  variants={variants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="absolute inset-0 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft flex flex-col"
+                >
+                  <div
+                    ref={scrollContainerRef}
+                    onWheel={handleWheel}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
+                      <span className="font-bold text-primary">Question {currentQuestionIndex + 1} of {activeTestQuestions.length}</span>
+                      <div className="flex gap-2">
+                        <span className="font-bold text-[9px] uppercase tracking-wide text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                          {activeQuestion?.type}
                         </span>
-                        <span>{option}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* MSQ Options */}
-              {activeQuestion?.type === 'MSQ' && (
-                <div className="space-y-2.5 pt-4">
-                  {activeQuestion?.options.map((option, idx) => {
-                    const isSelected = (answers[activeQuestion.id] || []).includes(idx)
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleMSQToggle(activeQuestion.id, idx)}
-                        className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
-                          isSelected
-                            ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
-                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
-                        }`}
-                      >
-                        <span className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 text-xs font-bold ${
-                          isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
-                        }`}>
-                          {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                        <span className="font-bold text-[9px] uppercase tracking-wide text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                          {activeQuestion?.marks} Marks
                         </span>
-                        <span>{option}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+                        <span className="font-semibold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+                          {activeQuestion?.difficulty}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
+                      {activeQuestion?.question}
+                    </div>
 
-              {/* NAT Option */}
-              {activeQuestion?.type === 'NAT' && (
-                <div className="space-y-3 pt-4">
-                  <span className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Enter Numerical Answer:</span>
-                  <input
-                    type="text"
-                    placeholder="Type numerical value (e.g. 5 or 2.33)..."
-                    value={answers[activeQuestion.id] || ''}
-                    onChange={(e) => handleNATChange(activeQuestion.id, e.target.value)}
-                    className="w-full h-12 px-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-slate-800 dark:text-slate-100"
-                  />
-                </div>
-              )}
+                    {/* Question Diagram / Image (if present) */}
+                    <QuestionImage 
+                      src={activeQuestion?.imageUrl || activeQuestion?.diagramUrl || activeQuestion?.image} 
+                      alt={activeQuestion?.imageAlt || 'Question Diagram'} 
+                    />
 
+                    {/* MCQ Options */}
+                    {activeQuestion?.type === 'MCQ' && (
+                      <div className="space-y-2.5 pt-4">
+                        {activeQuestion?.options.map((option, idx) => {
+                          const isSelected = answers[activeQuestion.id] === idx
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => handleMCQSelect(activeQuestion.id, idx)}
+                              className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
+                                isSelected
+                                  ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
+                              }`}
+                            >
+                              <span className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
+                                isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
+                              }`}>
+                                {String.fromCharCode(65 + idx)}
+                              </span>
+                              <span>{option}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* MSQ Options */}
+                    {activeQuestion?.type === 'MSQ' && (
+                      <div className="space-y-2.5 pt-4">
+                        {activeQuestion?.options.map((option, idx) => {
+                          const isSelected = (answers[activeQuestion.id] || []).includes(idx)
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => handleMSQToggle(activeQuestion.id, idx)}
+                              className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
+                                isSelected
+                                  ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
+                              }`}
+                            >
+                              <span className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 text-xs font-bold ${
+                                isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
+                              }`}>
+                                {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                              </span>
+                              <span>{option}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* NAT Option */}
+                    {activeQuestion?.type === 'NAT' && (
+                      <div className="space-y-3 pt-4">
+                        <span className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Enter Numerical Answer:</span>
+                        <input
+                          type="text"
+                          placeholder="Type numerical value (e.g. 5 or 2.33)..."
+                          value={answers[activeQuestion.id] || ''}
+                          onChange={(e) => handleNATChange(activeQuestion.id, e.target.value)}
+                          className="w-full h-12 px-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+                    )}
+
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
 
-            {/* Previous / Next buttons */}
-            <div className="flex justify-between items-center mt-6">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigateQuestion(currentQuestionIndex - 1)}
-                  disabled={currentQuestionIndex === 0}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => navigateQuestion(currentQuestionIndex + 1)}
-                  disabled={currentQuestionIndex === activeTestQuestions.length - 1}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 disabled:opacity-40"
-                >
-                  Next
-                </button>
+            {/* Previous / Next & Action buttons */}
+            <div className="flex justify-between items-center mt-3 sm:mt-4 shrink-0 w-full">
+              {/* Left Side: Desktop Previous/Next OR Mobile Clear Response */}
+              <div className="flex items-center gap-2">
+                {/* Previous / Next buttons: hidden on mobile, visible on desktop */}
+                <div className="hidden md:flex gap-2">
+                  <button
+                    onClick={goToPrevQuestion}
+                    disabled={currentQuestionIndex === 0}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={goToNextQuestion}
+                    disabled={currentQuestionIndex === activeTestQuestions.length - 1}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                {/* Clear Response on Mobile: Anchored to far-left so it avoids center floating button */}
+                {answers[activeQuestion?.id] !== undefined && answers[activeQuestion?.id] !== '' && (activeQuestion?.type !== 'MSQ' || (answers[activeQuestion?.id] || []).length > 0) && (
+                  <button
+                    onClick={() => handleClearResponse(activeQuestion.id)}
+                    className="md:hidden px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={14} />
+                    <span className="hidden sm:inline">Clear Response</span>
+                    <span className="sm:hidden">Clear</span>
+                  </button>
+                )}
               </div>
 
-              <button
-                onClick={() => toggleFlag(activeQuestion.id)}
-                className={`px-4 py-2 rounded-btn text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
-                  flags[activeQuestion.id]
-                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 hover:bg-slate-50'
-                }`}
-              >
-                <Flag size={14} className={flags[activeQuestion.id] ? 'fill-amber-500' : ''} />
-                <span>{flags[activeQuestion.id] ? 'Flagged' : 'Flag Question'}</span>
-              </button>
+              {/* Right Side: Desktop Clear Response + Flag Question, or Mobile Flag Question */}
+              <div className="flex items-center gap-2 ml-auto">
+                {/* Clear Response on Desktop */}
+                {answers[activeQuestion?.id] !== undefined && answers[activeQuestion?.id] !== '' && (activeQuestion?.type !== 'MSQ' || (answers[activeQuestion?.id] || []).length > 0) && (
+                  <button
+                    onClick={() => handleClearResponse(activeQuestion.id)}
+                    className="hidden md:flex px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Clear Response</span>
+                  </button>
+                )}
+
+                {/* Flag Question button (anchored to far-right on mobile) */}
+                <button
+                  onClick={() => toggleFlag(activeQuestion?.id)}
+                  className={`px-3 sm:px-4 py-2 rounded-btn text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
+                    flags[activeQuestion?.id]
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                  }`}
+                >
+                  <Flag size={14} className={flags[activeQuestion?.id] ? 'fill-amber-500' : ''} />
+                  <span className="hidden sm:inline">{flags[activeQuestion?.id] ? 'Flagged' : 'Flag Question'}</span>
+                  <span className="sm:hidden">{flags[activeQuestion?.id] ? 'Flagged' : 'Flag'}</span>
+                </button>
+              </div>
             </div>
 
           </div>
 
-          {/* Questions Grid Panel (Right Panel) */}
-          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex flex-col justify-between">
+          {/* Questions Grid Panel (Right Desktop Panel) */}
+          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col justify-between">
             <div className="space-y-4">
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Questions Grid</h3>
               
-              <div className="grid grid-cols-5 gap-2 max-h-40 md:max-h-none overflow-y-auto p-1.5 pr-2">
+              <div className="grid grid-cols-5 gap-2 max-h-none overflow-y-auto p-1.5 pr-2">
                 {activeTestQuestions.map((q, idx) => {
                   const isCurrent = idx === currentQuestionIndex
                   const isFlagged = flags[q.id]
@@ -1553,7 +1880,7 @@ export default function PYQMockTestsPage() {
                   } else if (isFlagged) {
                     btnClass = 'bg-amber-500 text-white border-amber-600'
                   } else if (hasVisited) {
-                    btnClass = 'bg-slate-200 dark:bg-slate-800 border-slate-300 text-slate-700 dark:text-slate-350'
+                    btnClass = 'bg-rose-500 text-white border-rose-600'
                   }
 
                   if (isCurrent) {
@@ -1583,7 +1910,7 @@ export default function PYQMockTestsPage() {
                 <span>Flagged</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 rounded bg-slate-200 dark:bg-slate-800 shrink-0 border border-slate-300 dark:border-slate-700"></span>
+                <span className="h-3.5 w-3.5 rounded bg-rose-500 shrink-0"></span>
                 <span>Visited but unanswered</span>
               </div>
               <div className="flex items-center gap-2">
@@ -1593,6 +1920,94 @@ export default function PYQMockTestsPage() {
             </div>
 
           </div>
+
+          {/* Mobile Question Palette Drawer */}
+          {showMobilePalette && (
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-center items-end md:hidden">
+              <div className="w-full max-w-lg h-[50vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-y-auto animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
+                <div>
+                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-4">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Questions Palette</h3>
+                    <button
+                      onClick={() => setShowMobilePalette(false)}
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2">
+                    {activeTestQuestions.map((q, idx) => {
+                      const isCurrent = idx === currentQuestionIndex
+                      const isFlagged = flags[q.id]
+                      const userAns = answers[q.id]
+                      const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
+                      const hasVisited = visited[q.id]
+
+                      let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                      if (hasAnswered) {
+                        btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                      } else if (isFlagged) {
+                        btnClass = 'bg-amber-500 text-white border-amber-600'
+                      } else if (hasVisited) {
+                        btnClass = 'bg-rose-500 text-white border-rose-600'
+                      }
+
+                      if (isCurrent) {
+                        btnClass += ' ring-2 ring-primary font-bold'
+                      }
+
+                      return (
+                        <button
+                          key={q.id}
+                          onClick={() => {
+                            navigateQuestion(idx)
+                            setShowMobilePalette(false)
+                          }}
+                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 px-2 grid grid-cols-2 gap-y-2 gap-x-4 text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-emerald-500 shrink-0"></span>
+                      <span>Answered</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-amber-500 shrink-0"></span>
+                      <span>Flagged</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-rose-500 shrink-0"></span>
+                      <span>Visited but unanswered</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0"></span>
+                      <span>Not Visited</span>
+                    </div>
+                  </div>
+
+                  {/* Clearance space reserved for floating button */}
+                  <div className="h-16 w-full shrink-0" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Single Bottom-Center Floating Question Grid Toggle Button (Icon Only) */}
+          <button
+            onClick={() => setShowMobilePalette(prev => !prev)}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full bg-primary hover:bg-primary-hover text-white shadow-2xl flex items-center justify-center border border-white/20 active:scale-95 transition-all md:hidden"
+            title={showMobilePalette ? 'Close Palette' : 'Question Palette'}
+          >
+            {showMobilePalette ? <X size={22} /> : <Grid size={22} />}
+          </button>
 
         </div>
       </div>
@@ -2134,7 +2549,7 @@ export default function PYQMockTestsPage() {
                 </div>
 
                 <div className="text-[10px] font-bold text-slate-450 border-t border-slate-100 dark:border-slate-800/40 pt-2">
-                  Final 15% duration = {Math.round(totalDurationSeconds * 0.15)} Seconds
+                  Final 15% duration = {Math.round((activeTestQuestions.length * 90) * 0.15)} Seconds
                 </div>
               </div>
 
@@ -2301,6 +2716,12 @@ export default function PYQMockTestsPage() {
                         {q.question}
                       </p>
 
+                      {/* Question Diagram / Image (if present) */}
+                      <QuestionImage 
+                        src={q.imageUrl || q.diagramUrl || q.image} 
+                        alt={q.imageAlt || 'Question Diagram'} 
+                      />
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
                         <div className={`p-3 rounded border ${
                           isCorrect ? 'bg-emerald-500/5 border-emerald-500/15 text-success' : isUnanswered ? 'bg-slate-50 dark:bg-slate-900 border-slate-100 text-slate-500' : 'bg-red-500/5 border-red-500/15 text-error'
@@ -2331,7 +2752,11 @@ export default function PYQMockTestsPage() {
 
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
-                        {q.explanation}
+                        <p>{q.explanation}</p>
+                        <QuestionImage 
+                          src={q.explanationImageUrl || q.solutionImageUrl} 
+                          alt="Explanation Diagram" 
+                        />
                       </div>
 
                       {!isCorrect && !isUnanswered && (

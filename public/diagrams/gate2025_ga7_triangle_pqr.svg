@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 360" width="500" height="360">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+
+  <!-- Triangle PQR Fill -->
+  <polygon points="250,50 90,300 410,300" fill="#f8fafc" stroke="#334155" stroke-width="2.5"/>
+
+  <!-- Triangle PST Fill -->
+  <polygon points="250,50 170,175 330,175" fill="#e0e7ff" stroke="#4f46e5" stroke-width="2.5"/>
+
+  <!-- Parallel line ST -->
+  <line x1="170" y1="175" x2="330" y2="175" stroke="#4f46e5" stroke-width="2.5"/>
+
+  <!-- Base line QR -->
+  <line x1="90" y1="300" x2="410" y2="300" stroke="#334155" stroke-width="2.5"/>
+
+  <!-- Height indicator dashed lines -->
+  <line x1="250" y1="50" x2="250" y2="300" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <circle cx="250" cy="175" r="3" fill="#4f46e5"/>
+
+  <!-- Dimension markers -->
+  <!-- Upper distance h/2 -->
+  <line x1="230" y1="50" x2="230" y2="175" stroke="#64748b" stroke-width="1"/>
+  <line x1="225" y1="50" x2="235" y2="50" stroke="#64748b" stroke-width="1"/>
+  <line x1="225" y1="175" x2="235" y2="175" stroke="#64748b" stroke-width="1"/>
+  <text x="220" y="118" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="end">h / 2</text>
+
+  <!-- Lower distance h/2 -->
+  <line x1="230" y1="175" x2="230" y2="300" stroke="#64748b" stroke-width="1"/>
+  <line x1="225" y1="300" x2="235" y2="300" stroke="#64748b" stroke-width="1"/>
+  <text x="220" y="243" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#64748b" text-anchor="end">h / 2</text>
+
+  <!-- Parallel markers -->
+  <path d="M 245 170 L 255 175 L 245 180" fill="none" stroke="#4f46e5" stroke-width="2"/>
+  <path d="M 245 295 L 255 300 L 245 305" fill="none" stroke="#334155" stroke-width="2"/>
+
+  <!-- Labels -->
+  <text x="250" y="38" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#1e293b" text-anchor="middle">P</text>
+  <text x="150" y="175" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#4f46e5" text-anchor="middle">S</text>
+  <text x="350" y="175" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#4f46e5" text-anchor="middle">T</text>
+  <text x="75" y="315" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#1e293b" text-anchor="middle">Q</text>
+  <text x="425" y="315" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#1e293b" text-anchor="middle">R</text>
+
+  <!-- Sub-labels -->
+  <text x="250" y="140" font-family="system-ui, sans-serif" font-size="12" font-weight="semibold" fill="#4338ca" text-anchor="middle">Triangle PST</text>
+  <text x="250" y="260" font-family="system-ui, sans-serif" font-size="12" font-weight="semibold" fill="#64748b" text-anchor="middle">Trapezium SQRT</text>
+</svg>

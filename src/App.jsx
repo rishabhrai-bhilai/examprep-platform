@@ -15,12 +15,14 @@ import PYQPage from './pages/PYQPage'
 import PYQMockTestsPage from './pages/PYQMockTestsPage'
 import MockTestsPage from './pages/MockTestsPage'
 import BookmarksPage from './pages/BookmarksPage'
+import NotesPage from './pages/NotesPage'
 import ProfilePage from './pages/ProfilePage'
 import DiscussionPage from './pages/DiscussionPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
 import BookmarkSelectorModal from './components/BookmarkSelectorModal'
+import VideoSolutionModal from './components/VideoSolutionModal'
 
 function App() {
   const { theme, fetchQuestions } = useAppStore()
@@ -55,6 +57,7 @@ function App() {
           <Route path="/pyq-mock" element={<PYQMockTestsPage />} />
           <Route path="/mock-tests" element={<MockTestsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/notes" element={<NotesPage />} />
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/* Settings page falls back to Profile or custom view */}
@@ -68,6 +71,7 @@ function App() {
       {/* Global Overlays */}
       <ScientificCalculator />
       <BookmarkSelectorModal />
+      <VideoSolutionModal />
     </BrowserRouter>
   )
 }

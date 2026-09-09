@@ -1,10 +1,166 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
-  X, Send, ThumbsUp, ThumbsDown, CornerDownRight, Bookmark, Play, Check, MessageSquare
+  X, Send, ThumbsUp, ThumbsDown, CornerDownRight, Bookmark, Play, Check, 
+  MessageSquare, ArrowBigUp, ArrowBigDown, Reply, Edit3, ExternalLink, ChevronLeft,
+  ChevronDown, ChevronUp, Trash2
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
-import { dummyDiscussions } from '../utils/dummyData'
+import QuestionImage from './QuestionImage'
+import FormattedContent from './FormattedContent'
+import RichTextEditor from './RichTextEditor'
+
+// Recursive component for rendering multi-level threaded replies
+function ThreadedReplyNode({
+  reply,
+  depth = 0,
+  activeReplyBox,
+  setActiveReplyBox,
+  replyDrafts,
+  setReplyDrafts,
+  handleAddReply,
+  handleDeleteComment,
+  isCommentAuthor,
+  user
+}) {
+  const hasChildren = reply.replies && reply.replies.length > 0
+  const isReplying = activeReplyBox === reply.id
+  const [showChildReplies, setShowChildReplies] = useState(false)
+  const isAuthor = isCommentAuthor ? isCommentAuthor(reply, user) : false
+
+  return (
+    <div className={`space-y-2 ${depth > 0 ? (depth < 4 ? 'pl-3 sm:pl-5 border-l-2 border-slate-200 dark:border-slate-800' : 'pl-1 sm:pl-2') : ''}`}>
+      <div className="flex items-start gap-2.5 bg-slate-50/70 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800/60">
+        <CornerDownRight size={13} className="text-slate-400 mt-1 shrink-0" />
+        <img
+          src={reply.avatar}
+          alt={reply.author}
+          className="w-6 h-6 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 shrink-0 mt-0.5 object-cover"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+              {reply.author}
+            </span>
+            {reply.replyToAuthor && (
+              <span className="text-[10px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                Replying to @{reply.replyToAuthor}
+              </span>
+            )}
+            <span className="text-[10px] text-slate-400">
+              {reply.createdAt || 'Just now'}
+            </span>
+          </div>
+
+          <div className="mt-1 text-xs text-slate-700 dark:text-slate-300">
+            <FormattedContent content={reply.content} />
+          </div>
+
+          {/* Action Row: Reply button, View/Hide Child Replies, and Delete button */}
+          <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveReplyBox(isReplying ? null : reply.id)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-primary transition-colors"
+            >
+              <Reply size={12} />
+              <span>Reply</span>
+            </button>
+
+            {hasChildren && (
+              <button
+                type="button"
+                onClick={() => setShowChildReplies(!showChildReplies)}
+                className="flex items-center gap-1 text-[11px] font-bold text-primary hover:text-primary-hover bg-primary/10 hover:bg-primary/15 px-2 py-0.5 rounded transition-all active:scale-95"
+              >
+                {showChildReplies ? (
+                  <>
+                    <ChevronUp size={12} />
+                    <span>Hide {reply.replies.length === 1 ? 'reply' : `${reply.replies.length} replies`}</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={12} />
+                    <span>View {reply.replies.length === 1 ? 'reply' : `${reply.replies.length} replies`}</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {isAuthor && handleDeleteComment && (
+              <button
+                type="button"
+                onClick={() => handleDeleteComment(reply.id)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-rose-500 hover:text-rose-600 transition-colors ml-auto sm:ml-0"
+                title="Delete your reply"
+              >
+                <Trash2 size={12} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Embedded Inline Rich Text Editor for this specific reply */}
+      {isReplying && (
+        <div className="pt-2 pl-3 sm:pl-5">
+          <div className="p-3 bg-card-light dark:bg-card-dark rounded-xl border border-primary/30 shadow-sm space-y-2">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+              <span className="flex items-center gap-1.5 text-primary">
+                <Reply size={12} />
+                <span>Replying to {reply.author}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveReplyBox(null)}
+                className="hover:text-slate-700 dark:hover:text-slate-200"
+              >
+                <X size={13} />
+              </button>
+            </div>
+
+            <RichTextEditor
+              mode="compact"
+              value={replyDrafts[reply.id] || ''}
+              onChange={(val) => setReplyDrafts((prev) => ({ ...prev, [reply.id]: val }))}
+              onSubmit={(val) => {
+                handleAddReply(reply.id, reply.author, val)
+                setShowChildReplies(true)
+              }}
+              onCancel={() => setActiveReplyBox(null)}
+              submitLabel="Post Reply"
+              placeholder={`Write your formatted reply to ${reply.author}... (supports GATE math ∑, images, markdown)`}
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Child Nested Replies */}
+      {hasChildren && showChildReplies && (
+        <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+          {reply.replies.map((childReply) => (
+            <ThreadedReplyNode
+              key={childReply.id}
+              reply={childReply}
+              depth={depth + 1}
+              activeReplyBox={activeReplyBox}
+              setActiveReplyBox={setActiveReplyBox}
+              replyDrafts={replyDrafts}
+              setReplyDrafts={setReplyDrafts}
+              handleAddReply={handleAddReply}
+              handleDeleteComment={handleDeleteComment}
+              isCommentAuthor={isCommentAuthor}
+              user={user}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function DiscussionDrawer({
   currentQuestion,
@@ -17,6 +173,7 @@ export default function DiscussionDrawer({
   handleSubmitMSQ,
   handleNATSubmit
 }) {
+  const navigate = useNavigate()
   const { 
     activeDiscussionQuestionId, 
     setActiveDiscussionQuestionId,
@@ -26,149 +183,112 @@ export default function DiscussionDrawer({
     votes,
     upvoteQuestion,
     downvoteQuestion,
-    setActiveVideoSolutionUrl
+    setActiveVideoSolutionUrl,
+    discussions,
+    solutionVotes,
+    addSolution,
+    addReply,
+    deleteComment,
+    isCommentAuthor,
+    voteSolution
   } = useAppStore()
   
   const { user, isAuthenticated } = useAuthStore()
-  const [comments, setComments] = useState([])
-  const [newCommentText, setNewCommentText] = useState('')
-  const [replyTexts, setReplyTexts] = useState({}) // { commentId: text }
-  const [activeReplyBox, setActiveReplyBox] = useState(null) // commentId
+  const [isWritingSolution, setIsWritingSolution] = useState(false)
+  const [solutionDraft, setSolutionDraft] = useState('')
+  const [replyDrafts, setReplyDrafts] = useState({}) // { [targetId]: text }
+  const [activeReplyBox, setActiveReplyBox] = useState(null) // targetId
   const [mobileTab, setMobileTab] = useState('question') // 'question' | 'discussion'
+  const [expandedReplies, setExpandedReplies] = useState({}) // { [commentId]: boolean }
 
-  // Load comments when active question changes
-  useEffect(() => {
-    if (activeDiscussionQuestionId) {
-      const mockComments = dummyDiscussions[activeDiscussionQuestionId] || []
-      setComments(mockComments)
-    }
-  }, [activeDiscussionQuestionId])
+  const toggleReplies = (id) => {
+    setExpandedReplies((prev) => ({
+      ...prev,
+      [id]: !prev[id]
+    }))
+  }
 
-  // Reset mobile tab when discussion drawer is opened
+  // Reset state when discussion drawer is opened
   useEffect(() => {
     if (activeDiscussionQuestionId) {
       setMobileTab('question')
+      setActiveReplyBox(null)
+      setIsWritingSolution(false)
+      setSolutionDraft('')
+      setReplyDrafts({})
+      setExpandedReplies({})
     }
   }, [activeDiscussionQuestionId])
 
   if (activeDiscussionQuestionId === null || !currentQuestion) return null
 
-  const handleAddComment = (e) => {
-    e.preventDefault()
-    if (!newCommentText.trim()) return
+  const comments = (discussions[activeDiscussionQuestionId] || []).slice().sort((a, b) => {
+    const netA = (a.upvotes || 0) - (a.downvotes || 0)
+    const netB = (b.upvotes || 0) - (b.downvotes || 0)
+    if (netB !== netA) return netB - netA
+    return (b.timestamp || 0) - (a.timestamp || 0)
+  })
 
-    const authorName = isAuthenticated ? user.name : 'Anonymous Guest'
+  const handlePublishSolution = (contentOverride) => {
+    const finalContent = (typeof contentOverride === 'string' && contentOverride.trim()) ? contentOverride : solutionDraft
+    if (!finalContent.trim()) return
+
+    const authorName = isAuthenticated ? user.name : 'Anonymous Scholar'
     const authorAvatar = isAuthenticated
       ? user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.name}`
-      : `https://api.dicebear.com/7.x/adventurer/svg?seed=guest-${Date.now()}`
+      : `https://api.dicebear.com/7.x/adventurer/svg?seed=scholar-${Date.now()}`
 
-    const newComment = {
-      id: Date.now(),
+    addSolution(activeDiscussionQuestionId, {
+      content: finalContent,
       author: authorName,
       avatar: authorAvatar,
-      content: newCommentText,
-      likes: 0,
-      replies: []
-    }
+      authorEmail: user?.email || null,
+      authorId: user?.email || user?.id || null
+    })
 
-    setComments((prev) => [...prev, newComment])
-    setNewCommentText('')
-    
-    // Save to our in-memory global registry so it stays when toggled
-    if (!dummyDiscussions[activeDiscussionQuestionId]) {
-      dummyDiscussions[activeDiscussionQuestionId] = []
-    }
-    dummyDiscussions[activeDiscussionQuestionId].push(newComment)
+    setSolutionDraft('')
+    setIsWritingSolution(false)
+    setMobileTab('discussion')
   }
 
-  const handleAddReply = (commentId) => {
-    const text = replyTexts[commentId]
+  const handleAddReply = (targetId, targetAuthor = null, contentOverride = null) => {
+    const text = (typeof contentOverride === 'string' && contentOverride.trim()) ? contentOverride : replyDrafts[targetId]
     if (!text || !text.trim()) return
 
-    const authorName = isAuthenticated ? user.name : 'Anonymous Guest'
+    const authorName = isAuthenticated ? user.name : 'Anonymous Scholar'
     const authorAvatar = isAuthenticated
       ? user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.name}`
-      : `https://api.dicebear.com/7.x/adventurer/svg?seed=guest-${Date.now()}`
+      : `https://api.dicebear.com/7.x/adventurer/svg?seed=scholar-${Date.now()}`
 
-    const newReply = {
-      id: Date.now(),
+    addReply(activeDiscussionQuestionId, targetId, {
+      content: text,
       author: authorName,
       avatar: authorAvatar,
-      content: text,
-      likes: 0
-    }
+      authorEmail: user?.email || null,
+      authorId: user?.email || user?.id || null,
+      replyToAuthor: targetAuthor
+    })
 
-    setComments((prev) =>
-      prev.map((c) => {
-        if (c.id === commentId) {
-          return { ...c, replies: [...c.replies, newReply] }
-        }
-        return c
-      })
-    )
-
-    setReplyTexts((prev) => ({ ...prev, [commentId]: '' }))
+    setReplyDrafts((prev) => ({ ...prev, [targetId]: '' }))
     setActiveReplyBox(null)
-
-    // Save to global registry
-    const qComments = dummyDiscussions[activeDiscussionQuestionId] || []
-    const targetComment = qComments.find((c) => c.id === commentId)
-    if (targetComment) {
-      if (!targetComment.replies) targetComment.replies = []
-      targetComment.replies.push(newReply)
-    }
+    setExpandedReplies((prev) => ({ ...prev, [targetId]: true }))
   }
 
-  const handleLikeComment = (commentId, isReply = false, parentId = null) => {
-    setComments((prev) =>
-      prev.map((c) => {
-        if (!isReply && c.id === commentId) {
-          return { ...c, likes: c.likes + 1 }
-        } else if (isReply && c.id === parentId) {
-          return {
-            ...c,
-            replies: c.replies.map((r) => (r.id === commentId ? { ...r, likes: r.likes + 1 } : r))
-          }
-        }
-        return c
-      })
-    )
+  const handleDeleteComment = (commentId) => {
+    if (!activeDiscussionQuestionId || !commentId) return
+    if (window.confirm('Are you sure you want to delete this comment?')) {
+      deleteComment(activeDiscussionQuestionId, commentId)
+    }
   }
 
   return (
-    <div className="fixed inset-0 z-[100] w-screen h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+    <div className="fixed inset-0 z-[100] w-screen h-screen flex flex-col bg-black/50 md:bg-slate-50 md:dark:bg-slate-950 overflow-hidden font-sans">
       
-      {/* Mobile view tabs */}
-      <div className="flex md:hidden border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/50 shrink-0">
-        <button
-          onClick={() => setMobileTab('question')}
-          className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${
-            mobileTab === 'question'
-              ? 'border-primary text-primary bg-indigo-500/5'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-350'
-          }`}
-        >
-          Question
-        </button>
-        <button
-          onClick={() => setMobileTab('discussion')}
-          className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition-all ${
-            mobileTab === 'discussion'
-              ? 'border-primary text-primary bg-indigo-500/5'
-              : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-350'
-          }`}
-        >
-          Discussion
-        </button>
-      </div>
-
       <div className="flex flex-1 relative min-h-0 w-full h-full">
         
-        {/* --- LEFT PANEL: QUESTION VIEW --- */}
+        {/* --- LEFT PANEL: QUESTION VIEW (Desktop & Mobile background) --- */}
         <div 
-          className={`w-full md:w-[380px] lg:w-[440px] shrink-0 border-r border-border-light dark:border-border-dark flex flex-col bg-card-light dark:bg-card-dark h-full relative ${
-            mobileTab === 'question' ? 'flex' : 'hidden md:flex'
-          }`}
+          className="w-full md:w-[380px] lg:w-[440px] shrink-0 border-r border-border-light dark:border-border-dark flex flex-col bg-card-light dark:bg-card-dark h-full relative"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/50 shrink-0">
@@ -183,7 +303,7 @@ export default function DiscussionDrawer({
           </div>
 
           {/* Question Contents Scrollable */}
-          <div className="flex-1 overflow-y-auto p-5 pr-14 custom-scrollbar space-y-5 pb-16 relative">
+          <div className="flex-1 overflow-y-auto p-5 pr-6 custom-scrollbar space-y-5 pb-20 md:pb-16 relative">
             
             {/* Subject/Topic Tags */}
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 dark:border-slate-850 pb-3 text-[10px] text-slate-400">
@@ -210,6 +330,12 @@ export default function DiscussionDrawer({
             <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
               {currentQuestion.question}
             </div>
+
+            {/* Question Diagram / Image (if present) */}
+            <QuestionImage 
+              src={currentQuestion.imageUrl || currentQuestion.diagramUrl || currentQuestion.image} 
+              alt={currentQuestion.imageAlt || 'Question Diagram'} 
+            />
 
             {/* MCQ Options */}
             {currentQuestion.type === 'MCQ' && (
@@ -357,7 +483,7 @@ export default function DiscussionDrawer({
                          <span className="text-[9px] block font-bold text-slate-40 mt-0.5 uppercase mb-0.5">Correct Key:</span>
                          <span>{currentQuestion.answer}</span>
                        </div>
-                     </div>
+                      </div>
                   </div>
                 )}
               </div>
@@ -384,223 +510,320 @@ export default function DiscussionDrawer({
               </div>
             )}
           </div>
-
-          {/* Floating Vertical Reels column */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-4 z-10 p-2.5 rounded-full bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border border-white/20 dark:border-slate-800/25 shadow-lg">
-            
-            {/* Upvote */}
-            <div className="flex flex-col items-center">
-              <button
-                onClick={() => upvoteQuestion(currentQuestion.id)}
-                className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                  votes[currentQuestion.id] === 'up'
-                    ? 'bg-primary border-primary text-white'
-                    : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
-                }`}
-              >
-                <ThumbsUp size={14} className={votes[currentQuestion.id] === 'up' ? 'fill-white text-white' : 'text-slate-500'} />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Upvote
-                </span>
-              </button>
-              <span className="text-[9px] font-bold text-slate-500 mt-0.5">
-                {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
-              </span>
-            </div>
-
-            {/* Downvote */}
-            <button
-              onClick={() => downvoteQuestion(currentQuestion.id)}
-              className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                votes[currentQuestion.id] === 'down'
-                  ? 'bg-error border-error text-white'
-                  : 'bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-855 text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              <ThumbsDown size={14} className={votes[currentQuestion.id] === 'down' ? 'fill-white text-white' : 'text-slate-500'} />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                Downvote
-              </span>
-            </button>
-
-            {/* Discussion (Highlighted since it's open) */}
-            <div className="flex flex-col items-center">
-              <button
-                className="group relative h-9 w-9 rounded-full bg-primary border-primary text-white flex items-center justify-center shadow-md transition-all cursor-default"
-              >
-                <MessageSquare size={14} className="fill-white text-white" />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                  Discussion (Open)
-                </span>
-              </button>
-              <span className="text-[9px] font-bold text-slate-500 mt-0.5">
-                {currentQuestion.commentsCount}
-              </span>
-            </div>
-
-            {/* Bookmark */}
-            <button
-              onClick={() => toggleBookmark(currentQuestion.id)}
-              className={`group relative h-9 w-9 rounded-full flex items-center justify-center shadow-md border transition-all active:scale-90 ${
-                bookmarks.includes(currentQuestion.id)
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-white dark:bg-slate-955 border-slate-200 dark:border-slate-850 text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              <Bookmark size={14} className={bookmarks.includes(currentQuestion.id) ? 'fill-white text-white' : 'text-slate-500'} />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                Bookmark
-              </span>
-            </button>
-
-            {/* Video Solution */}
-            <button
-              onClick={() => setActiveVideoSolutionUrl(currentQuestion.videoSolutionUrl)}
-              className="group relative h-9 w-9 rounded-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-855 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 transition-all active:scale-90"
-            >
-              <Play size={14} className="fill-slate-500 text-slate-500" />
-              <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                Video Solution
-              </span>
-            </button>
-          </div>
         </div>
 
-        {/* --- RIGHT PANEL: DISCUSSION WORKSPACE --- */}
+        {/* --- RIGHT PANEL: DISCUSSION WORKSPACE (YouTube style Bottom Sheet on Mobile) --- */}
         <div 
-          className={`flex-1 h-full flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-950 ${
-            mobileTab === 'discussion' ? 'flex' : 'hidden md:flex'
-          }`}
+          className="fixed bottom-0 left-0 right-0 h-[72vh] md:h-full md:relative md:flex-1 flex flex-col overflow-hidden bg-card-light dark:bg-card-dark md:bg-slate-100 md:dark:bg-slate-950 rounded-t-2xl md:rounded-none shadow-2xl md:shadow-none border-t border-border-light dark:border-border-dark md:border-t-0 z-50 animate-slide-up"
         >
+          {/* YouTube Bottom Sheet Drag Handle */}
+          <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 shrink-0 md:hidden" />
+
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/50 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/50 shrink-0">
             <div>
-              <h3 className="font-bold text-text-primary-light dark:text-text-primary-dark">Discussions</h3>
-              <p className="text-[10px] text-slate-500">Ask a question, share doubts, or explain the solution</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm md:text-base text-text-primary-light dark:text-text-primary-dark">
+                  {isWritingSolution ? '✍️ Write Solution' : 'Discussions'}
+                </h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">
+                  {comments.length} {comments.length === 1 ? 'Solution' : 'Solutions'}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                {isWritingSolution ? 'Compose structured proofs, equations & formulas' : 'Peer explanations, alternate tricks & discussions'}
+              </p>
             </div>
             
-            <button
-              onClick={() => setActiveDiscussionQuestionId(null)}
-              className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors hidden md:block"
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Comment Thread List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar bg-slate-50 dark:bg-slate-900/10">
-            {comments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400 dark:text-slate-500">
-                <span className="text-sm">No discussions yet.</span>
-                <span className="text-xs mt-1">Be the first to share your doubts or explanation!</span>
-              </div>
-            ) : (
-              comments.map((comment) => (
-                <div key={comment.id} className="space-y-3">
-                  {/* Main Comment */}
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={comment.avatar}
-                      alt={comment.author}
-                      className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">{comment.author}</span>
-                        <span className="text-[10px] text-slate-400">Just now</span>
-                      </div>
-                      <p className="text-sm mt-1 text-slate-700 dark:text-slate-350 leading-relaxed break-words">{comment.content}</p>
-                      
-                      {/* Action Bar */}
-                      <div className="flex items-center gap-3 mt-2">
-                        <button
-                          onClick={() => handleLikeComment(comment.id)}
-                          className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-primary transition-colors"
-                        >
-                          <ThumbsUp size={12} />
-                          <span>{comment.likes}</span>
-                        </button>
-                        <button
-                          onClick={() => setActiveReplyBox(activeReplyBox === comment.id ? null : comment.id)}
-                          className="text-[11px] font-medium text-slate-500 hover:text-primary transition-colors"
-                        >
-                          Reply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Sub Replies */}
-                  {comment.replies && comment.replies.map((reply) => (
-                    <div key={reply.id} className="flex items-start gap-3 pl-8">
-                      <CornerDownRight size={14} className="text-slate-400 mt-1 flex-shrink-0" />
-                      <img
-                        src={reply.avatar}
-                        alt={reply.author}
-                        className="w-6 h-6 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-[11px] font-semibold text-text-primary-light dark:text-text-primary-dark">{reply.author}</span>
-                          <span className="text-[10px] text-slate-400">Just now</span>
-                        </div>
-                        <p className="text-xs mt-0.5 text-slate-650 dark:text-slate-400 leading-relaxed break-words">{reply.content}</p>
-                        
-                        <button
-                          onClick={() => handleLikeComment(reply.id, true, comment.id)}
-                          className="flex items-center gap-1 text-[10px] mt-1 text-slate-500 hover:text-primary transition-colors"
-                        >
-                          <ThumbsUp size={10} />
-                          <span>{reply.likes}</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Reply Input Box */}
-                  {activeReplyBox === comment.id && (
-                    <div className="flex gap-2 mt-2 pl-8">
-                      <input
-                        type="text"
-                        placeholder="Write a reply..."
-                        value={replyTexts[comment.id] || ''}
-                        onChange={(e) => setReplyTexts((prev) => ({ ...prev, [comment.id]: e.target.value }))}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddReply(comment.id)}
-                        className="flex-1 h-8 px-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
-                      />
-                      <button
-                        onClick={() => handleAddReply(comment.id)}
-                        className="h-8 w-8 flex items-center justify-center rounded-btn bg-primary text-white hover:bg-primary-hover shrink-0"
-                      >
-                        <Send size={12} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Input box */}
-          <form onSubmit={handleAddComment} className="p-4 border-t border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shrink-0">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Ask a question or explain..."
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                className="flex-1 h-10 px-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
-              />
+            <div className="flex items-center gap-2">
               <button
-                type="submit"
-                className="h-10 px-4 flex items-center justify-center rounded-btn bg-primary text-white hover:bg-primary-hover transition-colors font-medium text-sm"
+                type="button"
+                onClick={() => {
+                  setActiveDiscussionQuestionId(null)
+                  navigate(`/discussion?questionId=${currentQuestion.id}`)
+                }}
+                className="hidden sm:flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors border border-slate-200 dark:border-slate-700"
+                title="Open in Dedicated Discussion Tab"
               >
-                <Send size={16} />
+                <span>Full Tab</span>
+                <ExternalLink size={12} />
+              </button>
+
+              <button
+                onClick={() => setActiveDiscussionQuestionId(null)}
+                className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+                title="Close Discussions"
+              >
+                <X size={18} />
               </button>
             </div>
-          </form>
+          </div>
+
+          {/* Solution Studio Mode */}
+          {isWritingSolution ? (
+            <div className="flex-1 flex flex-col p-4 overflow-hidden bg-card-light dark:bg-card-dark">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-border-light dark:border-border-dark text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsWritingSolution(false)}
+                  className="flex items-center gap-1 text-slate-500 hover:text-primary font-semibold"
+                >
+                  <ChevronLeft size={14} />
+                  <span>Back to Discussions</span>
+                </button>
+                <span className="text-[11px] text-slate-400">GATE Solution Studio</span>
+              </div>
+
+              <div className="flex-1 min-h-0 flex flex-col">
+                <RichTextEditor
+                  mode="full"
+                  value={solutionDraft}
+                  onChange={setSolutionDraft}
+                  onSubmit={handlePublishSolution}
+                  onCancel={() => setIsWritingSolution(false)}
+                  submitLabel="Publish Solution"
+                  placeholder="Explain the solution step-by-step using formulas, LaTeX math, diagrams, code, and highlight badges..."
+                  autoFocus
+                  className="h-full flex-1"
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Top Action Bar */}
+              <div className="p-3 bg-card-light dark:bg-card-dark border-b border-border-light dark:border-border-dark flex items-center justify-between gap-2 shrink-0">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  Solutions & Peer Explanations
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsWritingSolution(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs active:scale-95 transition-all"
+                >
+                  <Edit3 size={13} />
+                  <span>Write Solution</span>
+                </button>
+              </div>
+
+              {/* Comment / Solution Stream */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/20">
+                {comments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400 dark:text-slate-500">
+                    <MessageSquare size={32} className="mb-2 opacity-50 text-primary" />
+                    <span className="text-sm font-semibold">No solutions posted yet.</span>
+                    <span className="text-xs mt-1">Be the first to share your steps or ask a doubt!</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsWritingSolution(true)}
+                      className="mt-3 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors"
+                    >
+                      Write First Solution
+                    </button>
+                  </div>
+                ) : (
+                  comments.map((comment, idx) => {
+                    const netVotes = (comment.upvotes || 0) - (comment.downvotes || 0)
+                    const userVote = solutionVotes[comment.id]
+                    const isTopSolution = idx === 0 && netVotes > 0
+
+                    return (
+                      <div 
+                        key={comment.id} 
+                        className={`bg-card-light dark:bg-card-dark border rounded-xl p-4 shadow-xs space-y-3 ${
+                          isTopSolution 
+                            ? 'border-indigo-500/30 ring-1 ring-indigo-500/10' 
+                            : 'border-border-light dark:border-border-dark'
+                        }`}
+                      >
+                        {/* Author info */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={comment.avatar}
+                              alt={comment.author}
+                              className="w-7 h-7 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 object-cover"
+                            />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
+                                  {comment.author}
+                                </span>
+                                {isTopSolution && (
+                                  <span className="text-[9px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                    ★ Top Solution
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-slate-400">
+                                {comment.createdAt || 'Recent'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Body with Voting column */}
+                        <div className="flex items-start gap-3">
+                          {/* Upvote / Downvote column */}
+                          <div className="flex flex-col items-center bg-slate-100/70 dark:bg-slate-900/70 p-1 rounded-lg border border-slate-200/60 dark:border-slate-800/60 shrink-0 select-none">
+                            <button
+                              type="button"
+                              onClick={() => voteSolution(activeDiscussionQuestionId, comment.id, 'up')}
+                              className={`p-1 rounded transition-all active:scale-90 ${
+                                userVote === 'up'
+                                  ? 'text-emerald-500 bg-emerald-500/10'
+                                  : 'text-slate-400 hover:text-emerald-500'
+                              }`}
+                              title="Upvote"
+                            >
+                              <ArrowBigUp size={16} className={userVote === 'up' ? 'fill-emerald-500' : ''} />
+                            </button>
+
+                            <span className={`text-[11px] font-black my-0.5 font-mono ${
+                              netVotes > 0 ? 'text-emerald-600 dark:text-emerald-400' :
+                              netVotes < 0 ? 'text-rose-600 dark:text-rose-400' :
+                              'text-slate-500'
+                            }`}>
+                              {netVotes > 0 ? `+${netVotes}` : netVotes}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => voteSolution(activeDiscussionQuestionId, comment.id, 'down')}
+                              className={`p-1 rounded transition-all active:scale-90 ${
+                                userVote === 'down'
+                                  ? 'text-rose-500 bg-rose-500/10'
+                                  : 'text-slate-400 hover:text-rose-500'
+                              }`}
+                              title="Downvote"
+                            >
+                              <ArrowBigDown size={16} className={userVote === 'down' ? 'fill-rose-500' : ''} />
+                            </button>
+                          </div>
+
+                          {/* Content Area */}
+                          <div className="flex-1 min-w-0">
+                            <FormattedContent content={comment.content} />
+
+                            {/* Reply Action */}
+                            <div className="flex items-center gap-3 mt-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-850 flex-wrap">
+                              <button
+                                type="button"
+                                onClick={() => setActiveReplyBox(activeReplyBox === comment.id ? null : comment.id)}
+                                className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-primary transition-colors"
+                              >
+                                <Reply size={12} />
+                                <span>Reply</span>
+                              </button>
+
+                              {comment.replies && comment.replies.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleReplies(comment.id)}
+                                  className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary-hover bg-primary/10 hover:bg-primary/15 px-2 py-0.5 rounded-md transition-all active:scale-95"
+                                >
+                                  {expandedReplies[comment.id] ? (
+                                    <>
+                                      <ChevronUp size={12} />
+                                      <span>Hide {comment.replies.length === 1 ? 'reply' : `${comment.replies.length} replies`}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown size={12} />
+                                      <span>View {comment.replies.length === 1 ? 'reply' : `${comment.replies.length} replies`}</span>
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              {isCommentAuthor(comment, user) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="flex items-center gap-1 text-xs font-semibold text-rose-500 hover:text-rose-600 transition-colors ml-auto sm:ml-0"
+                                  title="Delete your comment"
+                                >
+                                  <Trash2 size={12} />
+                                  <span>Delete</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Threaded Nested Replies (WITHOUT VOTE BUTTONS) */}
+                        {comment.replies && comment.replies.length > 0 && expandedReplies[comment.id] && (
+                          <div className="space-y-3 pt-2 pl-3 sm:pl-6 border-t border-slate-100 dark:border-slate-850 animate-in fade-in duration-200">
+                            {comment.replies.map((reply) => (
+                              <ThreadedReplyNode
+                                key={reply.id}
+                                reply={reply}
+                                depth={0}
+                                activeReplyBox={activeReplyBox}
+                                setActiveReplyBox={setActiveReplyBox}
+                                replyDrafts={replyDrafts}
+                                setReplyDrafts={setReplyDrafts}
+                                handleAddReply={handleAddReply}
+                                handleDeleteComment={handleDeleteComment}
+                                isCommentAuthor={isCommentAuthor}
+                                user={user}
+                              />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Inline Rich Reply Editor for Solution */}
+                        {activeReplyBox === comment.id && (
+                          <div className="pt-2 pl-3 sm:pl-6">
+                            <div className="p-3 bg-card-light dark:bg-card-dark rounded-xl border border-primary/30 shadow-sm space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                <span className="flex items-center gap-1.5 text-primary">
+                                  <Reply size={12} />
+                                  <span>Replying to {comment.author}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveReplyBox(null)}
+                                  className="hover:text-slate-700 dark:hover:text-slate-200"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                              <RichTextEditor
+                                mode="compact"
+                                value={replyDrafts[comment.id] || ''}
+                                onChange={(val) => setReplyDrafts((prev) => ({ ...prev, [comment.id]: val }))}
+                                onSubmit={(val) => handleAddReply(comment.id, comment.author, val)}
+                                onCancel={() => setActiveReplyBox(null)}
+                                submitLabel="Post Reply"
+                                placeholder={`Write your formatted reply to ${comment.author}... (supports GATE math ∑, images, markdown)`}
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Bottom Call to Action */}
+              <div className="p-3 border-t border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shrink-0 flex items-center justify-between gap-3">
+                <span className="text-xs text-slate-500">Know a quicker shortcut or alternative formula?</span>
+                <button
+                  type="button"
+                  onClick={() => setIsWritingSolution(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover active:scale-95 transition-all shadow-xs"
+                >
+                  <Edit3 size={13} />
+                  <span>Share Solution</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
 }
+

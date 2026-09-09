@@ -10,6 +10,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || 'Aspirant')
   const [email, setEmail] = useState(user?.email || 'aspirant@examprep.com')
   const [isSaved, setIsSaved] = useState(false)
+  const [activeHistoryTab, setActiveHistoryTab] = useState('mock')
 
   const handleSave = (e) => {
     e.preventDefault()
@@ -168,7 +169,6 @@ export default function ProfilePage() {
 
       {/* Separated Exam Analytics & History Tabs */}
       {(() => {
-        const [activeHistoryTab, setActiveHistoryTab] = useState('mock')
         const mockHistory = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
         const pyqHistory = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
 

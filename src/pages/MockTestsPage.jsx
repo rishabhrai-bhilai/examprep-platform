@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
 import { useAppStore } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
+import QuestionImage from '../components/QuestionImage'
 
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
   const [activeTest, setActiveTest] = useState(null)
-  const { questions, calculatorOpen, setCalculatorOpen } = useAppStore()
+  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
+  
+  useEffect(() => {
+    setIsPracticeActive(view === 'testing')
+    return () => setIsPracticeActive(false)
+  }, [view, setIsPracticeActive])
   
   // Testing State variables
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -17,7 +24,16 @@ export default function MockTestsPage() {
   const [timeLeft, setTimeLeft] = useState(0) // seconds
   const [timeSpent, setTimeSpent] = useState({}) // { questionId: seconds }
   const [answerTimes, setAnswerTimes] = useState({}) // { questionId: timeLeftWhenAnswered }
+  const [showMobilePalette, setShowMobilePalette] = useState(false)
   const timerRef = useRef(null)
+
+  const handleClearResponse = (questionId) => {
+    setAnswers(prev => {
+      const updated = { ...prev }
+      delete updated[questionId]
+      return updated
+    })
+  }
   const activeQuestionIdRef = useRef(null)
 
   // Report State variables
@@ -206,13 +222,127 @@ export default function MockTestsPage() {
     setFlags((prev) => ({ ...prev, [questionId]: !prev[questionId] }))
   }
 
-  const navigateQuestion = (index) => {
+  // Reels navigation states & gestures
+  const [direction, setDirection] = useState('next')
+  const [cooldown, setCooldown] = useState(false)
+  const scrollContainerRef = useRef(null)
+  const touchStartRef = useRef(0)
+  const wheelAccumulatorRef = useRef(0)
+
+  const variants = {
+    initial: (dir) => ({
+      y: dir === 'next' ? '100%' : '-100%',
+      opacity: 0
+    }),
+    animate: {
+      y: 0,
+      opacity: 1,
+      transition: { type: 'spring', stiffness: 220, damping: 24, mass: 0.8 }
+    },
+    exit: (dir) => ({
+      y: dir === 'next' ? '-100%' : '100%',
+      opacity: 0,
+      transition: { duration: 0.25 }
+    })
+  }
+
+  const navigateQuestion = (index, forcedDir = null) => {
     if (index >= 0 && index < testQuestions.length) {
+      setDirection(forcedDir || (index > currentQuestionIndex ? 'next' : 'prev'))
       const targetQ = testQuestions[index]
       setVisited((prev) => ({ ...prev, [targetQ.id]: true }))
       setCurrentQuestionIndex(index)
     }
   }
+
+  const goToNextQuestion = () => {
+    if (currentQuestionIndex < testQuestions.length - 1 && !cooldown) {
+      setDirection('next')
+      setCooldown(true)
+      navigateQuestion(currentQuestionIndex + 1, 'next')
+      setTimeout(() => setCooldown(false), 600)
+    }
+  }
+
+  const goToPrevQuestion = () => {
+    if (currentQuestionIndex > 0 && !cooldown) {
+      setDirection('prev')
+      setCooldown(true)
+      navigateQuestion(currentQuestionIndex - 1, 'prev')
+      setTimeout(() => setCooldown(false), 600)
+    }
+  }
+
+  const handleTouchStart = (e) => {
+    touchStartRef.current = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e) => {
+    const el = scrollContainerRef.current
+    if (!el || cooldown) return
+
+    const touchEnd = e.changedTouches[0].clientY
+    const deltaY = touchStartRef.current - touchEnd
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
+    const isAtTop = el.scrollTop === 0
+
+    if (deltaY > 60 && isAtBottom) {
+      goToNextQuestion()
+    } else if (deltaY < -60 && isAtTop) {
+      goToPrevQuestion()
+    }
+  }
+
+  const handleWheel = (e) => {
+    const el = scrollContainerRef.current
+    if (!el || cooldown) {
+      wheelAccumulatorRef.current = 0
+      return
+    }
+
+    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
+    const isAtTop = el.scrollTop <= 2
+
+    if (e.deltaY > 0 && isAtBottom) {
+      e.preventDefault()
+      wheelAccumulatorRef.current += e.deltaY
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToNextQuestion()
+      }
+    } else if (e.deltaY < 0 && isAtTop) {
+      e.preventDefault()
+      wheelAccumulatorRef.current += Math.abs(e.deltaY)
+      if (wheelAccumulatorRef.current >= 350) {
+        wheelAccumulatorRef.current = 0
+        goToPrevQuestion()
+      }
+    } else {
+      wheelAccumulatorRef.current = 0
+    }
+  }
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (view !== 'testing') return
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowDown') {
+        const el = scrollContainerRef.current
+        if (el && el.scrollHeight - el.scrollTop <= el.clientHeight + 2) {
+          goToNextQuestion()
+        }
+      } else if (e.key === 'ArrowUp') {
+        const el = scrollContainerRef.current
+        if (el && el.scrollTop === 0) {
+          goToPrevQuestion()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentQuestionIndex, cooldown, view, testQuestions])
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
@@ -533,88 +663,148 @@ export default function MockTestsPage() {
         <div className="flex-1 flex min-h-0 relative flex-col md:flex-row">
           
           {/* Main Question Area (Left/Center) */}
-          <div className="flex-1 flex flex-col overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          <div className="flex-1 flex flex-col min-h-0 p-3 sm:p-4 md:p-8 relative overflow-hidden">
             
-            {/* Question Statement */}
-            <div className="p-6 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft space-y-4">
-              <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
-                <span className="font-bold text-primary">Question {currentQuestionIndex + 1} of {testQuestions.length}</span>
-                <span className="font-semibold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
-                  {activeQuestion?.difficulty}
-                </span>
-              </div>
-              
-              <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                {activeQuestion?.question}
-              </div>
-
-              {/* Multiple Choice Options */}
-              <div className="space-y-2.5 pt-4">
-                {activeQuestion?.options.map((option, idx) => {
-                  const isSelected = answers[activeQuestion.id] === idx
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectOption(activeQuestion.id, idx)}
-                      className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
-                        isSelected
-                          ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
-                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
-                      }`}
-                    >
-                      <span className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
-                        isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
-                      }`}>
-                        {String.fromCharCode(65 + idx)}
+            {/* Questions Sliding Container (Reel effect) */}
+            <div className="flex-1 relative rounded-card overflow-hidden">
+              <AnimatePresence initial={false} custom={direction} mode="wait">
+                <motion.div
+                  key={activeQuestion?.id}
+                  custom={direction}
+                  variants={variants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="absolute inset-0 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft flex flex-col"
+                >
+                  <div
+                    ref={scrollContainerRef}
+                    onWheel={handleWheel}
+                    onTouchStart={handleTouchStart}
+                    onTouchEnd={handleTouchEnd}
+                    className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
+                  >
+                    {/* Question Header */}
+                    <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
+                      <span className="font-bold text-primary">Question {currentQuestionIndex + 1} of {testQuestions.length}</span>
+                      <span className="font-semibold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded">
+                        {activeQuestion?.difficulty}
                       </span>
-                      <span>{option}</span>
-                    </button>
-                  )
-                })}
-              </div>
+                    </div>
+                    
+                    {/* Question Text */}
+                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
+                      {activeQuestion?.question}
+                    </div>
+
+                    {/* Question Diagram / Image (if present) */}
+                    <QuestionImage 
+                      src={activeQuestion?.imageUrl || activeQuestion?.diagramUrl || activeQuestion?.image} 
+                      alt={activeQuestion?.imageAlt || 'Question Diagram'} 
+                    />
+
+                    {/* Multiple Choice Options */}
+                    <div className="space-y-2.5 pt-4">
+                      {activeQuestion?.options.map((option, idx) => {
+                        const isSelected = answers[activeQuestion.id] === idx
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => handleSelectOption(activeQuestion.id, idx)}
+                            className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
+                              isSelected
+                                ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
+                                : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
+                            }`}
+                          >
+                            <span className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
+                              isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
+                            }`}>
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                            <span>{option}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
 
             {/* Bottom Actions Row */}
-            <div className="flex justify-between items-center mt-6">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigateQuestion(currentQuestionIndex - 1)}
-                  disabled={currentQuestionIndex === 0}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40 transition-colors"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => navigateQuestion(currentQuestionIndex + 1)}
-                  disabled={currentQuestionIndex === testQuestions.length - 1}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40 transition-colors"
-                >
-                  Next
-                </button>
+            <div className="flex justify-between items-center mt-3 sm:mt-4 shrink-0 w-full">
+              {/* Left Side: Desktop Previous/Next OR Mobile Clear Response */}
+              <div className="flex items-center gap-2">
+                {/* Previous / Next buttons: hidden on mobile, visible on desktop */}
+                <div className="hidden md:flex gap-2">
+                  <button
+                    onClick={goToPrevQuestion}
+                    disabled={currentQuestionIndex === 0}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={goToNextQuestion}
+                    disabled={currentQuestionIndex === testQuestions.length - 1}
+                    className="px-4 py-2 border border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 rounded-btn text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-40 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+
+                {/* Clear Response on Mobile: Anchored to the far-left so it never overlaps the center floating Question Grid button */}
+                {answers[activeQuestion?.id] !== undefined && (
+                  <button
+                    onClick={() => handleClearResponse(activeQuestion.id)}
+                    className="md:hidden px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
+                  >
+                    <RotateCcw size={14} />
+                    <span className="hidden sm:inline">Clear Response</span>
+                    <span className="sm:hidden">Clear</span>
+                  </button>
+                )}
               </div>
 
-              <button
-                onClick={() => toggleFlag(activeQuestion.id)}
-                className={`px-4 py-2 rounded-btn text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
-                  flags[activeQuestion.id]
-                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'
-                }`}
-              >
-                <Flag size={14} className={flags[activeQuestion.id] ? 'fill-amber-500' : ''} />
-                <span>{flags[activeQuestion.id] ? 'Flagged' : 'Flag Question'}</span>
-              </button>
+              {/* Right Side: Desktop Clear Response + Flag Question, or Mobile Flag Question */}
+              <div className="flex items-center gap-2 ml-auto">
+                {/* Clear Response on Desktop */}
+                {answers[activeQuestion?.id] !== undefined && (
+                  <button
+                    onClick={() => handleClearResponse(activeQuestion.id)}
+                    className="hidden md:flex px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
+                  >
+                    <RotateCcw size={14} />
+                    <span>Clear Response</span>
+                  </button>
+                )}
+
+                {/* Flag Question button (anchored to the far-right on mobile) */}
+                <button
+                  onClick={() => toggleFlag(activeQuestion?.id)}
+                  className={`px-3 sm:px-4 py-2 rounded-btn text-xs font-semibold border flex items-center gap-1.5 transition-colors ${
+                    flags[activeQuestion?.id]
+                      ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500'
+                      : 'border-slate-200 dark:border-slate-800 bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'
+                  }`}
+                >
+                  <Flag size={14} className={flags[activeQuestion?.id] ? 'fill-amber-500' : ''} />
+                  <span className="hidden sm:inline">{flags[activeQuestion?.id] ? 'Flagged' : 'Flag Question'}</span>
+                  <span className="sm:hidden">{flags[activeQuestion?.id] ? 'Flagged' : 'Flag'}</span>
+                </button>
+              </div>
             </div>
 
           </div>
 
-          {/* Right Panel: Navigator Drawer */}
-          <div className="w-full md:w-64 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex flex-col min-h-[180px] md:min-h-0 justify-between">
+          {/* Right Panel: Navigator Drawer (Desktop Only) */}
+          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col justify-between">
             <div className="space-y-4">
               <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Questions Grid</h3>
               
               {/* Grid buttons */}
-              <div className="grid grid-cols-5 gap-2 max-h-40 md:max-h-none overflow-y-auto p-1.5 pr-2">
+              <div className="grid grid-cols-5 gap-2 max-h-none overflow-y-auto p-1.5 pr-2">
                 {testQuestions.map((q, idx) => {
                   const isCurrent = idx === currentQuestionIndex
                   const isFlagged = flags[q.id]
@@ -627,7 +817,7 @@ export default function MockTestsPage() {
                   } else if (isFlagged) {
                     btnClass = 'bg-amber-500 text-white border-amber-600 outline-none focus:outline-none'
                   } else if (hasVisited) {
-                    btnClass = 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 outline-none focus:outline-none'
+                    btnClass = 'bg-rose-500 text-white border-rose-600 outline-none focus:outline-none'
                   }
 
                   if (isCurrent) {
@@ -658,7 +848,7 @@ export default function MockTestsPage() {
                 <span>Flagged</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 rounded bg-slate-200 dark:bg-slate-800 shrink-0 border border-slate-300 dark:border-slate-700"></span>
+                <span className="h-3.5 w-3.5 rounded bg-rose-500 shrink-0"></span>
                 <span>Visited but unanswered</span>
               </div>
               <div className="flex items-center gap-2">
@@ -669,12 +859,98 @@ export default function MockTestsPage() {
 
           </div>
 
+          {/* Mobile Question Palette Drawer */}
+          {showMobilePalette && (
+            <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-center items-end md:hidden">
+              <div className="w-full max-w-lg h-[50vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-y-auto animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
+                <div>
+                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-4">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Questions Palette</h3>
+                    <button
+                      onClick={() => setShowMobilePalette(false)}
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2">
+                    {testQuestions.map((q, idx) => {
+                      const isCurrent = idx === currentQuestionIndex
+                      const isFlagged = flags[q.id]
+                      const hasAnswered = answers[q.id] !== undefined
+                      const hasVisited = visited[q.id]
+
+                      let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                      if (hasAnswered) {
+                        btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                      } else if (isFlagged) {
+                        btnClass = 'bg-amber-500 text-white border-amber-600'
+                      } else if (hasVisited) {
+                        btnClass = 'bg-rose-500 text-white border-rose-600'
+                      }
+
+                      if (isCurrent) {
+                        btnClass += ' ring-2 ring-primary font-bold'
+                      }
+
+                      return (
+                        <button
+                          key={q.id}
+                          onClick={() => {
+                            setCurrentQuestionIndex(idx)
+                            setShowMobilePalette(false)
+                          }}
+                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 px-2 grid grid-cols-2 gap-y-2 gap-x-4 text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-emerald-500 shrink-0"></span>
+                      <span>Answered</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-amber-500 shrink-0"></span>
+                      <span>Flagged</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-rose-500 shrink-0"></span>
+                      <span>Visited but unanswered</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0"></span>
+                      <span>Not Visited</span>
+                    </div>
+                  </div>
+
+                  {/* Clearance space reserved for floating button */}
+                  <div className="h-16 w-full shrink-0" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Single Bottom-Center Floating Question Grid Toggle Button (Icon Only) */}
+          <button
+            onClick={() => setShowMobilePalette(prev => !prev)}
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full bg-primary hover:bg-primary-hover text-white shadow-2xl flex items-center justify-center border border-white/20 active:scale-95 transition-all md:hidden"
+            title={showMobilePalette ? 'Close Palette' : 'Question Palette'}
+          >
+            {showMobilePalette ? <X size={22} /> : <Grid size={22} />}
+          </button>
+
         </div>
       </div>
     )
   }
 
-  // 3. Post-Test Report View
   // 3. Post-Test Report View
   if (view === 'report') {
     const history = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
@@ -1404,6 +1680,12 @@ export default function MockTestsPage() {
                         {q.question}
                       </p>
 
+                      {/* Question Diagram / Image (if present) */}
+                      <QuestionImage 
+                        src={q.imageUrl || q.diagramUrl || q.image} 
+                        alt={q.imageAlt || 'Question Diagram'} 
+                      />
+
                       {/* Option chosen vs Key */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
                         <div className={`p-3 rounded border ${
@@ -1430,7 +1712,11 @@ export default function MockTestsPage() {
                       {/* Explanatory notes */}
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
-                        {q.explanation}
+                        <p>{q.explanation}</p>
+                        <QuestionImage 
+                          src={q.explanationImageUrl || q.solutionImageUrl} 
+                          alt="Explanation Diagram" 
+                        />
                       </div>
 
                       {/* Error Tagging Selector (no-print) - Only show for incorrect answers */}
