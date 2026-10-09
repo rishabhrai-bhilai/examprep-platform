@@ -20,6 +20,7 @@ import BookmarksPage from './pages/BookmarksPage'
 import NotesPage from './pages/NotesPage'
 import ProfilePage from './pages/ProfilePage'
 import DiscussionPage from './pages/DiscussionPage'
+import VisitorAnalyticsPage from './pages/VisitorAnalyticsPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -29,7 +30,7 @@ import AuthPromptModal from './components/AuthPromptModal'
 
 function App() {
   const { theme, fetchQuestions, syncUserData } = useAppStore()
-  const { checkAuth } = useAuthStore()
+  const { checkAuth, pingVisitor } = useAuthStore()
 
   // Verify auth session on mount & fetch cloud data
   useEffect(() => {
@@ -38,10 +39,13 @@ function App() {
       const user = await checkAuth()
       if (user) {
         await syncUserData()
+        pingVisitor(user.name)
+      } else {
+        pingVisitor()
       }
     }
     initializeApp()
-  }, [fetchQuestions, checkAuth, syncUserData])
+  }, [fetchQuestions, checkAuth, syncUserData, pingVisitor])
 
   // Apply dark mode theme class to html node on mount and changes
   useEffect(() => {
@@ -72,6 +76,7 @@ function App() {
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<ProfilePage />} />
+          <Route path="/admin-visitors" element={<VisitorAnalyticsPage />} />
         </Route>
 
         {/* Fallback Redirect */}

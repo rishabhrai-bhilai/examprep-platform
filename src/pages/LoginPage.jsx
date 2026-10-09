@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { BookOpen, Lock, Mail, AlertCircle, Eye, EyeOff, User, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
@@ -8,8 +8,12 @@ import GoogleSignInButton from '../components/GoogleSignInButton'
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, error, loading, clearError, isAuthenticated } = useAuthStore()
+  const { login, quickLogin, error, loading, clearError, isAuthenticated } = useAuthStore()
   const { syncUserData } = useAppStore()
+
+  // Temporary simplified name login enabled by default; standard email/password intact
+  const [useStandardLogin, setUseStandardLogin] = useState(false)
+  const [quickName, setQuickName] = useState('')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +27,17 @@ export default function LoginPage() {
       navigate(from, { replace: true })
     }
   }, [isAuthenticated, navigate, clearError, location.state])
+
+  const handleQuickSubmit = async (e) => {
+    e.preventDefault()
+    if (!quickName.trim()) return
+    const result = await quickLogin(quickName.trim())
+    if (result.success) {
+      await syncUserData()
+      const from = location.state?.from || '/dashboard'
+      navigate(from, { replace: true })
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -45,8 +60,14 @@ export default function LoginPage() {
             <BookOpen className="text-primary" size={28} />
             <span>Exam<span className="text-primary">Prep</span></span>
           </Link>
-          <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">Sign in to your account</h2>
-          <p className="text-xs text-slate-500">Welcome back! Sign in below to access your cloud-synced study session.</p>
+          <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            {useStandardLogin ? 'Sign in to your account' : 'Welcome to ExamPrep'}
+          </h2>
+          <p className="text-xs text-slate-500">
+            {useStandardLogin
+              ? 'Welcome back! Sign in below to access your cloud-synced study session.'
+              : 'Enter your name below to start exploring all features immediately.'}
+          </p>
         </div>
 
         {/* Error Alert */}
@@ -57,17 +78,77 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Google Sign-in */}
-        <div className="space-y-3">
-          <GoogleSignInButton text="Sign in with Google" />
-          
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
-            <span className="bg-card-light dark:bg-card-dark px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
-              or continue with email
-            </span>
+        {/* 1. Quick Name Login (Temporary Default) */}
+        {!useStandardLogin ? (
+          <div className="space-y-5">
+            <form onSubmit={handleQuickSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                  Your Name
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                    <User size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    placeholder="Enter your name (e.g. Alex)..."
+                    value={quickName}
+                    onChange={(e) => setQuickName(e.target.value)}
+                    className="w-full h-11 pl-11 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark font-medium shadow-xs"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Instant access: enter any name to get started, or 'super' for admin view.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !quickName.trim()}
+                className="w-full h-11 bg-primary hover:bg-primary-hover text-white font-bold rounded-btn shadow-md transition-all active:scale-95 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <span>{loading ? 'Entering...' : 'Enter ExamPrep'}</span>
+                <ArrowRight size={16} />
+              </button>
+            </form>
+
+            <div className="text-center pt-2">
+              <button
+                type="button"
+                onClick={() => setUseStandardLogin(true)}
+                className="text-xs font-medium text-slate-500 hover:text-primary transition-colors underline decoration-dotted"
+              >
+                Use standard email & password sign-in
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          /* 2. Standard Login (Preserved Intact) */
+          <div className="space-y-5">
+            <div className="text-left">
+              <button
+                type="button"
+                onClick={() => setUseStandardLogin(false)}
+                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+              >
+                <span>← Quick sign in with name</span>
+              </button>
+            </div>
+
+            {/* Google Sign-in */}
+            <div className="space-y-3">
+              <GoogleSignInButton text="Sign in with Google" />
+              
+              <div className="relative flex items-center justify-center">
+                <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+                <span className="bg-card-light dark:bg-card-dark px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
+                  or continue with email
+                </span>
+              </div>
+            </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -132,8 +213,10 @@ export default function LoginPage() {
             Create an account
           </Link>
         </div>
-
       </div>
-    </div>
+    )}
+
+  </div>
+</div>
   )
 }

@@ -6,6 +6,16 @@ export const useAuthStore = create((set, get) => ({
   isAuthenticated: !!(localStorage.getItem('auth_token') && localStorage.getItem('user')),
   error: null,
   loading: false,
+  visitorStats: {
+    totalUniqueUsers: 0,
+    totalVisits: 0,
+    visitors: []
+  },
+
+  isSuperUser: () => {
+    const user = get().user
+    return !!(user && user.name && user.name.trim().toLowerCase() === 'super')
+  },
 
   // Auth Prompt Modal state (triggered when guest clicks restricted action)
   authPrompt: {
@@ -190,6 +200,84 @@ export const useAuthStore = create((set, get) => ({
       set({ error: err.message, loading: false })
       return { success: false, error: err.message }
     }
+  },
+
+  quickLogin: async (name) => {
+    set({ loading: true, error: null })
+    try {
+      if (!name || !name.trim()) {
+        throw new Error('Please enter your name to continue.')
+      }
+
+      const res = await fetch('/api/auth/quick-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sign in.')
+      }
+
+      localStorage.setItem('auth_token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+
+      set({
+        user: data.user,
+        token: data.token,
+        isAuthenticated: true,
+        loading: false,
+        error: null
+      })
+
+      if (data.visitorStats) {
+        set({ visitorStats: data.visitorStats })
+      }
+
+      get().closeAuthPrompt()
+      return { success: true, user: data.user }
+    } catch (err) {
+      set({ error: err.message, loading: false })
+      return { success: false, error: err.message }
+    }
+  },
+
+  fetchVisitorStats: async () => {
+    const token = get().token || localStorage.getItem('auth_token')
+    try {
+      const res = await fetch('/api/visitors', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      set({ visitorStats: data })
+      return data
+    } catch (err) {
+      console.warn('Failed to fetch visitor stats:', err.message)
+      return null
+    }
+  },
+
+  pingVisitor: async (name = null) => {
+    try {
+      const userName = name || get().user?.name || 'Guest'
+      const res = await fetch('/api/visitors/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: userName })
+      })
+      if (res.ok) {
+        const data = await res.json()
+        set((state) => ({
+          visitorStats: {
+            ...state.visitorStats,
+            totalUniqueUsers: data.totalUniqueUsers,
+            totalVisits: data.totalVisits
+          }
+        }))
+      }
+    } catch (_) {}
   },
 
   logout: () => {

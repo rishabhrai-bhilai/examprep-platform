@@ -10,11 +10,12 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, visitorDb } from './db/index.js'
 import { 
   hashPassword, 
   verifyPassword, 
   generateToken, 
+  verifyToken,
   parseGoogleCredential, 
   requireAuth 
 } from './services/auth.js'
@@ -315,6 +316,99 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
     res.status(200).json({ message: 'Profile updated successfully.', user: sanitizeUser(updated) })
   } catch (err) {
     res.status(500).json({ error: 'Failed to update profile.' })
+  }
+})
+
+// 6. Temporary Quick Login by Name
+app.post('/api/auth/quick-login', (req, res) => {
+  try {
+    const { name } = req.body || {}
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Please enter your name.' })
+    }
+
+    const cleanName = name.trim()
+    const isSuper = cleanName.toLowerCase() === 'super'
+    const role = isSuper ? 'super' : 'user'
+    const email = isSuper ? 'super@examprep.local' : `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_')}@examprep.local`
+
+    // Find existing or create user
+    let user = userDb.findByEmail(email)
+    if (!user) {
+      user = userDb.create({
+        name: cleanName,
+        email,
+        role,
+        provider: 'quick'
+      })
+    } else {
+      user = userDb.update(user.id, { role, name: cleanName })
+    }
+
+    // Record visit in visitor tracking database
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+    const userAgent = req.headers['user-agent']
+    const stats = visitorDb.recordVisit(cleanName, { ip: clientIp, userAgent })
+
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
+    res.status(200).json({
+      message: 'Quick login successful.',
+      token,
+      user: { ...sanitizeUser(user), role: user.role, isSuper },
+      visitorStats: stats
+    })
+  } catch (err) {
+    console.error('Quick login error:', err)
+    res.status(500).json({ error: 'Failed to process quick login.' })
+  }
+})
+
+// --- REST API: VISITOR TRACKING & ANALYTICS ---
+
+// 1. Get Visitor Stats & Logs (Super User only)
+app.get('/api/visitors', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization
+    let isSuper = false
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1]
+        const decoded = verifyToken(token)
+        if (decoded) {
+          const user = userDb.findById(decoded.userId)
+          if (user && (user.role === 'super' || (user.name && user.name.trim().toLowerCase() === 'super'))) {
+            isSuper = true
+          }
+        }
+      } catch (_) {}
+    }
+
+    const stats = visitorDb.getStats()
+    if (!isSuper) {
+      return res.status(403).json({ error: 'Access restricted to Super User.' })
+    }
+
+    res.status(200).json(stats)
+  } catch (err) {
+    console.error('Error fetching visitor stats:', err)
+    res.status(500).json({ error: 'Failed to fetch visitor stats.' })
+  }
+})
+
+// 2. Ping Visitor (counts anonymous or logged-in visit)
+app.post('/api/visitors/ping', (req, res) => {
+  try {
+    const { name } = req.body || {}
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress
+    const userAgent = req.headers['user-agent']
+    const stats = visitorDb.recordVisit(name || 'Guest', { ip: clientIp, userAgent })
+    res.status(200).json({
+      totalUniqueUsers: stats.totalUniqueUsers,
+      totalVisits: stats.totalVisits
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record visitor ping.' })
   }
 })
 

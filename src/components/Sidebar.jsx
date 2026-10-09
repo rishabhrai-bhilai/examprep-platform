@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Users } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Sidebar() {
   const location = useLocation()
@@ -17,6 +18,14 @@ export default function Sidebar() {
     bookmarks,
     bookmarkFolders 
   } = useAppStore()
+  const { isSuperUser, visitorStats, fetchVisitorStats } = useAuthStore()
+  const isSuper = isSuperUser()
+
+  React.useEffect(() => {
+    if (isSuper) {
+      fetchVisitorStats()
+    }
+  }, [isSuper, fetchVisitorStats])
 
   // Local override so user can still manually toggle
   const [manualOverride, setManualOverride] = React.useState(null)
@@ -73,6 +82,14 @@ export default function Sidebar() {
     { name: 'Scratchpad Notes', path: '/notes', icon: NotebookPen, badge: notesCount },
     { name: 'Discussion Forum', path: '/discussion', icon: MessageSquare },
     { name: 'Profile', path: '/profile', icon: User },
+    ...(isSuper ? [
+      { 
+        name: 'Visitor Analytics', 
+        path: '/admin-visitors', 
+        icon: Users, 
+        badge: visitorStats?.totalUniqueUsers || 0 
+      }
+    ] : [])
   ]
 
   const handleLinkClick = () => {

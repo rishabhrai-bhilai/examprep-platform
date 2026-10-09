@@ -16,7 +16,8 @@ const FILES = {
   bookmarks: path.join(DATA_DIR, 'bookmarks.json'),
   notes: path.join(DATA_DIR, 'notes.json'),
   testRecords: path.join(DATA_DIR, 'test_records.json'),
-  discussions: path.join(DATA_DIR, 'discussions.json')
+  discussions: path.join(DATA_DIR, 'discussions.json'),
+  visitors: path.join(DATA_DIR, 'visitors.json')
 }
 
 // Safely read JSON file with default fallback
@@ -179,3 +180,51 @@ export const discussionDb = {
     return discussions
   }
 }
+
+// --- VISITOR TRACKING DB ---
+export const visitorDb = {
+  getAll: () => readJson(FILES.visitors, []),
+
+  recordVisit: (name, metadata = {}) => {
+    const list = readJson(FILES.visitors, [])
+    const cleanName = (name && typeof name === 'string' ? name.trim() : 'Guest') || 'Guest'
+    const now = new Date().toISOString()
+
+    let visitor = list.find(v => v.name.toLowerCase() === cleanName.toLowerCase())
+    if (visitor) {
+      visitor.visitCount = (visitor.visitCount || 1) + 1
+      visitor.lastVisitedAt = now
+      if (metadata.ip && !visitor.ip) visitor.ip = metadata.ip
+      if (metadata.userAgent && !visitor.userAgent) visitor.userAgent = metadata.userAgent
+    } else {
+      visitor = {
+        id: `vis-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        name: cleanName,
+        firstVisitedAt: now,
+        lastVisitedAt: now,
+        visitCount: 1,
+        ip: metadata.ip || null,
+        userAgent: metadata.userAgent || null
+      }
+      list.unshift(visitor)
+    }
+
+    writeJsonAtomic(FILES.visitors, list)
+    return {
+      visitor,
+      totalUniqueUsers: list.length,
+      totalVisits: list.reduce((acc, v) => acc + (v.visitCount || 1), 0),
+      visitors: list
+    }
+  },
+
+  getStats: () => {
+    const list = readJson(FILES.visitors, [])
+    return {
+      totalUniqueUsers: list.length,
+      totalVisits: list.reduce((acc, v) => acc + (v.visitCount || 1), 0),
+      visitors: list
+    }
+  }
+}
+
