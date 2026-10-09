@@ -57,8 +57,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<LandingPage />} />
+        {/* Public Routes (Temporarily showing Login page as direct starting point) */}
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
