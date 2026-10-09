@@ -37,11 +37,9 @@ function App() {
     const initializeApp = async () => {
       fetchQuestions()
       const user = await checkAuth()
-      if (user) {
+      if (user && user.name) {
         await syncUserData()
         pingVisitor(user.name)
-      } else {
-        pingVisitor()
       }
     }
     initializeApp()

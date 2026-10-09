@@ -400,9 +400,16 @@ app.get('/api/visitors', (req, res) => {
 app.post('/api/visitors/ping', (req, res) => {
   try {
     const { name } = req.body || {}
+    if (!name || name === 'Guest') {
+      const stats = visitorDb.getStats()
+      return res.status(200).json({
+        totalUniqueUsers: stats.totalUniqueUsers,
+        totalVisits: stats.totalVisits
+      })
+    }
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress
     const userAgent = req.headers['user-agent']
-    const stats = visitorDb.recordVisit(name || 'Guest', { ip: clientIp, userAgent })
+    const stats = visitorDb.recordVisit(name, { ip: clientIp, userAgent })
     res.status(200).json({
       totalUniqueUsers: stats.totalUniqueUsers,
       totalVisits: stats.totalVisits
