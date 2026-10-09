@@ -89,3 +89,16 @@
 .calc-btn {
   @apply flex items-center justify-center h-12 rounded-btn font-medium transition-all text-sm active:scale-95 duration-75;
 }
+
+/* KaTeX math visibility and readability enhancements */
+.katex {
+  font-size: 1.05em;
+  text-rendering: geometricPrecision;
+}
+
+.katex .mathbb,
+.katex .amsrm {
+  font-weight: 700 !important;
+  -webkit-text-stroke: 0.4px currentColor;
+  text-shadow: 0 0 0.2px currentColor;
+}

@@ -8,6 +8,7 @@ import {
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import QuestionImage from './QuestionImage'
+import QuestionText from './QuestionText'
 import FormattedContent from './FormattedContent'
 import RichTextEditor from './RichTextEditor'
 
@@ -22,7 +23,9 @@ function ThreadedReplyNode({
   handleAddReply,
   handleDeleteComment,
   isCommentAuthor,
-  user
+  user,
+  isAuthenticated,
+  openAuthPrompt
 }) {
   const hasChildren = reply.replies && reply.replies.length > 0
   const isReplying = activeReplyBox === reply.id
@@ -61,7 +64,13 @@ function ThreadedReplyNode({
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             <button
               type="button"
-              onClick={() => setActiveReplyBox(isReplying ? null : reply.id)}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  openAuthPrompt && openAuthPrompt('reply to discussions', 'Please register or log in to reply to comments and discussions.')
+                  return
+                }
+                setActiveReplyBox(isReplying ? null : reply.id)
+              }}
               className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-primary transition-colors"
             >
               <Reply size={12} />
@@ -154,6 +163,8 @@ function ThreadedReplyNode({
               handleDeleteComment={handleDeleteComment}
               isCommentAuthor={isCommentAuthor}
               user={user}
+              isAuthenticated={isAuthenticated}
+              openAuthPrompt={openAuthPrompt}
             />
           ))}
         </div>
@@ -193,7 +204,7 @@ export default function DiscussionDrawer({
     voteSolution
   } = useAppStore()
   
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, openAuthPrompt } = useAuthStore()
   const [isWritingSolution, setIsWritingSolution] = useState(false)
   const [solutionDraft, setSolutionDraft] = useState('')
   const [replyDrafts, setReplyDrafts] = useState({}) // { [targetId]: text }
@@ -311,7 +322,7 @@ export default function DiscussionDrawer({
               <span>•</span>
               <span className="truncate max-w-[120px]">{currentQuestion.topic}</span>
               <span>•</span>
-              <span className="font-semibold">{currentQuestion.year}</span>
+              <span className="font-semibold">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
             </div>
 
             <div className="flex items-center gap-1.5">
@@ -327,8 +338,8 @@ export default function DiscussionDrawer({
             </div>
 
             {/* Question Text */}
-            <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
-              {currentQuestion.question}
+            <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+              <QuestionText text={currentQuestion.question} />
             </div>
 
             {/* Question Diagram / Image (if present) */}
@@ -597,7 +608,13 @@ export default function DiscussionDrawer({
                 </span>
                 <button
                   type="button"
-                  onClick={() => setIsWritingSolution(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                      return
+                    }
+                    setIsWritingSolution(true)
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover shadow-xs active:scale-95 transition-all"
                 >
                   <Edit3 size={13} />
@@ -614,7 +631,13 @@ export default function DiscussionDrawer({
                     <span className="text-xs mt-1">Be the first to share your steps or ask a doubt!</span>
                     <button
                       type="button"
-                      onClick={() => setIsWritingSolution(true)}
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                          return
+                        }
+                        setIsWritingSolution(true)
+                      }}
                       className="mt-3 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover transition-colors"
                     >
                       Write First Solution
@@ -708,7 +731,13 @@ export default function DiscussionDrawer({
                             <div className="flex items-center gap-3 mt-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-850 flex-wrap">
                               <button
                                 type="button"
-                                onClick={() => setActiveReplyBox(activeReplyBox === comment.id ? null : comment.id)}
+                                onClick={() => {
+                                  if (!isAuthenticated) {
+                                    openAuthPrompt('reply to discussions', 'Please register or log in to reply to comments and discussions.')
+                                    return
+                                  }
+                                  setActiveReplyBox(activeReplyBox === comment.id ? null : comment.id)
+                                }}
                                 className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-primary transition-colors"
                               >
                                 <Reply size={12} />
@@ -766,6 +795,8 @@ export default function DiscussionDrawer({
                                 handleDeleteComment={handleDeleteComment}
                                 isCommentAuthor={isCommentAuthor}
                                 user={user}
+                                isAuthenticated={isAuthenticated}
+                                openAuthPrompt={openAuthPrompt}
                               />
                             ))}
                           </div>
@@ -812,7 +843,13 @@ export default function DiscussionDrawer({
                 <span className="text-xs text-slate-500">Know a quicker shortcut or alternative formula?</span>
                 <button
                   type="button"
-                  onClick={() => setIsWritingSolution(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                      return
+                    }
+                    setIsWritingSolution(true)
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-bold hover:bg-primary-hover active:scale-95 transition-all shadow-xs"
                 >
                   <Edit3 size={13} />

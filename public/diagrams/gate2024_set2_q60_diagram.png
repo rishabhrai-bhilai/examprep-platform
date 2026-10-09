@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 360" width="460" height="360">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+  <text x="230" y="30" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1e293b" text-anchor="middle">Graph G (Find Chromatic Number)</text>
+
+  <!-- 8 vertices coordinates around center (230, 190) radius 110 -->
+  <!-- v1 (0 deg, right): (340, 190) -->
+  <!-- v2 (45 deg): (308, 268) -->
+  <!-- v3 (90 deg, bottom): (230, 300) -->
+  <!-- v4 (135 deg): (152, 268) -->
+  <!-- v5 (180 deg, left): (120, 190) -->
+  <!-- v6 (225 deg): (152, 112) -->
+  <!-- v7 (270 deg, top): (230, 80) -->
+  <!-- v8 (315 deg): (308, 112) -->
+
+  <!-- Edges: Bipartite alternating (odd indices in set A, even indices in set B) -->
+  <g stroke="#64748b" stroke-width="2" opacity="0.8">
+    <!-- Perimeter ring -->
+    <line x1="340" y1="190" x2="308" y2="268"/>
+    <line x1="308" y1="268" x2="230" y2="300"/>
+    <line x1="230" y1="300" x2="152" y2="268"/>
+    <line x1="152" y1="268" x2="120" y2="190"/>
+    <line x1="120" y1="190" x2="152" y2="112"/>
+    <line x1="152" y1="112" x2="230" y2="80"/>
+    <line x1="230" y1="80" x2="308" y2="112"/>
+    <line x1="308" y1="112" x2="340" y2="190"/>
+
+    <!-- Cross bipartite chords -->
+    <line x1="340" y1="190" x2="152" y2="268"/>
+    <line x1="120" y1="190" x2="308" y2="112"/>
+    <line x1="230" y1="80" x2="308" y2="268"/>
+    <line x1="230" y1="300" x2="152" y2="112"/>
+  </g>
+
+  <!-- Vertices: color-coded to visually illustrate 2-colorability -->
+  <g stroke="#1e293b" stroke-width="2.5" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">
+    <!-- Set A (Odd vertices) -->
+    <circle cx="340" cy="190" r="16" fill="#3b82f6"/>
+    <text x="340" y="195" fill="#ffffff">v₁</text>
+
+    <circle cx="230" cy="300" r="16" fill="#3b82f6"/>
+    <text x="230" y="305" fill="#ffffff">v₃</text>
+
+    <circle cx="120" cy="190" r="16" fill="#3b82f6"/>
+    <text x="120" y="195" fill="#ffffff">v₅</text>
+
+    <circle cx="230" cy="80" r="16" fill="#3b82f6"/>
+    <text x="230" y="85" fill="#ffffff">v₇</text>
+
+    <!-- Set B (Even vertices) -->
+    <circle cx="308" cy="268" r="16" fill="#10b981"/>
+    <text x="308" y="273" fill="#ffffff">v₂</text>
+
+    <circle cx="152" cy="268" r="16" fill="#10b981"/>
+    <text x="152" y="273" fill="#ffffff">v₄</text>
+
+    <circle cx="152" cy="112" r="16" fill="#10b981"/>
+    <text x="152" y="117" fill="#ffffff">v₆</text>
+
+    <circle cx="308" cy="112" r="16" fill="#10b981"/>
+    <text x="308" y="117" fill="#ffffff">v₈</text>
+  </g>
+  <text x="230" y="340" font-family="sans-serif" font-size="11" fill="#64748b" text-anchor="middle">Bipartite Graph (Partitions V₁ and V₂) → Chromatic Number = 2</text>
+</svg>

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 220" width="540" height="220" style="background:#ffffff; font-family: 'Times New Roman', Times, serif;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#0f172a"/>
+    </marker>
+  </defs>
+
+  <!-- Start arrow into q0 -->
+  <line x1="45" y1="115" x2="82" y2="115" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- State q0 -->
+  <circle cx="106" cy="115" r="24" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="106" y="122" text-anchor="middle" font-size="20" font-style="italic" fill="#0f172a">q<tspan font-size="14" dy="4">0</tspan></text>
+
+  <!-- Self loop above q0: 1, Z -> 1Z / 0, Z -> 0Z -->
+  <path d="M 94 93 C 65 45, 147 45, 118 93" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="135" y="52" font-size="16" fill="#0f172a">1, <tspan font-style="italic">Z</tspan> → 1<tspan font-style="italic">Z</tspan></text>
+  <text x="135" y="74" font-size="16" fill="#0f172a">0, <tspan font-style="italic">Z</tspan> → 0<tspan font-style="italic">Z</tspan></text>
+
+  <!-- Transition q0 to q1: curved down -->
+  <path d="M 124 131 C 158 175, 232 175, 266 131" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="195" y="195" text-anchor="middle" font-size="17" fill="#0f172a">0/1/ϵ, <tspan font-style="italic">Z</tspan> → <tspan font-style="italic">Z</tspan></text>
+
+  <!-- State q1 -->
+  <circle cx="284" cy="115" r="24" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <text x="284" y="122" text-anchor="middle" font-size="20" font-style="italic" fill="#0f172a">q<tspan font-size="14" dy="4">1</tspan></text>
+
+  <!-- Self loop above q1: 0, 1Z -> Z / 1, 0Z -> Z -->
+  <path d="M 272 93 C 243 45, 325 45, 296 93" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="315" y="52" font-size="16" fill="#0f172a">0, 1<tspan font-style="italic">Z</tspan> → <tspan font-style="italic">Z</tspan></text>
+  <text x="315" y="74" font-size="16" fill="#0f172a">1, 0<tspan font-style="italic">Z</tspan> → <tspan font-style="italic">Z</tspan></text>
+
+  <!-- Transition q1 to q2: curved down -->
+  <path d="M 302 131 C 336 175, 410 175, 444 131" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="373" y="195" text-anchor="middle" font-size="17" fill="#0f172a">ϵ, ⊥ → ϵ</text>
+
+  <!-- State q2 (accepting - double circle) -->
+  <circle cx="462" cy="115" r="24" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <circle cx="462" cy="115" r="19" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>
+  <text x="462" y="122" text-anchor="middle" font-size="20" font-style="italic" fill="#0f172a">q<tspan font-size="14" dy="4">2</tspan></text>
+</svg>

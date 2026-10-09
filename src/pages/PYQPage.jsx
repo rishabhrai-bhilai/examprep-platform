@@ -11,6 +11,7 @@ import { useAppStore } from '../store/useAppStore'
 import DiscussionDrawer from '../components/DiscussionDrawer'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import QuestionImage from '../components/QuestionImage'
+import QuestionText from '../components/QuestionText'
 
 export default function PYQPage() {
   const {
@@ -186,8 +187,39 @@ export default function PYQPage() {
   const totalQuestions = activeQuestions.length
 
   // --- STATS COMPILING ---
+  const parseSet = (s) => {
+    if (typeof s === 'string') {
+      const m = s.match(/\d+/)
+      return m ? parseInt(m[0], 10) : 1
+    }
+    return Number(s) || 1
+  }
+
   // Get all unique years
   const years = Array.from(new Set(questions.map(q => q.year))).sort().reverse()
+  
+  // Group questions by Year and Set
+  const yearPapers = useMemo(() => {
+    const map = {}
+    questions.forEach(q => {
+      const yr = String(q.year)
+      const s = parseSet(q.set)
+      const key = `${yr}_${s}`
+      if (!map[key]) {
+        map[key] = {
+          key,
+          year: yr,
+          set: s,
+          count: 0
+        }
+      }
+      map[key].count++
+    })
+    return Object.values(map).sort((a, b) => {
+      if (b.year !== a.year) return Number(b.year) - Number(a.year)
+      return a.set - b.set
+    })
+  }, [questions])
   
   // Get all unique subjects with counts
   const subjectsMap = questions.reduce((acc, q) => {
@@ -449,9 +481,10 @@ export default function PYQPage() {
         limitQuestionsCount
       )
     } else if (view === 'topic') {
+      const topicNames = Array.from(new Set(selectedTopics.map(t => t.topic)))
       startReelsSession(
-        q => selectedTopics.includes(q.topic),
-        selectedTopics.join(', '),
+        q => selectedTopics.some(t => t.subject === q.subject && t.topic === q.topic),
+        topicNames.join(', '),
         '',
         limitQuestionsCount
       )
@@ -726,17 +759,27 @@ export default function PYQPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {years.map(year => {
-              const count = questions.filter(q => String(q.year) === String(year)).length
+            {yearPapers.map(paper => {
+              const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
+              const title = hasMultipleSets ? `GATE ${paper.year} • Set ${paper.set}` : `GATE ${paper.year}`
               return (
                 <div
-                  key={year}
-                  onClick={() => startReelsSession(q => String(q.year) === String(year), `Year ${year}`, `year=${year}`)}
-                  className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center"
+                  key={paper.key}
+                  onClick={() => startReelsSession(
+                    q => String(q.year) === String(paper.year) && parseSet(q.set) === parseSet(paper.set),
+                    title,
+                    `year=${paper.year}&set=${paper.set}`
+                  )}
+                  className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center group min-h-[82px]"
                 >
-                  <span className="font-bold text-sm text-slate-850 dark:text-slate-100">{year}</span>
-                  <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded">
-                    {count} Questions
+                  <div>
+                    <span className="font-bold text-sm text-slate-850 dark:text-slate-100 block group-hover:text-primary transition-colors">
+                      {paper.year} {hasMultipleSets ? `Set ${paper.set}` : 'Exam Paper'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Official Paper</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded shrink-0">
+                    {paper.count} Questions
                   </span>
                 </div>
               )
@@ -838,14 +881,8 @@ export default function PYQPage() {
               {selectedTopics.length > 0 && (
                 <button
                   onClick={() => {
-                    const totalAvailable = selectedTopics.reduce((sum, topic) => {
-                      let count = 0
-                      Object.keys(topicsMap).forEach(sub => {
-                        if (topicsMap[sub][topic]) {
-                          count += topicsMap[sub][topic]
-                        }
-                      })
-                      return sum + count
+                    const totalAvailable = selectedTopics.reduce((sum, item) => {
+                      return sum + (topicsMap[item.subject]?.[item.topic] || 0)
                     }, 0)
                     setMaxAvailableQuestions(totalAvailable)
                     setLimitQuestionsCount(Math.min(15, totalAvailable))
@@ -951,16 +988,17 @@ export default function PYQPage() {
               filteredTopicsList.map(({ topicName, subjectName, questionCount }) => {
                 const config = getSubjectConfig(subjectName)
                 const SubjectIcon = config.icon
-                const isSelected = selectedTopics.includes(topicName)
+                const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 return (
                   <div
                     key={`${subjectName}-${topicName}`}
                     onClick={() => {
-                      setSelectedTopics(prev =>
-                        prev.includes(topicName)
-                          ? prev.filter(t => t !== topicName)
-                          : [...prev, topicName]
-                      )
+                      setSelectedTopics(prev => {
+                        const exists = prev.some(t => t.subject === subjectName && t.topic === topicName)
+                        return exists
+                          ? prev.filter(t => !(t.subject === subjectName && t.topic === topicName))
+                          : [...prev, { subject: subjectName, topic: topicName }]
+                      })
                     }}
                     className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
                       isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
@@ -1403,7 +1441,7 @@ export default function PYQPage() {
                         <span>•</span>
                         <span className="truncate max-w-[100px] sm:max-w-none">{currentQuestion.topic}</span>
                         <span>•</span>
-                        <span className="font-semibold text-slate-500">{currentQuestion.year}</span>
+                        <span className="font-semibold text-slate-500">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
                       </div>
                       
                       <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1420,8 +1458,8 @@ export default function PYQPage() {
                     </div>
 
                     {/* Question text */}
-                    <div className="text-sm sm:text-base font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
-                      {currentQuestion.question}
+                    <div className="text-sm sm:text-base font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                      <QuestionText text={currentQuestion.question} />
                     </div>
 
                     {/* Question Diagram / Image (if present) */}
@@ -1472,7 +1510,9 @@ export default function PYQPage() {
                                   String.fromCharCode(65 + idx)
                                 )}
                               </span>
-                              <span className="flex-1 min-w-0 break-words">{option}</span>
+                              <span className="flex-1 min-w-0 break-words">
+                                <QuestionText text={option} inline />
+                              </span>
                             </button>
                           )
                         })}
@@ -1517,7 +1557,9 @@ export default function PYQPage() {
                                 <span className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 text-xs font-bold ${checkStyle}`}>
                                   {isSelected || (hasSubmitted && isCorrect) ? <Check size={12} strokeWidth={3} /> : null}
                                 </span>
-                                <span className="flex-1 min-w-0 break-words">{option}</span>
+                                <span className="flex-1 min-w-0 break-words">
+                                  <QuestionText text={option} inline />
+                                </span>
                               </button>
                             )
                           })}
@@ -1601,9 +1643,9 @@ export default function PYQPage() {
                               : selectedAnswers[currentQuestion.id] === currentQuestion.answer ? 'Correct Answer!' : 'Incorrect Answer!'}
                           </span>
                         </div>
-                        <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                          {currentQuestion.explanation}
-                        </p>
+                        <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                          <QuestionText text={currentQuestion.explanation} />
+                        </div>
                         {/* Explanation Diagram / Image (if present) */}
                         <QuestionImage 
                           src={currentQuestion.explanationImageUrl || currentQuestion.solutionImageUrl} 
@@ -1650,7 +1692,7 @@ export default function PYQPage() {
                     </span>
                   </button>
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                    {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
+                    {(Number(currentQuestion?.likes) || 0) + (votes[currentQuestion?.id] === 'up' ? 1 : 0)}
                   </span>
                 </div>
 
@@ -1683,7 +1725,7 @@ export default function PYQPage() {
                     </span>
                   </button>
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                    {currentQuestion.commentsCount}
+                    {currentQuestion?.commentsCount || 0}
                   </span>
                 </div>
 
@@ -1968,7 +2010,11 @@ export default function PYQPage() {
                     {randomPracticePending ? 'Mode' : view === 'topic' ? 'Selected Topics' : 'Selected Subjects'}
                   </span>
                   <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                    {randomPracticePending ? 'Random Question Mode' : view === 'topic' ? selectedTopics.join(', ') : selectedSubjects.join(', ')}
+                    {randomPracticePending
+                      ? 'Random Question Mode'
+                      : view === 'topic'
+                      ? selectedTopics.map(t => selectedTopics.filter(x => x.topic === t.topic).length > 1 ? `${t.topic} (${t.subject})` : t.topic).join(', ')
+                      : selectedSubjects.join(', ')}
                   </div>
                 </div>
                 <div className="text-right shrink-0">

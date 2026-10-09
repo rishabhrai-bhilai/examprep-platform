@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 280" width="540" height="280">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+  <text x="270" y="28" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1e293b" text-anchor="middle">Weighted Graph G (Find Number of Distinct MSTs)</text>
+
+  <!-- Edges -->
+  <g stroke="#475569" stroke-width="2.5">
+    <!-- Left Triangle (weights 2, 2, 2) -->
+    <line x1="120" y1="70" x2="60" y2="180"/>
+    <line x1="60" y1="180" x2="180" y2="180"/>
+    <line x1="180" y1="180" x2="120" y2="70"/>
+
+    <!-- Central Bridge (weight 1) -->
+    <line x1="180" y1="180" x2="360" y2="180" stroke="#2563eb" stroke-width="3"/>
+
+    <!-- Right Triangle (weights 3, 3, 3) -->
+    <line x1="420" y1="70" x2="360" y2="180"/>
+    <line x1="360" y1="180" x2="480" y2="180"/>
+    <line x1="480" y1="180" x2="420" y2="70"/>
+  </g>
+
+  <!-- Edge Weights -->
+  <g font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">
+    <!-- Left weights (2) -->
+    <rect x="75" y="112" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="86" y="127" fill="#dc2626">2</text>
+
+    <rect x="145" y="112" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="156" y="127" fill="#dc2626">2</text>
+
+    <rect x="110" y="185" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="121" y="200" fill="#dc2626">2</text>
+
+    <!-- Bridge weight (1) -->
+    <rect x="260" y="165" width="24" height="22" fill="#dbeafe" rx="4"/>
+    <text x="272" y="181" fill="#1d4ed8" font-size="14">1</text>
+
+    <!-- Right weights (3) -->
+    <rect x="375" y="112" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="386" y="127" fill="#d97706">3</text>
+
+    <rect x="445" y="112" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="456" y="127" fill="#d97706">3</text>
+
+    <rect x="410" y="185" width="22" height="20" fill="#ffffff" rx="4"/>
+    <text x="421" y="200" fill="#d97706">3</text>
+  </g>
+
+  <!-- Vertices -->
+  <g stroke="#1e293b" stroke-width="2.5" fill="#f8fafc" font-family="sans-serif" font-size="15" font-weight="bold" text-anchor="middle">
+    <!-- Left triangle nodes -->
+    <circle cx="120" cy="70" r="18" fill="#e0e7ff"/>
+    <text x="120" y="75" fill="#1e1b4b">a</text>
+
+    <circle cx="60" cy="180" r="18" fill="#e0e7ff"/>
+    <text x="60" y="185" fill="#1e1b4b">b</text>
+
+    <circle cx="180" cy="180" r="18" fill="#e0e7ff"/>
+    <text x="180" y="185" fill="#1e1b4b">c</text>
+
+    <!-- Right triangle nodes -->
+    <circle cx="360" cy="180" r="18" fill="#fef3c7"/>
+    <text x="360" y="185" fill="#78350f">d</text>
+
+    <circle cx="420" cy="70" r="18" fill="#fef3c7"/>
+    <text x="420" y="75" fill="#78350f">e</text>
+
+    <circle cx="480" cy="180" r="18" fill="#fef3c7"/>
+    <text x="480" y="185" fill="#78350f">f</text>
+  </g>
+  <text x="270" y="250" font-family="sans-serif" font-size="12" fill="#64748b" text-anchor="middle">MST requires 2 of 3 edges of weight 2 (3 choices) × 2 of 3 edges of weight 3 (3 choices) = 9 MSTs</text>
+</svg>

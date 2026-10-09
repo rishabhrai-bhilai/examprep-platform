@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 380" width="100%" height="320">
+  <defs>
+    <style>
+      .shape { stroke: #1e293b; stroke-width: 2.2; fill: none; }
+      .lbl { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 19px; font-weight: bold; fill: #0f172a; }
+      .val { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 19px; font-weight: bold; fill: #1e293b; text-anchor: middle; }
+    </style>
+  </defs>
+  
+  <rect width="100%" height="100%" fill="#ffffff" rx="10" />
+
+  <!-- Teachers Triangle: (90, 80) -> (310, 80) -> (200, 220) -> z -->
+  <polygon points="90,80 310,80 200,220" class="shape" />
+  <text x="130" y="65" class="lbl">Teachers</text>
+  <text x="190" y="130" class="val">70</text>
+
+  <!-- Researchers Circle: center (280, 260), radius 75 -->
+  <circle cx="280" cy="260" r="75" class="shape" />
+  <text x="145" y="275" class="lbl">Researchers</text>
+  <text x="285" y="305" class="val">40</text>
+
+  <!-- Administrators Rectangle: x=250, y=80, width=60, height=190 -->
+  <rect x="250" y="80" width="60" height="190" class="shape" />
+  <text x="325" y="175" class="lbl">Administrators</text>
+
+  <!-- Numbers inside Administrators -->
+  <!-- Top: inside Triangle & Rectangle -->
+  <text x="275" y="125" class="val">10</text>
+  <!-- Middle: inside Triangle, Circle & Rectangle -->
+  <text x="275" y="178" class="val">20</text>
+  <!-- Bottom: inside Circle & Rectangle -->
+  <text x="280" y="235" class="val">20</text>
+</svg>

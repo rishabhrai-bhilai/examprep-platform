@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAppStore } from './store/useAppStore'
+import { useAuthStore } from './store/useAuthStore'
+import 'katex/dist/katex.min.css'
 
 // Layouts
 import DashboardLayout from './layouts/DashboardLayout'
@@ -23,14 +25,23 @@ import DiscussionPage from './pages/DiscussionPage'
 import ScientificCalculator from './components/ScientificCalculator'
 import BookmarkSelectorModal from './components/BookmarkSelectorModal'
 import VideoSolutionModal from './components/VideoSolutionModal'
+import AuthPromptModal from './components/AuthPromptModal'
 
 function App() {
-  const { theme, fetchQuestions } = useAppStore()
+  const { theme, fetchQuestions, syncUserData } = useAppStore()
+  const { checkAuth } = useAuthStore()
 
-  // Fetch questions on mount
+  // Verify auth session on mount & fetch cloud data
   useEffect(() => {
-    fetchQuestions()
-  }, [fetchQuestions])
+    const initializeApp = async () => {
+      fetchQuestions()
+      const user = await checkAuth()
+      if (user) {
+        await syncUserData()
+      }
+    }
+    initializeApp()
+  }, [fetchQuestions, checkAuth, syncUserData])
 
   // Apply dark mode theme class to html node on mount and changes
   useEffect(() => {
@@ -50,7 +61,7 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-        {/* Protected Dashboard/Practice Routes */}
+        {/* Dashboard/Practice Routes */}
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/pyq" element={<PYQPage />} />
@@ -60,7 +71,6 @@ function App() {
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          {/* Settings page falls back to Profile or custom view */}
           <Route path="/settings" element={<ProfilePage />} />
         </Route>
 
@@ -72,6 +82,7 @@ function App() {
       <ScientificCalculator />
       <BookmarkSelectorModal />
       <VideoSolutionModal />
+      <AuthPromptModal />
     </BrowserRouter>
   )
 }

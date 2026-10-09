@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 220" width="100%" height="200">
+  <defs>
+    <style>
+      .wire { stroke: #1e293b; stroke-width: 2.5; fill: none; stroke-linecap: round; }
+      .gate { stroke: #1e293b; stroke-width: 2.5; fill: #ffffff; }
+      .bubble { stroke: #1e293b; stroke-width: 2.5; fill: #ffffff; }
+      .lbl { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 17px; font-weight: 700; fill: #0f172a; }
+      .sub { font-size: 13px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" rx="10" />
+
+  <!-- Inputs -->
+  <!-- A15 -->
+  <text x="90" y="47" class="lbl">A<tspan dy="4" class="sub">15</tspan></text>
+  <line x1="125" y1="42" x2="200" y2="42" class="wire" />
+
+  <!-- A14 -->
+  <text x="90" y="80" class="lbl">A<tspan dy="4" class="sub">14</tspan></text>
+  <line x1="125" y1="75" x2="200" y2="75" class="wire" />
+
+  <!-- A13 (Inverted with bubble) -->
+  <text x="90" y="113" class="lbl">A<tspan dy="4" class="sub">13</tspan></text>
+  <line x1="125" y1="108" x2="186" y2="108" class="wire" />
+  <circle cx="193" cy="108" r="6" class="bubble" />
+
+  <!-- A12 (Inverted with bubble) -->
+  <text x="90" y="146" class="lbl">A<tspan dy="4" class="sub">12</tspan></text>
+  <line x1="125" y1="141" x2="186" y2="141" class="wire" />
+  <circle cx="193" cy="141" r="6" class="bubble" />
+
+  <!-- A11 -->
+  <text x="90" y="179" class="lbl">A<tspan dy="4" class="sub">11</tspan></text>
+  <line x1="125" y1="174" x2="200" y2="174" class="wire" />
+
+  <!-- 5-input AND gate: Back at x=200, y from 25 to 190, front curve reaches x=270, y=108 -->
+  <path d="M 200 25 L 235 25 A 82 82 0 0 1 235 190 L 200 190 Z" class="gate" />
+
+  <!-- Output CS -->
+  <line x1="273" y1="108" x2="330" y2="108" class="wire" />
+  <text x="340" y="114" class="lbl">CS</text>
+</svg>

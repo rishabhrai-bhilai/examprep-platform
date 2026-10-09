@@ -29,3 +29,17 @@ dist-ssr
 .env.production
 .env.development
 server/.env
+
+# Local data & backups
+server/data/*.json
+!server/data/questions.json
+*.bak
+*.bak*
+*.tmp
+
+# Temporary extraction files & scratch
+scratch/
+gate_pyq_papers/
+clean_cs.txt
+clean_ga.txt
+gate_2016_s1_raw_text.txt

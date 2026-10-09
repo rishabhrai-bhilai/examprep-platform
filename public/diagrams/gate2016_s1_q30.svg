@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 280" width="620" height="280">
+  <defs>
+    <marker id="m-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1e293b" />
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" rx="12" />
+
+  <!-- MUX 1 Box -->
+  <rect x="180" y="60" width="130" height="110" fill="#f8fafc" stroke="#1e293b" stroke-width="2" rx="4" />
+  <text x="245" y="105" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="middle" fill="#1e293b">2–to–1</text>
+  <text x="245" y="125" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="middle" fill="#1e293b">MUX</text>
+  <text x="245" y="152" font-family="serif" font-size="14" font-style="italic" text-anchor="middle" fill="#475569">s</text>
+  <!-- Pin labels MUX 1 -->
+  <text x="195" y="92" font-family="sans-serif" font-size="14" font-weight="500" fill="#1e293b">0</text>
+  <text x="195" y="137" font-family="sans-serif" font-size="14" font-weight="500" fill="#1e293b">1</text>
+
+  <!-- MUX 1 Inputs -->
+  <!-- Input 0 = 0 -->
+  <text x="115" y="93" font-family="sans-serif" font-size="16" font-weight="500" fill="#0f172a">0</text>
+  <line x1="135" y1="88" x2="178" y2="88" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- Input 1 = R -->
+  <text x="115" y="138" font-family="serif" font-size="17" font-style="italic" fill="#0f172a">R</text>
+  <line x1="135" y1="133" x2="178" y2="133" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- MUX 1 Select Input P -->
+  <text x="245" y="235" font-family="serif" font-size="17" font-style="italic" text-anchor="middle" fill="#0f172a">P</text>
+  <line x1="245" y1="215" x2="245" y2="172" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- MUX 2 Box -->
+  <rect x="390" y="60" width="130" height="110" fill="#f8fafc" stroke="#1e293b" stroke-width="2" rx="4" />
+  <text x="455" y="105" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="middle" fill="#1e293b">2–to–1</text>
+  <text x="455" y="125" font-family="sans-serif" font-size="14" font-weight="600" text-anchor="middle" fill="#1e293b">MUX</text>
+  <text x="455" y="152" font-family="serif" font-size="14" font-style="italic" text-anchor="middle" fill="#475569">s</text>
+  <!-- Pin labels MUX 2 -->
+  <text x="405" y="92" font-family="sans-serif" font-size="14" font-weight="500" fill="#1e293b">0</text>
+  <text x="405" y="137" font-family="sans-serif" font-size="14" font-weight="500" fill="#1e293b">1</text>
+
+  <!-- MUX 2 Input 0 = R_bar -->
+  <text x="365" y="30" font-family="serif" font-size="18" font-weight="500" text-anchor="middle" fill="#0f172a">R&#772;</text>
+  <line x1="365" y1="36" x2="365" y2="88" stroke="#1e293b" stroke-width="1.8" />
+  <line x1="365" y1="88" x2="388" y2="88" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- MUX 1 Output to MUX 2 Input 1 -->
+  <line x1="310" y1="133" x2="388" y2="133" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- MUX 2 Select Input Q -->
+  <text x="455" y="235" font-family="serif" font-size="17" font-style="italic" text-anchor="middle" fill="#0f172a">Q</text>
+  <line x1="455" y1="215" x2="455" y2="172" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+
+  <!-- MUX 2 Output X -->
+  <line x1="520" y1="95" x2="570" y2="95" stroke="#1e293b" stroke-width="1.8" marker-end="url(#m-arrow)" />
+  <text x="585" y="100" font-family="serif" font-size="18" font-style="italic" fill="#0f172a">X</text>
+</svg>

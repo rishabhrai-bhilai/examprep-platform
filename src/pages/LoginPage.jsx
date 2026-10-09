@@ -1,29 +1,36 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
+import { useAppStore } from '../store/useAppStore'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, error, loading, clearError, isAuthenticated } = useAuthStore()
+  const { syncUserData } = useAppStore()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
 
-  // Clear errors on load
+  // Clear errors on load & redirect if already authenticated
   useEffect(() => {
     clearError()
     if (isAuthenticated) {
-      navigate('/dashboard')
+      const from = location.state?.from || '/dashboard'
+      navigate(from, { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, clearError, location.state])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const success = await login(email, password)
-    if (success) {
-      navigate('/dashboard')
+    const result = await login(email, password)
+    if (result.success) {
+      await syncUserData()
+      const from = location.state?.from || '/dashboard'
+      navigate(from, { replace: true })
     }
   }
 
@@ -39,7 +46,7 @@ export default function LoginPage() {
             <span>Exam<span className="text-primary">Prep</span></span>
           </Link>
           <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">Sign in to your account</h2>
-          <p className="text-xs text-slate-500">Welcome back! Input your study credentials below.</p>
+          <p className="text-xs text-slate-500">Welcome back! Sign in below to access your cloud-synced study session.</p>
         </div>
 
         {/* Error Alert */}
@@ -49,6 +56,18 @@ export default function LoginPage() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Google Sign-in */}
+        <div className="space-y-3">
+          <GoogleSignInButton text="Sign in with Google" />
+          
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+            <span className="bg-card-light dark:bg-card-dark px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
+              or continue with email
+            </span>
+          </div>
+        </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -103,7 +122,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full h-10 mt-6 bg-primary hover:bg-primary-hover text-white font-semibold rounded-btn shadow-sm transition-all active:scale-95 text-sm flex items-center justify-center disabled:opacity-50"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In with Email'}
           </button>
         </form>
 

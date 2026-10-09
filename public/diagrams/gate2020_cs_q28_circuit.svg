@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 220" width="520" height="220">
+  <defs>
+    <style>
+      .wire { stroke: #1e293b; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .gate { fill: #ffffff; stroke: #1e293b; stroke-width: 2.2; stroke-linejoin: round; }
+      .text-label { font-family: 'Times New Roman', serif; font-size: 26px; font-style: italic; fill: #0f172a; }
+      .bubble { fill: #ffffff; stroke: #1e293b; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <text x="35" y="48" class="text-label">a</text>
+  <text x="35" y="118" class="text-label">b</text>
+  <text x="35" y="188" class="text-label">c</text>
+
+  <line x1="55" y1="40" x2="360" y2="40" class="wire" />
+  <line x1="55" y1="110" x2="130" y2="110" class="wire" />
+
+  <polygon points="130,85 180,110 130,135" class="gate" />
+  <circle cx="186" cy="110" r="6" class="bubble" />
+
+  <path d="M 192 110 L 220 110 L 220 145 L 240 145" class="wire" />
+  <line x1="55" y1="180" x2="240" y2="180" class="wire" />
+
+  <path d="M 240 130 L 270 130 A 32.5 32.5 0 0 1 270 195 L 240 195 Z" class="gate" />
+
+  <path d="M 302.5 162.5 L 340 162.5 L 340 100 L 360 100" class="wire" />
+  <path d="M 358 25 Q 378 70 358 115 Q 405 112 445 70 Q 405 28 358 25 Z" class="gate" />
+
+  <line x1="445" y1="70" x2="485" y2="70" class="wire" />
+  <text x="470" y="58" class="text-label">z</text>
+</svg>

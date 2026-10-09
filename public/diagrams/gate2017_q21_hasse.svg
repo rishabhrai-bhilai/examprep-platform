@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 420" width="360" height="420">
+  <defs>
+    <style>
+      .edge { stroke: #1e293b; stroke-width: 2.2; fill: none; }
+      .node { fill: #ffffff; stroke: #1e293b; stroke-width: 2; }
+      .lbl { font-family: 'Times New Roman', Times, serif; font-size: 24px; font-style: italic; fill: #0f172a; }
+    </style>
+    <marker id="hasse-arrow" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#1e293b" />
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" rx="12" />
+
+  <!-- Directed Edges with upward-pointing arrowheads stopping cleanly at circle edges -->
+  <!-- a to b -->
+  <line x1="175.4" y1="350.4" x2="115.6" y2="290.6" class="edge" marker-end="url(#hasse-arrow)" />
+  <!-- b to c -->
+  <line x1="110" y1="278.5" x2="110" y2="183" class="edge" marker-end="url(#hasse-arrow)" />
+  <!-- c to e -->
+  <line x1="113.7" y1="169.7" x2="175.2" y2="81.8" class="edge" marker-end="url(#hasse-arrow)" />
+  <!-- a to d -->
+  <line x1="183.2" y1="349.3" x2="246.0" y2="237.1" class="edge" marker-end="url(#hasse-arrow)" />
+  <!-- d to e -->
+  <line x1="247.3" y1="224.1" x2="183.5" y2="82.8" class="edge" marker-end="url(#hasse-arrow)" />
+
+  <!-- Hollow Circle Nodes (white fill with slate outline) -->
+  <!-- Node a -->
+  <circle cx="180" cy="355" r="6" class="node" />
+  <!-- Node b -->
+  <circle cx="110" cy="285" r="6" class="node" />
+  <!-- Node c -->
+  <circle cx="110" cy="175" r="6" class="node" />
+  <!-- Node d -->
+  <circle cx="250" cy="230" r="6" class="node" />
+  <!-- Node e -->
+  <circle cx="180" cy="75" r="6" class="node" />
+
+  <!-- Node Labels (Italic Serif matching official GATE exam paper) -->
+  <text x="180" y="48" text-anchor="middle" class="lbl">e</text>
+  <text x="84" y="182" text-anchor="middle" class="lbl">c</text>
+  <text x="84" y="292" text-anchor="middle" class="lbl">b</text>
+  <text x="274" y="237" text-anchor="start" class="lbl">d</text>
+  <text x="180" y="388" text-anchor="middle" class="lbl">a</text>
+</svg>

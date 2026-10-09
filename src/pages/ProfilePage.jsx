@@ -1,24 +1,34 @@
-import React, { useState } from 'react'
-import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 export default function ProfilePage() {
-  const { user, logout } = useAuthStore()
-  const { bookmarks, setActiveQuestionIndex } = useAppStore()
+  const { user, logout, isAuthenticated, updateProfile, openAuthPrompt } = useAuthStore()
+  const { bookmarks, setActiveQuestionIndex, syncUserData } = useAppStore()
 
   const [name, setName] = useState(user?.name || 'Aspirant')
   const [email, setEmail] = useState(user?.email || 'aspirant@examprep.com')
   const [isSaved, setIsSaved] = useState(false)
   const [activeHistoryTab, setActiveHistoryTab] = useState('mock')
 
-  const handleSave = (e) => {
+  useEffect(() => {
+    if (user) {
+      setName(user.name || 'Aspirant')
+      setEmail(user.email || 'aspirant@examprep.com')
+    }
+  }, [user])
+
+  const handleSave = async (e) => {
     e.preventDefault()
     setIsSaved(true)
-    setTimeout(() => setIsSaved(false), 2000)
-    // Update local storage
-    const updatedUser = { ...user, name, email }
-    localStorage.setItem('user', JSON.stringify(updatedUser))
+    setTimeout(() => setIsSaved(false), 2500)
+    
+    // Update local storage and server database
+    await updateProfile({ name })
+    await syncUserData()
   }
 
   const handleResetData = () => {
@@ -26,6 +36,64 @@ export default function ProfilePage() {
       localStorage.clear()
       window.location.reload()
     }
+  }
+
+  // --- GATED ACCESS VIEW FOR GUESTS ---
+  if (!isAuthenticated) {
+    return (
+      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-[80vh] flex flex-col justify-center items-center">
+        <div className="w-full bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft p-8 sm:p-10 text-center space-y-6">
+          <div className="inline-flex p-4 rounded-3xl bg-primary/10 dark:bg-primary/20 text-primary ring-8 ring-primary/5">
+            <Lock size={32} className="text-primary" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">
+              Register / Login to access your profile
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              Your personal profile stores your study streak, rank statistics, mock test records, and cloud-synced scratchpad notes and bookmarks.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/60 text-left space-y-2.5 text-xs">
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <Cloud size={16} className="text-primary shrink-0" />
+              <span>Automatic cloud backup for notes and bookmarks</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <Award size={16} className="text-amber-500 shrink-0" />
+              <span>Track your rank, solved questions count, and earned badges</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <Flame size={16} className="text-orange-500 shrink-0" />
+              <span>Preserve your daily study streaks across all browsers</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2 max-w-sm mx-auto">
+            <GoogleSignInButton text="Sign in with Google" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                to="/login"
+                className="h-10 px-4 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-btn transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>Log In</span>
+                <ArrowRight size={13} />
+              </Link>
+
+              <Link
+                to="/signup"
+                className="h-10 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-btn transition-all border border-slate-200 dark:border-slate-700 flex items-center justify-center active:scale-95"
+              >
+                <span>Sign Up</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const badges = [
@@ -37,10 +105,17 @@ export default function ProfilePage() {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen">
       
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">Student Profile</h1>
-        <p className="text-sm text-slate-500 mt-1">Manage your account preferences, achievements, and statistics.</p>
+      {/* Page Title & Cloud Sync Badge */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">Student Profile</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage your account preferences, achievements, and statistics.</p>
+        </div>
+
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full text-xs font-bold self-start sm:self-auto">
+          <Cloud size={14} className="text-emerald-500" />
+          <span>Cloud Synced to Server DB</span>
+        </div>
       </div>
 
       {/* Two columns split */}
@@ -78,10 +153,9 @@ export default function ProfilePage() {
                   </span>
                   <input
                     type="email"
-                    required
+                    disabled
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
+                    className="w-full h-10 pl-10 pr-4 text-sm bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-input text-slate-500 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -89,12 +163,15 @@ export default function ProfilePage() {
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn transition-colors shadow-sm"
+                  className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn transition-colors shadow-sm active:scale-95"
                 >
                   Save Changes
                 </button>
                 {isSaved && (
-                  <span className="text-xs font-semibold text-success">Profile changes saved!</span>
+                  <span className="text-xs font-semibold text-success flex items-center gap-1">
+                    <CheckCircle size={14} />
+                    <span>Saved and synced to cloud!</span>
+                  </span>
                 )}
               </div>
             </form>
@@ -152,7 +229,7 @@ export default function ProfilePage() {
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Reset System</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              If you want to clear your local database session (including streak state, bookmarks, and mock test scores).
+              Clear your local browser session cache (including local streak state, bookmarks, and mock scores).
             </p>
             <button
               onClick={handleResetData}

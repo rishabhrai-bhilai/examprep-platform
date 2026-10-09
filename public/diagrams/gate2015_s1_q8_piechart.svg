@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 340" width="540" height="340" style="background:#ffffff; font-family: system-ui, -apple-system, sans-serif;">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="115%" height="115%">
+      <feDropShadow dx="1" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  
+  <!-- Outer border like original question -->
+  <rect x="10" y="10" width="520" height="320" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" rx="8"/>
+  
+  <!-- Center: 240, 170. Radius: 120 -->
+  <!-- CS: 40% = 144 deg. Angle from -90 to 54 deg. Exploded by (dx=12, dy=-8) -->
+  <g transform="translate(10, -6)" filter="url(#shadow)">
+    <!-- Path for CS: 144 degrees. -90 deg to 54 deg -->
+    <!-- start: (240, 50), end: 240 + 120*cos(54)=310.5, 170 + 120*sin(54)=267.1 -->
+    <path d="M 240 170 L 240 50 A 120 120 0 0 1 310.5 267.1 Z" fill="#3b82f6" stroke="#ffffff" stroke-width="2"/>
+    <text x="315" y="145" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Computer</text>
+    <text x="315" y="165" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Science</text>
+    <text x="315" y="187" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="900">40%</text>
+  </g>
+  
+  <!-- Civil: 30% = 108 deg. Angle from 54 to 162 deg -->
+  <!-- start: 310.5, 267.1. end: 240 + 120*cos(162)=125.9, 170 + 120*sin(162)=207.1 -->
+  <g filter="url(#shadow)">
+    <path d="M 240 170 L 310.5 267.1 A 120 120 0 0 1 125.9 207.1 Z" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+    <text x="220" y="240" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Civil</text>
+    <text x="220" y="260" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="900">30%</text>
+  </g>
+
+  <!-- Mechanical: 10% = 36 deg. Angle from 162 to 198 deg -->
+  <!-- start: 125.9, 207.1. end: 240 + 120*cos(198)=125.9, 170 + 120*sin(198)=132.9 -->
+  <g filter="url(#shadow)">
+    <path d="M 240 170 L 125.9 207.1 A 120 120 0 0 1 125.9 132.9 Z" fill="#84cc16" stroke="#ffffff" stroke-width="2"/>
+    <text x="160" y="168" text-anchor="middle" fill="#1e293b" font-size="13" font-weight="bold">Mechanical</text>
+    <text x="160" y="186" text-anchor="middle" fill="#1e293b" font-size="14" font-weight="900">10%</text>
+  </g>
+
+  <!-- Electrical: 20% = 72 deg. Angle from 198 to 270 deg -->
+  <!-- start: 125.9, 132.9. end: 240, 50 -->
+  <g filter="url(#shadow)">
+    <path d="M 240 170 L 125.9 132.9 A 120 120 0 0 1 240 50 Z" fill="#8b5cf6" stroke="#ffffff" stroke-width="2"/>
+    <text x="185" y="105" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Electrical</text>
+    <text x="185" y="125" text-anchor="middle" fill="#ffffff" font-size="15" font-weight="900">20%</text>
+  </g>
+</svg>

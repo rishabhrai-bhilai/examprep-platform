@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 160" width="100%" height="160">
+  <defs>
+    <style>
+      .math-text { font-family: "Cambria Math", "Times New Roman", Times, serif; font-size: 18px; fill: #0f172a; font-style: italic; }
+      .label-text { font-family: "Cambria Math", "Times New Roman", Times, serif; font-size: 20px; fill: #0f172a; font-weight: normal; }
+      .bar-line { stroke: #0f172a; stroke-width: 2.2; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <!-- Background container -->
+  <rect x="5" y="5" width="450" height="150" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+
+  <!-- f(theta) = -->
+  <text x="50" y="86" class="label-text">f(θ) = </text>
+
+  <!-- Determinant Left Vertical Bar -->
+  <line x1="120" y1="20" x2="120" y2="140" class="bar-line" />
+
+  <!-- Determinant Right Vertical Bar -->
+  <line x1="410" y1="20" x2="410" y2="140" class="bar-line" />
+
+  <!-- Row 1: sin theta, cos theta, tan theta -->
+  <text x="170" y="48" text-anchor="middle" class="math-text">sin θ</text>
+  <text x="265" y="48" text-anchor="middle" class="math-text">cos θ</text>
+  <text x="360" y="48" text-anchor="middle" class="math-text">tan θ</text>
+
+  <!-- Row 2: sin(pi/6), cos(pi/6), tan(pi/6) -->
+  <text x="170" y="87" text-anchor="middle" class="math-text">sin(π/6)</text>
+  <text x="265" y="87" text-anchor="middle" class="math-text">cos(π/6)</text>
+  <text x="360" y="87" text-anchor="middle" class="math-text">tan(π/6)</text>
+
+  <!-- Row 3: sin(pi/3), cos(pi/3), tan(pi/3) -->
+  <text x="170" y="126" text-anchor="middle" class="math-text">sin(π/3)</text>
+  <text x="265" y="126" text-anchor="middle" class="math-text">cos(π/3)</text>
+  <text x="360" y="126" text-anchor="middle" class="math-text">tan(π/3)</text>
+</svg>

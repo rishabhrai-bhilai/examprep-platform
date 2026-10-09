@@ -26,7 +26,7 @@ export default function BookmarksPage() {
   // Helper: Get questions for a folder
   const getFolderQuestions = (folderName) => {
     const ids = bookmarkFolders[folderName] || []
-    return questions.filter(q => ids.includes(q.id))
+    return questions.filter(q => ids.some(id => String(id) === String(q.id)))
   }
 
   // Create folder handler

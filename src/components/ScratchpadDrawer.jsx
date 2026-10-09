@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import QuestionImage from './QuestionImage'
+import QuestionText from './QuestionText'
 
 export default function ScratchpadDrawer({
   currentQuestion,
@@ -1135,8 +1136,8 @@ export default function ScratchpadDrawer({
             </div>
 
             {/* Question Text */}
-            <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
-              {currentQuestion.question}
+            <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+              <QuestionText text={currentQuestion.question} />
             </div>
 
             {/* Question Diagram / Image (if present) */}
@@ -1337,7 +1338,7 @@ export default function ScratchpadDrawer({
                 </span>
               </button>
               <span className="text-[9px] font-bold text-slate-500 mt-0.5">
-                {currentQuestion.likes + (votes[currentQuestion.id] === 'up' ? 1 : 0)}
+                {(Number(currentQuestion?.likes) || 0) + (votes[currentQuestion?.id] === 'up' ? 1 : 0)}
               </span>
             </div>
 

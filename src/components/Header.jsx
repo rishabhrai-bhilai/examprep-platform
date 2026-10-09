@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Menu, Search, Calculator, Sun, Moon, Maximize, Minimize, BookOpen } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Menu, Search, Calculator, Sun, Moon, Maximize, Minimize, BookOpen, User, LogIn, LogOut } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Header() {
+  const navigate = useNavigate()
   const { theme, toggleTheme, setCalculatorOpen, calculatorOpen, toggleSidebar } = useAppStore()
+  const { user, isAuthenticated, logout } = useAuthStore()
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Track fullscreen changes to toggle icon
@@ -24,6 +27,11 @@ export default function Header() {
     } else {
       document.exitFullscreen()
     }
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
   }
 
   return (
@@ -58,38 +66,72 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Right side: Tools, Theme, Fullscreen */}
-      <div className="flex items-center gap-2">
+      {/* Right side: Tools, Theme, Fullscreen, Auth */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
         {/* Scientific Calculator Button */}
         <button
           onClick={() => setCalculatorOpen(!calculatorOpen)}
-          className={`p-2.5 rounded-btn transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
+          className={`p-2 sm:p-2.5 rounded-btn transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ${
             calculatorOpen ? 'text-primary bg-indigo-50 dark:bg-indigo-950/40' : 'text-slate-600 dark:text-slate-400'
           }`}
           title="Scientific Calculator"
         >
-          <Calculator size={20} />
+          <Calculator size={19} />
         </button>
 
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
-          className="p-2.5 rounded-btn text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 sm:p-2.5 rounded-btn text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
         >
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          {theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}
         </button>
 
         {/* Fullscreen Button */}
-        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
-
         <button
           onClick={toggleFullscreen}
-          className="p-2.5 rounded-btn text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 sm:p-2.5 rounded-btn text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors hidden sm:flex"
           title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
         >
-          {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+          {isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}
         </button>
+
+        <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1"></div>
+
+        {/* User Auth Section */}
+        {isAuthenticated && user ? (
+          <div className="flex items-center gap-2">
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200/80 dark:border-slate-800 transition-all text-xs font-semibold text-slate-700 dark:text-slate-200"
+              title="View Profile"
+            >
+              <img
+                src={user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(user.name)}`}
+                alt={user.name}
+                className="w-6 h-6 rounded-full border border-primary/30 object-cover bg-slate-100 dark:bg-slate-800"
+              />
+              <span className="hidden md:inline max-w-[100px] truncate">{user.name}</span>
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-btn text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+              title="Log Out"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn transition-all shadow-xs active:scale-95"
+          >
+            <LogIn size={14} />
+            <span>Sign In</span>
+          </Link>
+        )}
       </div>
     </header>
   )

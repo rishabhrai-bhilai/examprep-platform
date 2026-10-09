@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 320" width="100%" height="280">
+  <defs>
+    <style>
+      .branch { stroke: #334155; stroke-width: 2.2; stroke-linecap: round; }
+      .sym { font-family: 'Times New Roman', serif; font-size: 20px; font-weight: bold; fill: #1e293b; text-anchor: middle; dominant-baseline: central; }
+      .term { font-family: 'Times New Roman', serif; font-size: 20px; font-style: italic; font-weight: bold; fill: #1e293b; text-anchor: middle; dominant-baseline: central; }
+    </style>
+  </defs>
+
+  <!-- Level 0: Root # -->
+  <text x="190" y="35" class="sym">#</text>
+
+  <!-- Level 1: a and # -->
+  <line x1="180" y1="45" x2="130" y2="90" class="branch" />
+  <text x="120" y="100" class="term">a</text>
+
+  <line x1="200" y1="45" x2="250" y2="90" class="branch" />
+  <text x="255" y="100" class="sym">#</text>
+
+  <!-- Level 2: Left child $ and Right child # -->
+  <line x1="245" y1="110" x2="195" y2="155" class="branch" />
+  <text x="185" y="165" class="sym">$</text>
+
+  <line x1="265" y1="110" x2="310" y2="155" class="branch" />
+  <text x="315" y="165" class="sym">#</text>
+
+  <!-- Under Left child $: Level 3 left $ and right d -->
+  <line x1="175" y1="175" x2="135" y2="215" class="branch" />
+  <text x="128" y="225" class="sym">$</text>
+
+  <line x1="195" y1="175" x2="235" y2="215" class="branch" />
+  <text x="245" y="225" class="term">d</text>
+
+  <!-- Under Level 3 $: leaves b and c -->
+  <line x1="120" y1="235" x2="90" y2="275" class="branch" />
+  <text x="85" y="285" class="term">b</text>
+
+  <line x1="136" y1="235" x2="165" y2="275" class="branch" />
+  <text x="175" y="285" class="term">c</text>
+
+  <!-- Under Right child #: leaves e and f -->
+  <line x1="305" y1="175" x2="275" y2="215" class="branch" />
+  <text x="268" y="225" class="term">e</text>
+
+  <line x1="325" y1="175" x2="355" y2="215" class="branch" />
+  <text x="365" y="225" class="term">f</text>
+</svg>

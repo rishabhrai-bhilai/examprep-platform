@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1e293b"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+
+  <!-- Start Arrow -->
+  <line x1="30" y1="100" x2="66" y2="100" stroke="#1e293b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Transitions -->
+  <g stroke="#1e293b" stroke-width="2.5" fill="none">
+    <!-- q0 self loop -->
+    <path d="M 82,78 C 65,30 115,30 98,78" marker-end="url(#arrow)"/>
+    <!-- q0 -> q1 -->
+    <line x1="114" y1="100" x2="186" y2="100" marker-end="url(#arrow)"/>
+    <!-- q1 -> q2 -->
+    <line x1="234" y1="100" x2="306" y2="100" marker-end="url(#arrow)"/>
+    <!-- q2 self loop -->
+    <path d="M 322,78 C 305,30 355,30 338,78" marker-end="url(#arrow)"/>
+    <!-- q2 -> q3 -->
+    <line x1="354" y1="100" x2="426" y2="100" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- Transition Labels -->
+  <g font-family="sans-serif" font-size="15" font-weight="bold" fill="#1e293b" text-anchor="middle">
+    <text x="112" y="45">0, 1</text>
+    <text x="150" y="90">1</text>
+    <text x="270" y="90">0, 1</text>
+    <text x="352" y="45">1</text>
+    <text x="390" y="90">0, 1</text>
+  </g>
+
+  <!-- States -->
+  <g stroke="#1e293b" stroke-width="2" fill="#f8fafc">
+    <circle cx="90" cy="100" r="24"/>
+    <circle cx="210" cy="100" r="24"/>
+    <circle cx="330" cy="100" r="24"/>
+    <circle cx="450" cy="100" r="24"/>
+    <circle cx="450" cy="100" r="19" fill="none" stroke="#1e293b" stroke-width="2"/>
+  </g>
+
+  <!-- State Names -->
+  <g font-family="serif" font-style="italic" font-size="18" font-weight="bold" fill="#0f172a" text-anchor="middle" dominant-baseline="central">
+    <text x="90" y="101">q₀</text>
+    <text x="210" y="101">q₁</text>
+    <text x="330" y="101">q₂</text>
+    <text x="450" y="101">q₃</text>
+  </g>
+</svg>

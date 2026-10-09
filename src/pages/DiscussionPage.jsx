@@ -7,6 +7,7 @@ import {
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import QuestionImage from '../components/QuestionImage'
+import QuestionText from '../components/QuestionText'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import RichTextEditor from '../components/RichTextEditor'
 import FormattedContent from '../components/FormattedContent'
@@ -23,7 +24,9 @@ function ThreadedReplyNode({
   handleAddReply,
   handleDeleteComment,
   isCommentAuthor,
-  user
+  user,
+  isAuthenticated,
+  openAuthPrompt
 }) {
   const hasChildren = reply.replies && reply.replies.length > 0
   const isReplying = activeReplyBox === reply.id
@@ -62,7 +65,13 @@ function ThreadedReplyNode({
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <button
               type="button"
-              onClick={() => setActiveReplyBox(isReplying ? null : reply.id)}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  openAuthPrompt && openAuthPrompt('reply to discussions', 'Please register or log in to reply to comments and discussions.')
+                  return
+                }
+                setActiveReplyBox(isReplying ? null : reply.id)
+              }}
               className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-primary transition-colors"
             >
               <Reply size={12} />
@@ -155,6 +164,8 @@ function ThreadedReplyNode({
               handleDeleteComment={handleDeleteComment}
               isCommentAuthor={isCommentAuthor}
               user={user}
+              isAuthenticated={isAuthenticated}
+              openAuthPrompt={openAuthPrompt}
             />
           ))}
         </div>
@@ -186,7 +197,7 @@ export default function DiscussionPage() {
     setActiveDiscussionQuestionId
   } = useAppStore()
   
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, openAuthPrompt } = useAuthStore()
 
   // State
   const [selectedQuestion, setSelectedQuestion] = useState(null)
@@ -202,9 +213,45 @@ export default function DiscussionPage() {
     return Array.from(subjects).sort()
   }, [questions])
 
-  const availableYears = useMemo(() => {
-    const years = new Set((questions || []).map(q => q.year).filter(y => y !== undefined && y !== null && y !== ''))
-    return Array.from(years).sort((a, b) => String(b).localeCompare(String(a)))
+  const parseSet = (s) => {
+    if (typeof s === 'string') {
+      const m = s.match(/\d+/)
+      return m ? parseInt(m[0], 10) : 1
+    }
+    return Number(s) || 1
+  }
+
+  const availableYearOptions = useMemo(() => {
+    const list = [{ value: 'ALL', label: 'All Years' }]
+    const years = Array.from(new Set((questions || []).map(q => q.year).filter(Boolean)))
+      .sort((a, b) => String(b).localeCompare(String(a)))
+    
+    years.forEach(yr => {
+      const yrQuestions = (questions || []).filter(q => String(q.year) === String(yr))
+      const sets = Array.from(new Set(yrQuestions.map(q => parseSet(q.set)))).sort((a, b) => a - b)
+      if (sets.length > 1) {
+        list.push({
+          value: yr,
+          label: `GATE ${yr} (All Sets)`,
+          count: yrQuestions.length
+        })
+        sets.forEach(s => {
+          const setCount = yrQuestions.filter(q => parseSet(q.set) === parseSet(s)).length
+          list.push({
+            value: `${yr}-S${s}`,
+            label: `GATE ${yr} • Set ${s}`,
+            count: setCount
+          })
+        })
+      } else {
+        list.push({
+          value: yr,
+          label: `GATE ${yr}`,
+          count: yrQuestions.length
+        })
+      }
+    })
+    return list
   }, [questions])
 
   const availableTopics = useMemo(() => {
@@ -347,7 +394,14 @@ export default function DiscussionPage() {
     .filter(q => {
       // 1. Dropdown Filters
       if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
-      if (selectedYear !== 'ALL' && String(q.year) !== String(selectedYear)) return false
+      if (selectedYear !== 'ALL') {
+        if (selectedYear.includes('-S')) {
+          const [yr, s] = selectedYear.split('-S')
+          if (String(q.year) !== yr || parseSet(q.set) !== parseSet(s)) return false
+        } else {
+          if (String(q.year) !== String(selectedYear)) return false
+        }
+      }
       if (selectedTopic !== 'ALL' && q.topic !== selectedTopic) return false
 
       // 2. Search Query
@@ -355,21 +409,25 @@ export default function DiscussionPage() {
         const query = searchQuery.toLowerCase().trim()
         const queryWords = query.split(/\s+/).filter(Boolean)
         const yearStr = q.year ? q.year.toString().toLowerCase() : ''
+        const setStr = q.set ? `set ${q.set}` : ''
+        const setShort = q.set ? `s${q.set}` : ''
         const questionText = (q.question || '').toLowerCase()
         const subjectText = (q.subject || '').toLowerCase()
         const topicText = (q.topic || '').toLowerCase()
         const idStr = (q.id || '').toString()
 
-        // Direct year match (e.g. typing "2024", "2025", "gate 2024", "pyq 2024")
-        if (yearStr && (yearStr === query || yearStr.includes(query) || `gate ${yearStr}`.includes(query) || `pyq ${yearStr}`.includes(query))) {
+        // Direct year match (e.g. typing "2024", "2025", "gate 2024", "pyq 2024", "2025 set 2", "2024 s1")
+        if (yearStr && (yearStr === query || yearStr.includes(query) || `gate ${yearStr}`.includes(query) || `pyq ${yearStr}`.includes(query) || (q.set && `gate ${yearStr} set ${q.set}`.includes(query)) || (q.set && `gate ${yearStr} s${q.set}`.includes(query)))) {
           // matched
         } else {
-          // Multi-word matching across all fields including year
+          // Multi-word matching across all fields including year and set
           const matchesAll = queryWords.every(word =>
             questionText.includes(word) ||
             subjectText.includes(word) ||
             topicText.includes(word) ||
             yearStr.includes(word) ||
+            (setStr && setStr.includes(word)) ||
+            (setShort && setShort === word) ||
             idStr === word ||
             `#${idStr}` === word
           )
@@ -510,14 +568,7 @@ export default function DiscussionPage() {
               <FilterDropdown
                 label="All Years"
                 value={selectedYear}
-                options={[
-                  { value: 'ALL', label: 'All Years' },
-                  ...availableYears.map(yr => ({
-                    value: yr,
-                    label: `GATE ${yr}`,
-                    count: questions.filter(q => String(q.year) === String(yr)).length
-                  }))
-                ]}
+                options={availableYearOptions}
                 onChange={(val) => setSelectedYear(val)}
                 title="Filter Year-wise"
                 searchable={false}
@@ -661,7 +712,7 @@ export default function DiscussionPage() {
                       <div className="flex items-center gap-1.5">
                         {q.year && (
                           <span className="text-[9px] font-extrabold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded uppercase border border-indigo-500/10">
-                            PYQ {q.year}
+                            PYQ {q.year}{q.set ? ` • Set ${q.set}` : ''}
                           </span>
                         )}
                         <span className="text-[9px] font-extrabold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded uppercase border border-amber-500/10">
@@ -682,7 +733,7 @@ export default function DiscussionPage() {
                     <div className="pt-3 border-t border-slate-100 dark:border-slate-900/60 flex items-center gap-4 text-xs font-bold text-slate-450 dark:text-slate-500">
                       <span className="flex items-center gap-1 hover:text-slate-655 transition-colors">
                         <ThumbsUp size={13} className="fill-none text-slate-400" />
-                        <span>{q.likes + (votes[q.id] === 'up' ? 1 : 0)} Upvotes</span>
+                        <span>{(Number(q?.likes) || 0) + (votes[q?.id] === 'up' ? 1 : 0)} Upvotes</span>
                       </span>
                       <span>•</span>
                       <span className="flex items-center gap-1 hover:text-slate-655 transition-colors">
@@ -757,7 +808,7 @@ export default function DiscussionPage() {
                 </div>
                 {selectedQuestion.year && (
                   <span className="text-[11px] font-extrabold text-white bg-primary px-2.5 py-0.5 rounded-full shadow-xs tracking-wide shrink-0">
-                    GATE {selectedQuestion.year}
+                    GATE {selectedQuestion.year}{selectedQuestion.set ? ` • Set ${selectedQuestion.set}` : ''}
                   </span>
                 )}
               </div>
@@ -789,8 +840,8 @@ export default function DiscussionPage() {
               </div>
 
               {/* Question Text */}
-              <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
-                {selectedQuestion.question}
+              <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                <QuestionText text={selectedQuestion.question} />
               </div>
 
               {/* Question Diagram / Image (if present) */}
@@ -908,7 +959,7 @@ export default function DiscussionPage() {
                   </span>
                 </button>
                 <span className={`text-[9px] font-bold mt-0.5 transition-colors ${votes[selectedQuestion.id] === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 group-hover:text-emerald-600 dark:group-hover:text-emerald-400'}`}>
-                  {selectedQuestion.likes + (votes[selectedQuestion.id] === 'up' ? 1 : 0)}
+                  {(Number(selectedQuestion?.likes) || 0) + (votes[selectedQuestion.id] === 'up' ? 1 : 0)}
                 </span>
               </div>
 
@@ -1001,7 +1052,7 @@ export default function DiscussionPage() {
                     </span>
                     {selectedQuestion.year && (
                       <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
-                        GATE {selectedQuestion.year}
+                        GATE {selectedQuestion.year}{selectedQuestion.set ? ` • Set ${selectedQuestion.set}` : ''}
                       </span>
                     )}
                     <span className="text-[10px] font-semibold text-slate-400 hidden sm:inline truncate">
@@ -1032,8 +1083,8 @@ export default function DiscussionPage() {
                       {selectedQuestion.subject} • {selectedQuestion.topic}
                     </span>
                   </div>
-                  <div className="text-xs font-medium text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed">
-                    {selectedQuestion.question}
+                  <div className="text-xs font-medium text-slate-800 dark:text-slate-100 leading-relaxed">
+                    <QuestionText text={selectedQuestion.question} />
                   </div>
                   {/* Diagram / Image */}
                   {(selectedQuestion.imageUrl || selectedQuestion.diagramUrl || selectedQuestion.image) && (
@@ -1088,6 +1139,10 @@ export default function DiscussionPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      if (!isAuthenticated) {
+                        openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                        return
+                      }
                       setIsWritingSolution(true)
                       setMobileTab('discussion')
                     }}
@@ -1123,7 +1178,13 @@ export default function DiscussionPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setIsWritingSolution(true)}
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                          return
+                        }
+                        setIsWritingSolution(true)
+                      }}
                       className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-btn text-xs font-bold hover:bg-primary-hover shadow-xs active:scale-95 transition-all"
                     >
                       <Plus size={14} />
@@ -1221,7 +1282,13 @@ export default function DiscussionPage() {
                             <div className="flex items-center gap-3 mt-3 pt-2 border-t border-slate-100 dark:border-slate-850 flex-wrap">
                               <button
                                 type="button"
-                                onClick={() => setActiveReplyBox(activeReplyBox === solution.id ? null : solution.id)}
+                                onClick={() => {
+                                  if (!isAuthenticated) {
+                                    openAuthPrompt('reply to discussions', 'Please register or log in to reply to comments and discussions.')
+                                    return
+                                  }
+                                  setActiveReplyBox(activeReplyBox === solution.id ? null : solution.id)
+                                }}
                                 className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-primary transition-colors"
                               >
                                 <Reply size={13} />
@@ -1279,6 +1346,8 @@ export default function DiscussionPage() {
                                 handleDeleteComment={handleDeleteComment}
                                 isCommentAuthor={isCommentAuthor}
                                 user={user}
+                                isAuthenticated={isAuthenticated}
+                                openAuthPrompt={openAuthPrompt}
                               />
                             ))}
                           </div>
@@ -1333,6 +1402,10 @@ export default function DiscussionPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (!isAuthenticated) {
+                          openAuthPrompt('post solutions', 'Please register or log in to post your solutions and share insights with the community.')
+                          return
+                        }
                         setIsWritingSolution(true)
                         setMobileTab('discussion')
                       }}

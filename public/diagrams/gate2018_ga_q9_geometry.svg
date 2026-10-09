@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 360" width="100%" height="280">
+  <defs>
+    <style>
+      .line { stroke: #1e293b; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+      .lbl { font-family: 'Segoe UI', -apple-system, sans-serif; font-size: 20px; font-weight: 700; fill: #1e293b; }
+    </style>
+  </defs>
+  
+  <!-- Line EA (straight line passing through D) -->
+  <line x1="100" y1="40" x2="110" y2="320" class="line" />
+  <!-- Line AF (straight line passing through B) -->
+  <line x1="110" y1="320" x2="470" y2="195" class="line" />
+  <!-- Segment EB (from E through C to B on line AF) -->
+  <line x1="100" y1="40" x2="272" y2="264" class="line" />
+  <!-- Segment DF (from D on line EA through C to F) -->
+  <line x1="105" y1="180" x2="470" y2="195" class="line" />
+
+  <!-- Labels -->
+  <text x="90" y="32" class="lbl">E</text>
+  <text x="80" y="186" class="lbl">D</text>
+  <text x="96" y="348" class="lbl">A</text>
+  <text x="210" y="170" class="lbl">C</text>
+  <text x="272" y="292" class="lbl">B</text>
+  <text x="482" y="202" class="lbl">F</text>
+</svg>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import QuestionImage from '../components/QuestionImage'
+import QuestionText from '../components/QuestionText'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import FilterDropdown from '../components/FilterDropdown'
 import { exportQuestionNotePdf, exportBulkNotesPdf, renderSheetToDataUrl } from '../utils/notesPdfExport'
@@ -38,7 +39,19 @@ export default function NotesPage() {
 
   // 1. Filter questions that have notes saved
   const questionsWithNotes = useMemo(() => {
-    return questions.filter(q => !!questionNotes[q.id])
+    return questions.filter(q => {
+      const n = questionNotes?.[q.id] || questionNotes?.[String(q.id)]
+      if (!n) return false
+      if (typeof n === 'string') return n.trim().length > 0
+      if (typeof n === 'object') {
+        const hasSheets = Array.isArray(n.sheets) && n.sheets.length > 0
+        const hasStrokes = Array.isArray(n.strokes) && n.strokes.length > 0
+        const hasData = !!n.data
+        const hasText = !!n.content || !!n.text
+        return hasSheets || hasStrokes || hasData || hasText || !!n.name
+      }
+      return true
+    })
   }, [questions, questionNotes])
 
   // Extract unique subjects, years & topics from questions with notes
@@ -63,7 +76,7 @@ export default function NotesPage() {
   // 2. Filter questions based on search and filters
   const filteredQuestions = useMemo(() => {
     return questionsWithNotes.filter(q => {
-      const note = questionNotes[q.id] || {}
+      const note = questionNotes[q.id] || questionNotes[String(q.id)] || {}
 
       if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
       if (selectedYear !== 'ALL' && String(q.year) !== String(selectedYear)) return false
@@ -86,12 +99,12 @@ export default function NotesPage() {
   // Currently focused question
   const activeQuestion = useMemo(() => {
     if (selectedQuestionId) {
-      return questions.find(q => q.id === selectedQuestionId) || null
+      return questions.find(q => String(q.id) === String(selectedQuestionId)) || null
     }
     return null
   }, [selectedQuestionId, questions])
 
-  const currentNote = activeQuestion ? questionNotes[activeQuestion.id] : null
+  const currentNote = activeQuestion ? (questionNotes[activeQuestion.id] || questionNotes[String(activeQuestion.id)] || null) : null
 
   // Normalize sheets for active question
   const currentSheets = useMemo(() => {
@@ -457,7 +470,7 @@ export default function NotesPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
                   {filteredQuestions.map((q) => {
-                    const note = questionNotes[q.id] || {}
+                    const note = questionNotes[q.id] || questionNotes[String(q.id)] || {}
                     const isChecked = selectedIdsForBulk.includes(q.id)
                     const sheetsCount = (note.sheets && note.sheets.length) || (note.strokes ? 1 : 0)
                     const attsCount = (note.attachments && note.attachments.length) || (note.type === 'pdf' ? 1 : 0)
@@ -662,8 +675,8 @@ export default function NotesPage() {
                   </div>
 
                   {/* Question Statement */}
-                  <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
-                    {activeQuestion.question}
+                  <div className="text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                    <QuestionText text={activeQuestion.question} />
                   </div>
 
                   {/* Diagram */}

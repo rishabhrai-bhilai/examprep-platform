@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 240" width="680" height="240">
+  <defs>
+    <marker id="pda-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#1e293b" />
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" rx="12" />
+
+  <!-- Start arrow into State 0 -->
+  <line x1="100" y1="130" x2="160" y2="130" stroke="#1e293b" stroke-width="2" marker-end="url(#pda-arrow)" />
+
+  <!-- State 0 (Accepting, double circle) at cx=190, cy=130 -->
+  <circle cx="190" cy="130" r="28" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <circle cx="190" cy="130" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- State 0 self loop on top -->
+  <path d="M 175 105 C 160 55, 220 55, 205 105" fill="none" stroke="#1e293b" stroke-width="2" marker-end="url(#pda-arrow)" />
+  <text x="190" y="45" font-family="serif" font-size="15" font-style="italic" text-anchor="middle" fill="#0f172a">a, X / XX</text>
+  <text x="190" y="65" font-family="serif" font-size="15" font-style="italic" text-anchor="middle" fill="#0f172a">a, Z / XZ</text>
+
+  <!-- Transition State 0 to State 1 -->
+  <line x1="220" y1="130" x2="358" y2="130" stroke="#1e293b" stroke-width="2" marker-end="url(#pda-arrow)" />
+  <text x="290" y="120" font-family="serif" font-size="15" font-style="italic" text-anchor="middle" fill="#0f172a">b, X / &#949;</text>
+
+  <!-- State 1 (Non-accepting, single circle) at cx=390, cy=130 -->
+  <circle cx="390" cy="130" r="28" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+
+  <!-- State 1 self loop on top -->
+  <path d="M 375 105 C 360 55, 420 55, 405 105" fill="none" stroke="#1e293b" stroke-width="2" marker-end="url(#pda-arrow)" />
+  <text x="390" y="55" font-family="serif" font-size="15" font-style="italic" text-anchor="middle" fill="#0f172a">b, X / &#949;</text>
+
+  <!-- Transition State 1 to State 2 -->
+  <line x1="420" y1="130" x2="528" y2="130" stroke="#1e293b" stroke-width="2" marker-end="url(#pda-arrow)" />
+  <text x="475" y="120" font-family="serif" font-size="15" font-style="italic" text-anchor="middle" fill="#0f172a">&#949;, Z / Z</text>
+
+  <!-- State 2 (Accepting, double circle) at cx=560, cy=130 -->
+  <circle cx="560" cy="130" r="28" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <circle cx="560" cy="130" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="1.5" />
+</svg>

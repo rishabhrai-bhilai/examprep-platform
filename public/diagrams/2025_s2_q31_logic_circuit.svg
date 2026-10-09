@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 280" width="540" height="280">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+  <text x="40" y="70" font-family="sans-serif" font-size="16" font-weight="bold" fill="#1e293b">X</text>
+  <text x="40" y="170" font-family="sans-serif" font-size="16" font-weight="bold" fill="#1e293b">Y</text>
+  
+  <g stroke="#334155" stroke-width="2" fill="none">
+    <path d="M 60,65 L 170,65" />
+    <path d="M 100,65 L 100,120 L 170,120" />
+    <path d="M 80,65 L 80,210 L 170,210" />
+    <path d="M 60,165 L 120,165 L 120,85 L 170,85" />
+    <path d="M 120,165 L 170,165" />
+    <path d="M 210,165 L 230,165 L 230,195 L 250,195" />
+    
+    <path d="M 170,55 L 195,55 A 20,20 0 0 1 195,95 L 170,95 Z" fill="#f8fafc"/>
+    <circle cx="219" cy="75" r="4" fill="#f8fafc"/>
+    <polygon points="170,110 170,130 195,120" fill="#f8fafc"/>
+    <circle cx="200" cy="120" r="4" fill="#f8fafc"/>
+    <polygon points="170,155 170,175 195,165" fill="#f8fafc"/>
+    <circle cx="200" cy="165" r="4" fill="#f8fafc"/>
+    <path d="M 250,185 L 270,185 A 15,15 0 0 1 270,215 L 250,215 Z" fill="#f8fafc"/>
+    
+    <path d="M 223,75 L 360,75 L 360,115 L 380,115" />
+    <path d="M 204,120 L 380,120" />
+    <path d="M 285,200 L 360,200 L 360,135 L 380,135" />
+    
+    <path d="M 380,105 Q 400,125 380,145 Q 415,145 435,125 Q 415,105 380,105 Z" fill="#eff6ff" stroke="#2563eb" stroke-width="2.5"/>
+    <path d="M 435,125 L 480,125" stroke="#2563eb" stroke-width="2.5"/>
+  </g>
+  <text x="495" y="130" font-family="sans-serif" font-size="18" font-weight="bold" fill="#2563eb">F</text>
+</svg>

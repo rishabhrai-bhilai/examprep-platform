@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 470 190" width="100%" height="190">
+  <defs>
+    <style>
+      .gate-text {
+        font-family: "Times New Roman", Times, "Cambria", Georgia, serif;
+        font-size: 16px;
+        fill: #000000;
+      }
+      .gate-header {
+        font-family: "Times New Roman", Times, "Cambria", Georgia, serif;
+        font-size: 16px;
+        font-weight: 600;
+        fill: #000000;
+      }
+      .gate-line {
+        stroke: #000000;
+        stroke-width: 1.25;
+        shape-rendering: crispEdges;
+      }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" />
+
+  <!-- Top Header box (Men / Women only) -->
+  <!-- Header top line -->
+  <line x1="280" y1="15" x2="450" y2="15" class="gate-line" />
+  <!-- Header vertical divider -->
+  <line x1="365" y1="15" x2="365" y2="48" class="gate-line" />
+  <!-- Header text -->
+  <text x="322" y="38" text-anchor="middle" class="gate-header">Men</text>
+  <text x="407" y="38" text-anchor="middle" class="gate-header">Women</text>
+
+  <!-- Horizontal lines of the table -->
+  <!-- Top line of main table (Y=48) -->
+  <line x1="15" y1="48" x2="450" y2="48" class="gate-line" />
+  <!-- Row 1 bottom: between Car and Scooter (starts after Own Vehicle column) -->
+  <line x1="195" y1="79" x2="450" y2="79" class="gate-line" />
+  <!-- Row 2 bottom: between Scooter and Both (starts after Own Vehicle column) -->
+  <line x1="195" y1="110" x2="450" y2="110" class="gate-line" />
+  <!-- Row 3 bottom: separates Own vehicle block from Do not own vehicle -->
+  <line x1="15" y1="141" x2="450" y2="141" class="gate-line" />
+  <!-- Table bottom line -->
+  <line x1="15" y1="172" x2="450" y2="172" class="gate-line" />
+
+  <!-- Vertical lines of the table -->
+  <!-- Left outer border -->
+  <line x1="15" y1="48" x2="15" y2="172" class="gate-line" />
+  <!-- Between Own vehicle and Vehicle type (only rows 1-3) -->
+  <line x1="195" y1="48" x2="195" y2="141" class="gate-line" />
+  <!-- Before Men column (from header top to table bottom) -->
+  <line x1="280" y1="15" x2="280" y2="172" class="gate-line" />
+  <!-- Between Men and Women (from header top to table bottom) -->
+  <line x1="365" y1="48" x2="365" y2="172" class="gate-line" />
+  <!-- Right outer border (from header top to table bottom) -->
+  <line x1="450" y1="15" x2="450" y2="172" class="gate-line" />
+
+  <!-- Category & Labels -->
+  <!-- Own vehicle (centered across rows 1, 2, 3) -->
+  <text x="105" y="100" text-anchor="middle" class="gate-text">Own vehicle</text>
+
+  <!-- Vehicle types -->
+  <text x="210" y="69" class="gate-text">Car</text>
+  <text x="210" y="100" class="gate-text">Scooter</text>
+  <text x="210" y="131" class="gate-text">Both</text>
+
+  <!-- Do not own vehicle (spanning both left columns) -->
+  <text x="147" y="162" text-anchor="middle" class="gate-text">Do not own vehicle</text>
+
+  <!-- Data values: Men column -->
+  <text x="322" y="69" text-anchor="middle" class="gate-text">40</text>
+  <text x="322" y="100" text-anchor="middle" class="gate-text">30</text>
+  <text x="322" y="131" text-anchor="middle" class="gate-text">60</text>
+  <text x="322" y="162" text-anchor="middle" class="gate-text">20</text>
+
+  <!-- Data values: Women column -->
+  <text x="407" y="69" text-anchor="middle" class="gate-text">34</text>
+  <text x="407" y="100" text-anchor="middle" class="gate-text">20</text>
+  <text x="407" y="131" text-anchor="middle" class="gate-text">46</text>
+  <text x="407" y="162" text-anchor="middle" class="gate-text">50</text>
+</svg>

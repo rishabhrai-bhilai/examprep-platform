@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="540" height="180" style="background:#ffffff; font-family: 'Times New Roman', Times, serif;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#0f172a"/>
+    </marker>
+  </defs>
+
+  <!-- ================= DFA M ================= -->
+  <text x="25" y="96" font-size="22" font-weight="bold" fill="#0f172a">M:</text>
+
+  <!-- Start arrow into State 1 -->
+  <line x1="55" y1="90" x2="88" y2="90" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- State 1 (circle) -->
+  <circle cx="106" cy="90" r="18" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+
+  <!-- Self loop on State 1 labeled b -->
+  <path d="M 98 74 C 75 35, 137 35, 114 74" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="127" y="55" font-size="18" font-style="italic" fill="#0f172a">b</text>
+
+  <!-- Forward arrow to State 2 labeled a -->
+  <line x1="124" y1="90" x2="182" y2="90" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="153" y="80" text-anchor="middle" font-size="18" font-style="italic" fill="#0f172a">a</text>
+
+  <!-- State 2 (double circle - accepting) -->
+  <circle cx="202" cy="90" r="18" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <circle cx="202" cy="90" r="14" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>
+
+  <!-- Self loop on State 2 labeled a -->
+  <path d="M 194 74 C 171 35, 233 35, 210 74" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="223" y="55" font-size="18" font-style="italic" fill="#0f172a">a</text>
+
+  <!-- Return curved arrow from State 2 to State 1 labeled b -->
+  <path d="M 202 108 C 190 145, 122 145, 108 110" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="153" y="152" text-anchor="middle" font-size="18" font-style="italic" fill="#0f172a">b</text>
+
+  <!-- ================= DFA N ================= -->
+  <text x="295" y="96" font-size="22" font-weight="bold" fill="#0f172a">N:</text>
+
+  <!-- Start arrow into State 1 -->
+  <line x1="325" y1="90" x2="358" y2="90" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- State 1 (circle) -->
+  <circle cx="376" cy="90" r="18" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+
+  <!-- Self loop on State 1 labeled a -->
+  <path d="M 368 74 C 345 35, 407 35, 384 74" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="397" y="55" font-size="18" font-style="italic" fill="#0f172a">a</text>
+
+  <!-- Forward arrow to State 2 labeled b -->
+  <line x1="394" y1="90" x2="452" y2="90" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="423" y="80" text-anchor="middle" font-size="18" font-style="italic" fill="#0f172a">b</text>
+
+  <!-- State 2 (double circle - accepting) -->
+  <circle cx="472" cy="90" r="18" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
+  <circle cx="472" cy="90" r="14" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>
+
+  <!-- Self loop on State 2 labeled b -->
+  <path d="M 464 74 C 441 35, 503 35, 480 74" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="493" y="55" font-size="18" font-style="italic" fill="#0f172a">b</text>
+
+  <!-- Return curved arrow from State 2 to State 1 labeled a -->
+  <path d="M 472 108 C 460 145, 392 145, 378 110" fill="none" stroke="#0f172a" stroke-width="1.8" marker-end="url(#arrow)"/>
+  <text x="423" y="152" text-anchor="middle" font-size="18" font-style="italic" fill="#0f172a">a</text>
+</svg>

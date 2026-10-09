@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 260" width="540" height="260">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#334155" />
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+  <text x="270" y="28" font-family="sans-serif" font-size="14" font-weight="bold" fill="#1e293b" text-anchor="middle">5-State NFA with ε-Transitions</text>
+
+  <!-- Start arrow to state 1 -->
+  <line x1="20" y1="130" x2="65" y2="130" stroke="#334155" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- States -->
+  <g stroke="#334155" stroke-width="2.5" fill="#f8fafc" font-family="sans-serif" font-size="16" font-weight="bold" text-anchor="middle">
+    <!-- State 1 (Start) -->
+    <circle cx="95" cy="130" r="24" fill="#e0e7ff"/>
+    <text x="95" y="136" fill="#1e1b4b">1</text>
+
+    <!-- State 2 (Accepting) -->
+    <circle cx="230" cy="70" r="24" fill="#dcfce7"/>
+    <circle cx="230" cy="70" r="19" fill="none" stroke="#16a34a" stroke-width="2"/>
+    <text x="230" y="76" fill="#14532d">2</text>
+
+    <!-- State 3 -->
+    <circle cx="370" cy="70" r="24" fill="#f1f5f9"/>
+    <text x="370" y="76" fill="#1e293b">3</text>
+
+    <!-- State 4 -->
+    <circle cx="230" cy="190" r="24" fill="#f1f5f9"/>
+    <text x="230" y="196" fill="#1e293b">4</text>
+
+    <!-- State 5 (Accepting) -->
+    <circle cx="370" cy="190" r="24" fill="#dcfce7"/>
+    <circle cx="370" cy="190" r="19" fill="none" stroke="#16a34a" stroke-width="2"/>
+    <text x="370" y="196" fill="#14532d">5</text>
+  </g>
+
+  <!-- Transitions -->
+  <g stroke="#334155" stroke-width="2" fill="none" font-family="sans-serif" font-size="13" font-weight="bold">
+    <!-- 1 -> 2 (eps) -->
+    <line x1="115" y1="115" x2="208" y2="80" marker-end="url(#arrow)"/>
+    <text x="155" y="90" fill="#2563eb" text-anchor="middle">ε</text>
+
+    <!-- 1 -> 4 (eps) -->
+    <line x1="115" y1="145" x2="208" y2="180" marker-end="url(#arrow)"/>
+    <text x="155" y="178" fill="#2563eb" text-anchor="middle">ε</text>
+
+    <!-- 2 -> 3 (0) -->
+    <path d="M 254,60 Q 300,40 346,60" marker-end="url(#arrow)"/>
+    <text x="300" y="44" fill="#0f172a" text-anchor="middle">0</text>
+
+    <!-- 3 -> 2 (0) -->
+    <path d="M 346,80 Q 300,100 254,80" marker-end="url(#arrow)"/>
+    <text x="300" y="103" fill="#0f172a" text-anchor="middle">0</text>
+
+    <!-- 4 -> 5 (1) -->
+    <path d="M 254,180 Q 300,160 346,180" marker-end="url(#arrow)"/>
+    <text x="300" y="164" fill="#0f172a" text-anchor="middle">1</text>
+
+    <!-- 5 -> 4 (1) -->
+    <path d="M 346,200 Q 300,220 254,200" marker-end="url(#arrow)"/>
+    <text x="300" y="223" fill="#0f172a" text-anchor="middle">1</text>
+
+    <!-- 3 -> 5 (eps) -->
+    <line x1="370" y1="94" x2="370" y2="166" marker-end="url(#arrow)"/>
+    <text x="382" y="135" fill="#2563eb">ε</text>
+  </g>
+</svg>

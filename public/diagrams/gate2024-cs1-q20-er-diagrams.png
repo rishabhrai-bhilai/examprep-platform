@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 320" width="540" height="320">
+  <rect width="100%" height="100%" fill="#ffffff" rx="12"/>
+  <text x="270" y="30" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1e293b" text-anchor="middle">ER Diagram (iv): Instructors, Courses, Students, Classrooms</text>
+
+  <g stroke="#1e293b" stroke-width="2" fill="#f8fafc" font-family="sans-serif" font-size="13" font-weight="bold" text-anchor="middle">
+    <rect x="40" y="70" width="100" height="45" rx="4" fill="#dbeafe"/>
+    <text x="90" y="98">Instructor</text>
+    <rect x="400" y="70" width="100" height="45" rx="4" fill="#dbeafe"/>
+    <text x="450" y="98">Course</text>
+    <rect x="40" y="220" width="100" height="45" rx="4" fill="#dbeafe"/>
+    <text x="90" y="248">Student</text>
+    <rect x="400" y="220" width="100" height="45" rx="4" fill="#dbeafe"/>
+    <text x="450" y="248">Classroom</text>
+  </g>
+
+  <g stroke="#2563eb" stroke-width="2" fill="#eff6ff" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle">
+    <polygon points="270,72 320,92 270,112 220,92" />
+    <text x="270" y="96">Teaches</text>
+    <polygon points="90,135 125,160 90,185 55,160" />
+    <text x="90" y="164">Guides</text>
+    <polygon points="270,140 315,160 270,180 225,160" />
+    <text x="270" y="164">Registration</text>
+    <polygon points="450,135 490,160 450,185 410,160" />
+    <text x="450" y="164">Allocation</text>
+  </g>
+
+  <g stroke="#475569" stroke-width="2">
+    <line x1="140" y1="92" x2="220" y2="92" />
+    <line x1="320" y1="92" x2="400" y2="92" />
+    <line x1="90" y1="115" x2="90" y2="135" />
+    <line x1="90" y1="185" x2="90" y2="220" />
+    <line x1="140" y1="242" x2="235" y2="170" />
+    <line x1="305" y1="150" x2="400" y2="92" />
+    <line x1="450" y1="115" x2="450" y2="135" />
+    <line x1="450" y1="185" x2="450" y2="220" />
+  </g>
+</svg>

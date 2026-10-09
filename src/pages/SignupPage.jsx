@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { BookOpen, Lock, Mail, User, AlertCircle, Eye, EyeOff } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
+import { useAppStore } from '../store/useAppStore'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 export default function SignupPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { signup, error, loading, clearError, isAuthenticated } = useAuthStore()
+  const { syncUserData } = useAppStore()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -15,15 +19,18 @@ export default function SignupPage() {
   useEffect(() => {
     clearError()
     if (isAuthenticated) {
-      navigate('/dashboard')
+      const from = location.state?.from || '/dashboard'
+      navigate(from, { replace: true })
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, navigate, clearError, location.state])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const success = await signup(name, email, password)
-    if (success) {
-      navigate('/dashboard')
+    const result = await signup(name, email, password)
+    if (result.success) {
+      await syncUserData()
+      const from = location.state?.from || '/dashboard'
+      navigate(from, { replace: true })
     }
   }
 
@@ -39,7 +46,7 @@ export default function SignupPage() {
             <span>Exam<span className="text-primary">Prep</span></span>
           </Link>
           <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">Create your account</h2>
-          <p className="text-xs text-slate-500">Sign up and unlock personalized study streaks and analytics.</p>
+          <p className="text-xs text-slate-500">Sign up to unlock cloud-synced scratchpads, bookmarks, and discussion voting.</p>
         </div>
 
         {/* Error Alert */}
@@ -49,6 +56,18 @@ export default function SignupPage() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Google Sign-in */}
+        <div className="space-y-3">
+          <GoogleSignInButton text="Sign up with Google" />
+          
+          <div className="relative flex items-center justify-center">
+            <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+            <span className="bg-card-light dark:bg-card-dark px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">
+              or sign up with email
+            </span>
+          </div>
+        </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -115,7 +134,7 @@ export default function SignupPage() {
             disabled={loading}
             className="w-full h-10 mt-6 bg-primary hover:bg-primary-hover text-white font-semibold rounded-btn shadow-sm transition-all active:scale-95 text-sm flex items-center justify-center disabled:opacity-50"
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

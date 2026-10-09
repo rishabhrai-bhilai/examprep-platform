@@ -12,6 +12,7 @@ export default function Sidebar() {
     sidebarCollapsed, 
     toggleSidebarCollapsed, 
     isPracticeActive, 
+    questions,
     questionNotes,
     bookmarks,
     bookmarkFolders 
@@ -38,10 +39,30 @@ export default function Sidebar() {
     setHoveredTooltip(null)
   }
 
-  const notesCount = Object.keys(questionNotes || {}).length
-  const bookmarksCount = Array.isArray(bookmarks) && bookmarks.length > 0
-    ? bookmarks.length
-    : (bookmarkFolders ? Array.from(new Set(Object.values(bookmarkFolders).flat())).length : 0)
+  const availableQuestions = questions || []
+
+  // Count only notes that belong to actual available questions and have content
+  const notesCount = availableQuestions.filter(q => {
+    const n = questionNotes?.[q.id] || questionNotes?.[String(q.id)]
+    if (!n) return false
+    if (typeof n === 'string') return n.trim().length > 0
+    if (typeof n === 'object') {
+      const hasSheets = Array.isArray(n.sheets) && n.sheets.length > 0
+      const hasStrokes = Array.isArray(n.strokes) && n.strokes.length > 0
+      const hasData = !!n.data
+      const hasText = !!n.content || !!n.text
+      return hasSheets || hasStrokes || hasData || hasText || !!n.name
+    }
+    return true
+  }).length
+
+  // Count only bookmarks that belong to actual available questions
+  const rawBookmarkIds = Array.isArray(bookmarks) && bookmarks.length > 0
+    ? bookmarks
+    : (bookmarkFolders ? Array.from(new Set(Object.values(bookmarkFolders).flat())) : [])
+  const bookmarksCount = availableQuestions.filter(q =>
+    rawBookmarkIds.some(id => String(id) === String(q.id))
+  ).length
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },

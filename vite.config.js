@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     host: true,
+    watch: {
+      ignored: ['**/server/**', '**/.git/**']
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
+import QuestionText from '../components/QuestionText'
 
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
@@ -379,6 +380,7 @@ export default function MockTestsPage() {
       return item
     })
     localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
   }
 
   const handleSubmitTest = () => {
@@ -553,6 +555,7 @@ export default function MockTestsPage() {
 
     const updatedHistory = [data, ...existingHistory]
     localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
 
     setView('report')
     
@@ -693,8 +696,8 @@ export default function MockTestsPage() {
                     </div>
                     
                     {/* Question Text */}
-                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                      {activeQuestion?.question}
+                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark leading-relaxed">
+                      <QuestionText text={activeQuestion?.question} />
                     </div>
 
                     {/* Question Diagram / Image (if present) */}
@@ -722,7 +725,9 @@ export default function MockTestsPage() {
                             }`}>
                               {String.fromCharCode(65 + idx)}
                             </span>
-                            <span>{option}</span>
+                            <span className="flex-1 min-w-0 break-words">
+                              <QuestionText text={option} inline />
+                            </span>
                           </button>
                         )
                       })}
@@ -799,46 +804,48 @@ export default function MockTestsPage() {
           </div>
 
           {/* Right Panel: Navigator Drawer (Desktop Only) */}
-          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col justify-between">
-            <div className="space-y-4">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Questions Grid</h3>
+          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col min-h-0 h-full overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 shrink-0">Questions Grid</h3>
               
               {/* Grid buttons */}
-              <div className="grid grid-cols-5 gap-2 max-h-none overflow-y-auto p-1.5 pr-2">
-                {testQuestions.map((q, idx) => {
-                  const isCurrent = idx === currentQuestionIndex
-                  const isFlagged = flags[q.id]
-                  const hasAnswered = answers[q.id] !== undefined
-                  const hasVisited = visited[q.id]
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-5 gap-2 p-1">
+                  {testQuestions.map((q, idx) => {
+                    const isCurrent = idx === currentQuestionIndex
+                    const isFlagged = flags[q.id]
+                    const hasAnswered = answers[q.id] !== undefined
+                    const hasVisited = visited[q.id]
 
-                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
-                  if (hasAnswered) {
-                    btnClass = 'bg-emerald-500 text-white border-emerald-600 outline-none focus:outline-none'
-                  } else if (isFlagged) {
-                    btnClass = 'bg-amber-500 text-white border-amber-600 outline-none focus:outline-none'
-                  } else if (hasVisited) {
-                    btnClass = 'bg-rose-500 text-white border-rose-600 outline-none focus:outline-none'
-                  }
+                    let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
+                    if (hasAnswered) {
+                      btnClass = 'bg-emerald-500 text-white border-emerald-600 outline-none focus:outline-none'
+                    } else if (isFlagged) {
+                      btnClass = 'bg-amber-500 text-white border-amber-600 outline-none focus:outline-none'
+                    } else if (hasVisited) {
+                      btnClass = 'bg-rose-500 text-white border-rose-600 outline-none focus:outline-none'
+                    }
 
-                  if (isCurrent) {
-                    btnClass += ' ring-2 ring-primary font-bold'
-                  }
+                    if (isCurrent) {
+                      btnClass += ' ring-2 ring-primary font-bold'
+                    }
 
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => navigateQuestion(idx)}
-                      className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  )
-                })}
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => navigateQuestion(idx)}
+                        className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 
             {/* Status Legend */}
-            <div className="border-t border-slate-100 dark:border-slate-800/40 pt-4 mt-4 space-y-2 text-[10px] font-semibold text-slate-500">
+            <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 mt-3 space-y-2 text-[10px] font-semibold text-slate-500 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 rounded bg-emerald-500 shrink-0"></span>
                 <span>Answered</span>
@@ -862,9 +869,9 @@ export default function MockTestsPage() {
           {/* Mobile Question Palette Drawer */}
           {showMobilePalette && (
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-center items-end md:hidden">
-              <div className="w-full max-w-lg h-[50vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-y-auto animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
-                <div>
-                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-4">
+              <div className="w-full max-w-lg max-h-[80vh] h-[70vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-hidden animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
+                <div className="flex-1 flex flex-col min-h-0 mb-3">
+                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-3 shrink-0">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Questions Palette</h3>
                     <button
                       onClick={() => setShowMobilePalette(false)}
@@ -874,39 +881,41 @@ export default function MockTestsPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-6 gap-2">
-                    {testQuestions.map((q, idx) => {
-                      const isCurrent = idx === currentQuestionIndex
-                      const isFlagged = flags[q.id]
-                      const hasAnswered = answers[q.id] !== undefined
-                      const hasVisited = visited[q.id]
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-6 gap-2 p-1">
+                      {testQuestions.map((q, idx) => {
+                        const isCurrent = idx === currentQuestionIndex
+                        const isFlagged = flags[q.id]
+                        const hasAnswered = answers[q.id] !== undefined
+                        const hasVisited = visited[q.id]
 
-                      let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                      if (hasAnswered) {
-                        btnClass = 'bg-emerald-500 text-white border-emerald-600'
-                      } else if (isFlagged) {
-                        btnClass = 'bg-amber-500 text-white border-amber-600'
-                      } else if (hasVisited) {
-                        btnClass = 'bg-rose-500 text-white border-rose-600'
-                      }
+                        let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        if (hasAnswered) {
+                          btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                        } else if (isFlagged) {
+                          btnClass = 'bg-amber-500 text-white border-amber-600'
+                        } else if (hasVisited) {
+                          btnClass = 'bg-rose-500 text-white border-rose-600'
+                        }
 
-                      if (isCurrent) {
-                        btnClass += ' ring-2 ring-primary font-bold'
-                      }
+                        if (isCurrent) {
+                          btnClass += ' ring-2 ring-primary font-bold'
+                        }
 
-                      return (
-                        <button
-                          key={q.id}
-                          onClick={() => {
-                            setCurrentQuestionIndex(idx)
-                            setShowMobilePalette(false)
-                          }}
-                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
-                        >
-                          {idx + 1}
-                        </button>
-                      )
-                    })}
+                        return (
+                          <button
+                            key={q.id}
+                            onClick={() => {
+                              setCurrentQuestionIndex(idx)
+                              setShowMobilePalette(false)
+                            }}
+                            className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                          >
+                            {idx + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -1676,9 +1685,9 @@ export default function MockTestsPage() {
                       </div>
 
                       {/* Question Text */}
-                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                        {q.question}
-                      </p>
+                      <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark leading-relaxed">
+                        <QuestionText text={q.question} />
+                      </div>
 
                       {/* Question Diagram / Image (if present) */}
                       <QuestionImage 
@@ -1712,7 +1721,7 @@ export default function MockTestsPage() {
                       {/* Explanatory notes */}
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
-                        <p>{q.explanation}</p>
+                        <QuestionText text={q.explanation} />
                         <QuestionImage 
                           src={q.explanationImageUrl || q.solutionImageUrl} 
                           alt="Explanation Diagram" 

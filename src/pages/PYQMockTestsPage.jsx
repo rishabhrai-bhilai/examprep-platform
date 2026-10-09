@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, 
@@ -6,9 +6,10 @@ import {
   Target, BarChart2, Zap, AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, 
   Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
+import QuestionText from '../components/QuestionText'
 
 export default function PYQMockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
@@ -168,8 +169,38 @@ export default function PYQMockTestsPage() {
     }
   }
 
-  // --- STATS COMPILING ---
+  const parseSet = (s) => {
+    if (typeof s === 'string') {
+      const m = s.match(/\d+/)
+      return m ? parseInt(m[0], 10) : 1
+    }
+    return Number(s) || 1
+  }
+
   const years = Array.from(new Set(questions.map(q => q.year))).sort().reverse()
+  
+  // Group questions by Year and Set
+  const yearPapers = useMemo(() => {
+    const map = {}
+    questions.forEach(q => {
+      const yr = String(q.year)
+      const s = parseSet(q.set)
+      const key = `${yr}_${s}`
+      if (!map[key]) {
+        map[key] = {
+          key,
+          year: yr,
+          set: s,
+          count: 0
+        }
+      }
+      map[key].count++
+    })
+    return Object.values(map).sort((a, b) => {
+      if (b.year !== a.year) return Number(b.year) - Number(a.year)
+      return a.set - b.set
+    })
+  }, [questions])
   
   const subjectsMap = questions.reduce((acc, q) => {
     acc[q.subject] = (acc[q.subject] || 0) + 1
@@ -310,9 +341,14 @@ export default function PYQMockTestsPage() {
       title = `PYQ Subject Mock Test`
       modeInfo = `${selectedSubjects.join(', ')}`
     } else if (subView === 'topic') {
-      filtered = questions.filter(q => selectedTopics.includes(q.topic))
+      filtered = questions.filter(q => selectedTopics.some(t => t.subject === q.subject && t.topic === q.topic))
       title = `PYQ Topic Mock Test`
-      modeInfo = `${selectedTopics.slice(0, 3).join(', ')}${selectedTopics.length > 3 ? '...' : ''}`
+      const topicTitles = selectedTopics.map(t =>
+        selectedTopics.filter(x => x.topic === t.topic).length > 1
+          ? `${t.topic} (${t.subject})`
+          : t.topic
+      )
+      modeInfo = `${topicTitles.slice(0, 3).join(', ')}${topicTitles.length > 3 ? '...' : ''}`
     }
 
     // Limit questions count
@@ -323,9 +359,13 @@ export default function PYQMockTestsPage() {
     startMockTestSession(filtered, title, modeInfo)
   }
 
-  const handleStartYearMock = (year) => {
-    const filtered = questions.filter(q => String(q.year) === String(year))
-    startMockTestSession(filtered, `PYQ Year Mock Test (${year})`, `Exam year ${year}`)
+  const handleStartYearMock = (year, set = null) => {
+    const filtered = questions.filter(q => 
+      String(q.year) === String(year) && (set === null || parseSet(q.set) === parseSet(set))
+    )
+    const title = set ? `PYQ Mock: GATE ${year} Set ${set}` : `PYQ Year Mock Test (${year})`
+    const modeInfo = set ? `Exam year ${year} • Set ${set}` : `Exam year ${year}`
+    startMockTestSession(filtered, title, modeInfo)
   }
 
   const handleStartWizardMock = () => {
@@ -718,6 +758,7 @@ export default function PYQMockTestsPage() {
     
     const updatedHistory = [data, ...existing]
     localStorage.setItem('gate_pyq_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
 
     setView('report')
 
@@ -754,6 +795,7 @@ export default function PYQMockTestsPage() {
       return item
     })
     localStorage.setItem('gate_pyq_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
   }
 
   // --- RENDERS ---
@@ -885,17 +927,22 @@ export default function PYQMockTestsPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {years.map(year => {
-                const count = questions.filter(q => String(q.year) === String(year)).length
+              {yearPapers.map(paper => {
+                const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
+                const label = hasMultipleSets ? `${paper.year} Set ${paper.set} Exam Paper` : `${paper.year} Exam Paper`
                 return (
                   <div
-                    key={year}
-                    onClick={() => handleStartYearMock(year)}
-                    className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center"
+                    key={paper.key}
+                    onClick={() => handleStartYearMock(paper.year, paper.set)}
+                    className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center group min-h-[82px]"
                   >
-                    <span className="font-bold text-sm text-slate-855 dark:text-slate-100">{year} Exam Paper</span>
-                    <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded">
-                      {count} Questions
+                    <div>
+                      <span className="font-bold text-sm text-slate-855 dark:text-slate-100 block group-hover:text-primary transition-colors">
+                        {label}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded shrink-0">
+                      {paper.count} Questions
                     </span>
                   </div>
                 )
@@ -994,12 +1041,8 @@ export default function PYQMockTestsPage() {
                 {selectedTopics.length > 0 && (
                   <button
                     onClick={() => {
-                      const totalAvailable = selectedTopics.reduce((sum, topic) => {
-                        let count = 0
-                        Object.keys(topicsMap).forEach(sub => {
-                          if (topicsMap[sub][topic]) count += topicsMap[sub][topic]
-                        })
-                        return sum + count
+                      const totalAvailable = selectedTopics.reduce((sum, item) => {
+                        return sum + (topicsMap[item.subject]?.[item.topic] || 0)
                       }, 0)
                       setMaxAvailableQuestions(totalAvailable)
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
@@ -1012,7 +1055,10 @@ export default function PYQMockTestsPage() {
                   </button>
                 )}
                 <button 
-                  onClick={() => setSubView('hub')} 
+                  onClick={() => {
+                    setSubView('hub')
+                    setSelectedTopics([])
+                  }} 
                   className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
                 >
                   <ArrowLeft size={14} />
@@ -1131,14 +1177,17 @@ export default function PYQMockTestsPage() {
                 return matched.map(({ topicName, subjectName, questionCount }) => {
                 const config = getSubjectConfig(subjectName)
                 const SubjectIcon = config.icon
-                const isSelected = selectedTopics.includes(topicName)
+                const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 return (
                   <div
-                    key={topicName}
+                    key={`${subjectName}-${topicName}`}
                     onClick={() => {
-                      setSelectedTopics(prev =>
-                        prev.includes(topicName) ? prev.filter(t => t !== topicName) : [...prev, topicName]
-                      )
+                      setSelectedTopics(prev => {
+                        const exists = prev.some(t => t.subject === subjectName && t.topic === topicName)
+                        return exists
+                          ? prev.filter(t => !(t.subject === subjectName && t.topic === topicName))
+                          : [...prev, { subject: subjectName, topic: topicName }]
+                      })
                     }}
                     className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
                       isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
@@ -1539,7 +1588,11 @@ export default function PYQMockTestsPage() {
                       {randomPracticePending ? 'Mode' : subView === 'topic' ? 'Selected Topics' : 'Selected Subjects'}
                     </span>
                     <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                      {randomPracticePending ? 'Random Question Mock' : subView === 'topic' ? selectedTopics.join(', ') : selectedSubjects.join(', ')}
+                      {randomPracticePending
+                        ? 'Random Question Mock'
+                        : subView === 'topic'
+                        ? selectedTopics.map(t => selectedTopics.filter(x => x.topic === t.topic).length > 1 ? `${t.topic} (${t.subject})` : t.topic).join(', ')
+                        : selectedSubjects.join(', ')}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -1712,8 +1765,8 @@ export default function PYQMockTestsPage() {
                       </div>
                     </div>
                     
-                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                      {activeQuestion?.question}
+                    <div className="text-sm md:text-base font-medium text-text-primary-light dark:text-text-primary-dark leading-relaxed">
+                      <QuestionText text={activeQuestion?.question} />
                     </div>
 
                     {/* Question Diagram / Image (if present) */}
@@ -1742,7 +1795,9 @@ export default function PYQMockTestsPage() {
                               }`}>
                                 {String.fromCharCode(65 + idx)}
                               </span>
-                              <span>{option}</span>
+                              <span className="flex-1 min-w-0 break-words">
+                                <QuestionText text={option} inline />
+                              </span>
                             </button>
                           )
                         })}
@@ -1769,7 +1824,9 @@ export default function PYQMockTestsPage() {
                               }`}>
                                 {isSelected ? <Check size={12} strokeWidth={3} /> : null}
                               </span>
-                              <span>{option}</span>
+                              <span className="flex-1 min-w-0 break-words">
+                                <QuestionText text={option} inline />
+                              </span>
                             </button>
                           )
                         })}
@@ -1862,45 +1919,47 @@ export default function PYQMockTestsPage() {
           </div>
 
           {/* Questions Grid Panel (Right Desktop Panel) */}
-          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col justify-between">
-            <div className="space-y-4">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400">Questions Grid</h3>
+          <div className="hidden md:flex w-64 border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-4 flex-col min-h-0 h-full overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-3 shrink-0">Questions Grid</h3>
               
-              <div className="grid grid-cols-5 gap-2 max-h-none overflow-y-auto p-1.5 pr-2">
-                {activeTestQuestions.map((q, idx) => {
-                  const isCurrent = idx === currentQuestionIndex
-                  const isFlagged = flags[q.id]
-                  const userAns = answers[q.id]
-                  const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
-                  const hasVisited = visited[q.id]
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+                <div className="grid grid-cols-5 gap-2 p-1">
+                  {activeTestQuestions.map((q, idx) => {
+                    const isCurrent = idx === currentQuestionIndex
+                    const isFlagged = flags[q.id]
+                    const userAns = answers[q.id]
+                    const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
+                    const hasVisited = visited[q.id]
 
-                  let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-655 dark:text-slate-400'
-                  if (hasAnswered) {
-                    btnClass = 'bg-emerald-500 text-white border-emerald-600'
-                  } else if (isFlagged) {
-                    btnClass = 'bg-amber-500 text-white border-amber-600'
-                  } else if (hasVisited) {
-                    btnClass = 'bg-rose-500 text-white border-rose-600'
-                  }
+                    let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-655 dark:text-slate-400'
+                    if (hasAnswered) {
+                      btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                    } else if (isFlagged) {
+                      btnClass = 'bg-amber-500 text-white border-amber-600'
+                    } else if (hasVisited) {
+                      btnClass = 'bg-rose-500 text-white border-rose-600'
+                    }
 
-                  if (isCurrent) {
-                    btnClass += ' ring-2 ring-primary font-bold'
-                  }
+                    if (isCurrent) {
+                      btnClass += ' ring-2 ring-primary font-bold'
+                    }
 
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => navigateQuestion(idx)}
-                      className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  )
-                })}
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => navigateQuestion(idx)}
+                        className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                      >
+                        {idx + 1}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 
-            <div className="border-t border-slate-100 dark:border-slate-800/40 pt-4 mt-4 space-y-2 text-[10px] font-semibold text-slate-555">
+            <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 mt-3 space-y-2 text-[10px] font-semibold text-slate-555 dark:text-slate-400 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 rounded bg-emerald-500 shrink-0"></span>
                 <span>Answered</span>
@@ -1924,9 +1983,9 @@ export default function PYQMockTestsPage() {
           {/* Mobile Question Palette Drawer */}
           {showMobilePalette && (
             <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex justify-center items-end md:hidden">
-              <div className="w-full max-w-lg h-[50vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-y-auto animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
-                <div>
-                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-4">
+              <div className="w-full max-w-lg max-h-[80vh] h-[70vh] bg-card-light dark:bg-card-dark p-5 flex flex-col justify-between overflow-hidden animate-slide-up border-t border-border-light dark:border-border-dark shadow-2xl rounded-t-2xl">
+                <div className="flex-1 flex flex-col min-h-0 mb-3">
+                  <div className="flex justify-between items-center pb-3 border-b border-border-light dark:border-border-dark mb-3 shrink-0">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-200">Questions Palette</h3>
                     <button
                       onClick={() => setShowMobilePalette(false)}
@@ -1936,44 +1995,46 @@ export default function PYQMockTestsPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-6 gap-2">
-                    {activeTestQuestions.map((q, idx) => {
-                      const isCurrent = idx === currentQuestionIndex
-                      const isFlagged = flags[q.id]
-                      const userAns = answers[q.id]
-                      const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
-                      const hasVisited = visited[q.id]
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-6 gap-2 p-1">
+                      {activeTestQuestions.map((q, idx) => {
+                        const isCurrent = idx === currentQuestionIndex
+                        const isFlagged = flags[q.id]
+                        const userAns = answers[q.id]
+                        const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
+                        const hasVisited = visited[q.id]
 
-                      let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                      if (hasAnswered) {
-                        btnClass = 'bg-emerald-500 text-white border-emerald-600'
-                      } else if (isFlagged) {
-                        btnClass = 'bg-amber-500 text-white border-amber-600'
-                      } else if (hasVisited) {
-                        btnClass = 'bg-rose-500 text-white border-rose-600'
-                      }
+                        let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                        if (hasAnswered) {
+                          btnClass = 'bg-emerald-500 text-white border-emerald-600'
+                        } else if (isFlagged) {
+                          btnClass = 'bg-amber-500 text-white border-amber-600'
+                        } else if (hasVisited) {
+                          btnClass = 'bg-rose-500 text-white border-rose-600'
+                        }
 
-                      if (isCurrent) {
-                        btnClass += ' ring-2 ring-primary font-bold'
-                      }
+                        if (isCurrent) {
+                          btnClass += ' ring-2 ring-primary font-bold'
+                        }
 
-                      return (
-                        <button
-                          key={q.id}
-                          onClick={() => {
-                            navigateQuestion(idx)
-                            setShowMobilePalette(false)
-                          }}
-                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
-                        >
-                          {idx + 1}
-                        </button>
-                      )
-                    })}
+                        return (
+                          <button
+                            key={q.id}
+                            onClick={() => {
+                              navigateQuestion(idx)
+                              setShowMobilePalette(false)
+                            }}
+                            className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-semibold border transition-all ${btnClass}`}
+                          >
+                            {idx + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
 
-                <div>
+                <div className="shrink-0">
                   <div className="border-t border-slate-100 dark:border-slate-800/40 pt-3 px-2 grid grid-cols-2 gap-y-2 gap-x-4 text-[10px] font-semibold text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-emerald-500 shrink-0"></span>
@@ -2703,6 +2764,11 @@ export default function PYQMockTestsPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-500">Question {idx + 1}</span>
                           <span className="font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">{q.subject}</span>
+                          {q.year && (
+                            <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded">
+                              GATE {q.year}{q.set ? ` • Set ${q.set}` : ''}
+                            </span>
+                          )}
                           <span className="text-[10px] text-slate-400 font-mono">Time: {formatTime(timeSecs)}</span>
                         </div>
                         <span className={`font-bold px-2 py-0.5 rounded ${
@@ -2712,9 +2778,9 @@ export default function PYQMockTestsPage() {
                         </span>
                       </div>
 
-                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark whitespace-pre-wrap leading-relaxed">
-                        {q.question}
-                      </p>
+                      <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark leading-relaxed">
+                        <QuestionText text={q.question} />
+                      </div>
 
                       {/* Question Diagram / Image (if present) */}
                       <QuestionImage 
@@ -2752,7 +2818,7 @@ export default function PYQMockTestsPage() {
 
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
-                        <p>{q.explanation}</p>
+                        <QuestionText text={q.explanation} />
                         <QuestionImage 
                           src={q.explanationImageUrl || q.solutionImageUrl} 
                           alt="Explanation Diagram" 

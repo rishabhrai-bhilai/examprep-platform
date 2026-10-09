@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 250" width="100%" height="220">
+  <defs>
+    <style>
+      .wire { stroke: #1e293b; stroke-width: 2.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .gate { stroke: #1e293b; stroke-width: 2.5; fill: #ffffff; }
+      .lbl { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 18px; font-weight: bold; fill: #0f172a; }
+      .gatelbl { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 15px; font-weight: bold; fill: #334155; text-anchor: middle; }
+      .sub { font-size: 13px; }
+    </style>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#ffffff" rx="10" />
+
+  <!-- Inputs f1, f2 to AND gate -->
+  <text x="110" y="55" class="lbl">f<tspan dy="4" class="sub">1</tspan></text>
+  <line x1="135" y1="50" x2="190" y2="50" class="wire" />
+
+  <text x="110" y="95" class="lbl">f<tspan dy="4" class="sub">2</tspan></text>
+  <line x1="135" y1="90" x2="190" y2="90" class="wire" />
+
+  <!-- AND Gate -->
+  <path d="M 190 35 L 220 35 A 35 35 0 0 1 220 105 L 190 105 Z" class="gate" />
+  <text x="215" y="75" class="gatelbl">AND</text>
+
+  <!-- Wire from AND gate to XOR gate -->
+  <line x1="248" y1="70" x2="310" y2="70" class="wire" />
+
+  <!-- Input f3: goes straight then up into XOR bottom input -->
+  <text x="110" y="195" class="lbl">f<tspan dy="4" class="sub">3</tspan></text>
+  <line x1="135" y1="190" x2="280" y2="190" class="wire" />
+  <line x1="280" y1="190" x2="280" y2="115" class="wire" />
+  <line x1="280" y1="115" x2="310" y2="115" class="wire" />
+
+  <!-- XOR Gate: input curve at x=310, front curve reaches x=365 -->
+  <!-- Back curved arc for XOR input -->
+  <path d="M 298 50 A 65 65 0 0 1 298 135" class="wire" />
+  <!-- Main XOR body -->
+  <path d="M 306 50 A 65 65 0 0 1 306 135 C 330 135 355 110 365 92.5 C 355 75 330 50 306 50 Z" class="gate" />
+  <text x="328" y="98" class="gatelbl">XOR</text>
+
+  <!-- Output f -->
+  <line x1="365" y1="92.5" x2="425" y2="92.5" class="wire" />
+  <text x="435" y="98" class="lbl">f</text>
+</svg>

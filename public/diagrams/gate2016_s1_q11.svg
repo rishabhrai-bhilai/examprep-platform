@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 240" width="500" height="240">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#334155" />
+    </marker>
+  </defs>
+  
+  <rect width="100%" height="100%" fill="#ffffff" rx="12" />
+  
+  <!-- Edges -->
+  <!-- a (70, 120) to b (180, 50) -->
+  <line x1="88" y1="108" x2="162" y2="62" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+  <!-- b (180, 50) to c (320, 50) -->
+  <line x1="202" y1="50" x2="298" y2="50" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+  <!-- c (320, 50) to f (430, 120) -->
+  <line x1="338" y1="62" x2="412" y2="108" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+  
+  <!-- a (70, 120) to d (180, 190) -->
+  <line x1="88" y1="132" x2="162" y2="178" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+  <!-- d (180, 190) to e (320, 190) -->
+  <line x1="202" y1="190" x2="298" y2="190" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+  <!-- e (320, 190) to f (430, 120) -->
+  <line x1="338" y1="178" x2="412" y2="132" stroke="#334155" stroke-width="2" marker-end="url(#arrow)" />
+
+  <!-- Nodes -->
+  <!-- Node a -->
+  <circle cx="70" cy="120" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="70" y="126" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">a</text>
+
+  <!-- Node b -->
+  <circle cx="180" cy="50" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="180" y="56" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">b</text>
+
+  <!-- Node c -->
+  <circle cx="320" cy="50" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="320" y="56" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">c</text>
+
+  <!-- Node d -->
+  <circle cx="180" cy="190" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="180" y="196" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">d</text>
+
+  <!-- Node e -->
+  <circle cx="320" cy="190" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="320" y="196" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">e</text>
+
+  <!-- Node f -->
+  <circle cx="430" cy="120" r="22" fill="#f8fafc" stroke="#1e293b" stroke-width="2" />
+  <text x="430" y="126" font-family="serif" font-size="20" font-style="italic" text-anchor="middle" fill="#0f172a">f</text>
+</svg>

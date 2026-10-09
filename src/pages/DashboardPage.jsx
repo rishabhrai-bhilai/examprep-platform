@@ -1,12 +1,73 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { Flame, CheckCircle, Clock, BookOpen, ChevronRight, Play, Bookmark } from 'lucide-react'
+import { Flame, CheckCircle, Clock, BookOpen, ChevronRight, Play, Bookmark, Lock, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 export default function DashboardPage() {
-  const { user } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
   const { bookmarks, questions } = useAppStore()
+
+  // --- GATED ACCESS VIEW FOR GUESTS ---
+  if (!isAuthenticated) {
+    return (
+      <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-[80vh] flex flex-col justify-center items-center">
+        <div className="w-full bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft p-8 sm:p-10 text-center space-y-6">
+          <div className="inline-flex p-4 rounded-3xl bg-primary/10 dark:bg-primary/20 text-primary ring-8 ring-primary/5">
+            <Lock size={32} className="text-primary" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">
+              Register / Login to access your Dashboard
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              Your personal dashboard tracks your preparation momentum, daily study streaks, subject-wise analytics, and custom recommendations.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/60 text-left space-y-2.5 text-xs">
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <Flame size={16} className="text-orange-500 shrink-0" />
+              <span>Track your daily study streak and active learning momentum</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <CheckCircle size={16} className="text-emerald-500 shrink-0" />
+              <span>Real-time accuracy and solved questions breakdown by subject</span>
+            </div>
+            <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
+              <BookOpen size={16} className="text-primary shrink-0" />
+              <span>Personalized topic suggestions and recent practice history</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2 max-w-sm mx-auto">
+            <GoogleSignInButton text="Sign in with Google" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                to="/login"
+                state={{ from: '/dashboard' }}
+                className="h-10 px-4 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-btn transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <span>Log In</span>
+                <ArrowRight size={13} />
+              </Link>
+
+              <Link
+                to="/signup"
+                state={{ from: '/dashboard' }}
+                className="h-10 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-btn transition-all border border-slate-200 dark:border-slate-700 flex items-center justify-center active:scale-95"
+              >
+                <span>Sign Up</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Mock progress details
   const streak = user?.streak || 5
@@ -25,7 +86,7 @@ export default function DashboardPage() {
   ]
 
   // Find bookmarked questions details
-  const bookmarkedItems = questions.filter(q => bookmarks.includes(q.id))
+  const bookmarkedItems = questions.filter(q => bookmarks.some(id => String(id) === String(q.id)))
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen">
@@ -71,7 +132,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <span className="text-xs text-slate-400 font-bold uppercase">Saved Bookmarks</span>
-            <p className="text-2xl font-extrabold mt-0.5">{bookmarks.length}</p>
+            <p className="text-2xl font-extrabold mt-0.5">{bookmarkedItems.length}</p>
           </div>
         </div>
 
