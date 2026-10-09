@@ -101,7 +101,7 @@ export default function LoginPage() {
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Instant access: enter any name to get started, or 'super' for admin view.
+                  Instant access: enter any name to get started.
                 </p>
               </div>
 
