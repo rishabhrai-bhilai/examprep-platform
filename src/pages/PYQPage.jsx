@@ -12,6 +12,10 @@ import DiscussionDrawer from '../components/DiscussionDrawer'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
+import AnswerProvenance from '../components/AnswerProvenance'
+import { compareSubjects } from '../utils/subjects'
+import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
+import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 
 export default function PYQPage() {
   const {
@@ -34,10 +38,8 @@ export default function PYQPage() {
 
   const getSubjectConfig = (subject) => {
     switch (subject) {
-      case 'Algorithms & Data Structures':
       case 'Algorithms':
-      case 'Data Structures':
-      case 'Programming in C':
+      case 'Programming & Data Structures':
         return {
           icon: Layers,
           colorClass: 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20',
@@ -53,9 +55,7 @@ export default function PYQPage() {
           badgeColor: 'bg-teal-500/10 text-teal-650 dark:text-teal-400',
           label: 'Paging, CPU scheduling, threads, sync'
         }
-      case 'Database Management Systems':
-      case 'Databases (DBMS)':
-      case 'Database Management':
+      case 'Databases':
         return {
           icon: Database,
           colorClass: 'text-blue-500 bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/20',
@@ -88,7 +88,6 @@ export default function PYQPage() {
           label: 'Parsers, syntax trees, optimization'
         }
       case 'Computer Organization & Architecture':
-      case 'Computer Organization':
         return {
           icon: Cpu,
           colorClass: 'text-amber-500 bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20',
@@ -113,9 +112,6 @@ export default function PYQPage() {
           label: 'Graph coloring, logic, combinatorics'
         }
       case 'Engineering Mathematics':
-      case 'Linear Algebra':
-      case 'Calculus':
-      case 'Probability':
         return {
           icon: Hash,
           colorClass: 'text-fuchsia-500 bg-fuchsia-500/10 dark:bg-fuchsia-500/20 border-fuchsia-500/20',
@@ -227,15 +223,8 @@ export default function PYQPage() {
     return acc
   }, {})
   
-  // Get all unique topics grouped by subjects with counts
-  const topicsMap = questions.reduce((acc, q) => {
-    if (!acc[q.subject]) acc[q.subject] = {}
-    acc[q.subject][q.topic] = (acc[q.subject][q.topic] || 0) + 1
-    return acc
-  }, {})
-
-  // All unique topics across all subjects
-  const allTopics = Array.from(new Set(questions.map(q => q.topic)))
+  // Every listed topic grouped by subject, with how many questions are tagged with it
+  const topicsMap = useMemo(() => buildTopicsMap(questions), [questions])
 
   // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems", "dbms" -> Database)
   const subjectAliases = {
@@ -267,7 +256,7 @@ export default function PYQPage() {
   const flatTopicsList = useMemo(() => {
     return Object.keys(topicsMap).reduce((acc, sub) => {
       Object.keys(topicsMap[sub]).forEach(topic => {
-        const topicQuestions = questions.filter(q => q.subject === sub && q.topic === topic)
+        const topicQuestions = questions.filter(q => hasTag(q, sub, topic))
         const years = Array.from(new Set(topicQuestions.map(q => q.year).filter(Boolean))).join(' ')
         acc.push({
           topicName: topic,
@@ -483,7 +472,7 @@ export default function PYQPage() {
     } else if (view === 'topic') {
       const topicNames = Array.from(new Set(selectedTopics.map(t => t.topic)))
       startReelsSession(
-        q => selectedTopics.some(t => t.subject === q.subject && t.topic === q.topic),
+        q => selectedTopics.some(t => hasTag(q, t.subject, t.topic)),
         topicNames.join(', '),
         '',
         limitQuestionsCount
@@ -492,10 +481,14 @@ export default function PYQPage() {
   }
 
   // --- MOCK BUILDER GENERATOR ---
+  // wizardConfig.topics holds topicKey(subject, topic) strings
+  const matchesWizardTopics = q =>
+    getTags(q).some(t => wizardConfig.topics.includes(topicKey(t.subject, t.topic)))
+
   const handleGenerateCustomMock = () => {
     const filterFunc = q => {
       // 1. Topic filter
-      if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
+      if (wizardConfig.topics.length > 0 && !matchesWizardTopics(q)) return false
       // 2. Type filter
       if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
       // 3. Marks filter
@@ -528,6 +521,8 @@ export default function PYQPage() {
 
   const handleToggleAllSubjectTopics = (sub) => {
     const subTopics = Object.keys(topicsMap[sub] || {})
+      .filter(t => topicsMap[sub][t] > 0)
+      .map(t => topicKey(sub, t))
     const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
     
     if (allSelected) {
@@ -547,7 +542,7 @@ export default function PYQPage() {
 
   const getWizardAvailableQuestionsCount = () => {
     return questions.filter(q => {
-      if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
+      if (wizardConfig.topics.length > 0 && !matchesWizardTopics(q)) return false
       if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
       if (wizardConfig.marks.length > 0 && !wizardConfig.marks.includes(q.marks)) return false
       return true
@@ -607,17 +602,6 @@ export default function PYQPage() {
       opacity: 0,
       transition: { duration: 0.25 }
     })
-  }
-
-  // Helper check correctness
-  const isMSQCorrect = (selected, correctList) => {
-    if (!selected || selected.length !== correctList.length) return false
-    return selected.every(val => correctList.includes(val))
-  }
-
-  const isNATCorrect = (userAns, correctAns) => {
-    if (userAns === undefined) return false
-    return parseFloat(userAns) === parseFloat(correctAns)
   }
 
   return (
@@ -826,7 +810,7 @@ export default function PYQPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {Object.keys(subjectsMap).map(sub => {
+            {Object.keys(subjectsMap).sort(compareSubjects).map(sub => {
               const config = getSubjectConfig(sub)
               const SubjectIcon = config.icon
               const isSelected = selectedSubjects.includes(sub)
@@ -881,9 +865,10 @@ export default function PYQPage() {
               {selectedTopics.length > 0 && (
                 <button
                   onClick={() => {
-                    const totalAvailable = selectedTopics.reduce((sum, item) => {
-                      return sum + (topicsMap[item.subject]?.[item.topic] || 0)
-                    }, 0)
+                    // Count each question once even if it carries several selected topics
+                    const totalAvailable = questions.filter(q =>
+                      selectedTopics.some(t => hasTag(q, t.subject, t.topic))
+                    ).length
                     setMaxAvailableQuestions(totalAvailable)
                     setLimitQuestionsCount(Math.min(15, totalAvailable))
                     setShowQuestionLimitModal(true)
@@ -941,7 +926,7 @@ export default function PYQPage() {
                 className="w-full h-10 pl-9 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 appearance-none cursor-pointer shadow-sm"
               >
                 <option value="All">All Subjects ({Object.keys(subjectsMap).length})</option>
-                {Object.keys(subjectsMap).map(sub => (
+                {Object.keys(subjectsMap).sort(compareSubjects).map(sub => (
                   <option key={sub} value={sub}>{sub}</option>
                 ))}
               </select>
@@ -989,10 +974,14 @@ export default function PYQPage() {
                 const config = getSubjectConfig(subjectName)
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
+                const isEmpty = questionCount === 0
                 return (
                   <div
                     key={`${subjectName}-${topicName}`}
+                    aria-disabled={isEmpty}
+                    title={isEmpty ? 'No questions tagged with this topic yet' : undefined}
                     onClick={() => {
+                      if (isEmpty) return
                       setSelectedTopics(prev => {
                         const exists = prev.some(t => t.subject === subjectName && t.topic === topicName)
                         return exists
@@ -1000,7 +989,9 @@ export default function PYQPage() {
                           : [...prev, { subject: subjectName, topic: topicName }]
                       })
                     }}
-                    className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
+                    className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} transition-all duration-300 flex flex-col justify-between h-[140px] group ${
+                      isEmpty ? 'opacity-45 cursor-not-allowed' : 'hover:shadow-md cursor-pointer hover:-translate-y-1'
+                    } ${
                       isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
                     }`}
                   >
@@ -1071,13 +1062,16 @@ export default function PYQPage() {
               </div>
               
               <div className="space-y-3 pt-2">
-                {Object.keys(topicsMap).map(sub => {
+                {Object.keys(topicsMap).sort(compareSubjects).map(sub => {
                   const isExpanded = expandedWizardSubject === sub
                   const config = getSubjectConfig(sub)
                   const SubjectIcon = config.icon
+                  // Topics with questions first; empty ones stay listed but can't be picked
                   const subTopics = Object.keys(topicsMap[sub] || {})
-                  const selectedInSub = subTopics.filter(t => wizardConfig.topics.includes(t)).length
-                  const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
+                    .sort((a, b) => (topicsMap[sub][b] > 0) - (topicsMap[sub][a] > 0))
+                  const pickable = subTopics.filter(t => topicsMap[sub][t] > 0)
+                  const selectedInSub = pickable.filter(t => wizardConfig.topics.includes(topicKey(sub, t))).length
+                  const allSelected = pickable.length > 0 && selectedInSub === pickable.length
                   
                   return (
                     <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
@@ -1124,14 +1118,19 @@ export default function PYQPage() {
                       {isExpanded && (
                         <div className="p-4 bg-slate-50/30 dark:bg-slate-900/10 border-t border-border-light dark:border-border-dark grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
                           {subTopics.map(topic => {
-                            const isChecked = wizardConfig.topics.includes(topic)
+                            const key = topicKey(sub, topic)
+                            const isChecked = wizardConfig.topics.includes(key)
                             const count = topicsMap[sub][topic]
+                            const isEmpty = count === 0
                             return (
                               <div
                                 key={topic}
-                                onClick={() => handleToggleWizardItem('topics', topic)}
-                                className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold cursor-pointer transition-all duration-200 select-none ${
-                                  isChecked 
+                                aria-disabled={isEmpty}
+                                onClick={() => { if (!isEmpty) handleToggleWizardItem('topics', key) }}
+                                className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold transition-all duration-200 select-none ${
+                                  isEmpty
+                                    ? 'opacity-45 cursor-not-allowed border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-500'
+                                    : isChecked
                                     ? 'border-primary bg-primary/10 text-primary shadow-sm'
                                     : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/55 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-slate-700 dark:text-slate-300'
                                 }`}
@@ -1272,7 +1271,7 @@ export default function PYQPage() {
                       <div className="min-w-0 flex-1 mr-2">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Selected Chapters</span>
                         <div className="text-xs font-semibold text-slate-700 dark:text-slate-350 truncate">
-                          {wizardConfig.topics.join(', ')}
+                          {wizardConfig.topics.map(k => k.split('::')[1]).join(', ')}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -1439,7 +1438,9 @@ export default function PYQPage() {
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <span className="text-primary font-bold">{currentQuestion.subject}</span>
                         <span>•</span>
-                        <span className="truncate max-w-[100px] sm:max-w-none">{currentQuestion.topic}</span>
+                        <span className="truncate max-w-[100px] sm:max-w-none" title={currentQuestion.topic}>
+                          {getTags(currentQuestion).map(t => t.topic).join(', ')}
+                        </span>
                         <span>•</span>
                         <span className="font-semibold text-slate-500">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
                       </div>
@@ -1474,7 +1475,7 @@ export default function PYQPage() {
                         {currentQuestion.options.map((option, idx) => {
                           const ansState = selectedAnswers[currentQuestion.id]
                           const isSelected = ansState === idx
-                          const isCorrect = currentQuestion.answer === idx
+                          const isCorrect = isAcceptedOption(currentQuestion, idx)
                           const hasAnswered = ansState !== undefined
 
                           let btnStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-200'
@@ -1526,7 +1527,7 @@ export default function PYQPage() {
                           {currentQuestion.options.map((option, idx) => {
                             const ansState = selectedAnswers[currentQuestion.id] || { selected: [], submitted: false }
                             const isSelected = ansState.selected.includes(idx)
-                            const isCorrect = currentQuestion.answer.includes(idx)
+                            const isCorrect = isAcceptedOption(currentQuestion, idx)
                             const hasSubmitted = ansState.submitted
 
                             let btnStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-200'
@@ -1607,7 +1608,7 @@ export default function PYQPage() {
                           <div className="space-y-3 font-medium">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                               <div className={`p-3 rounded border ${
-                                isNATCorrect(selectedAnswers[currentQuestion.id], currentQuestion.answer)
+                                isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id])
                                   ? 'border-success bg-emerald-500/10 text-success'
                                   : 'border-error bg-red-500/10 text-error'
                               }`}>
@@ -1616,7 +1617,7 @@ export default function PYQPage() {
                               </div>
                               <div className="p-3 rounded border border-success bg-emerald-500/5 text-success">
                                 <span className="text-[10px] block font-bold text-slate-400 uppercase mb-1">Correct Key:</span>
-                                <span>{currentQuestion.answer}</span>
+                                <span>{formatAnswer(currentQuestion)}</span>
                               </div>
                             </div>
                           </div>
@@ -1637,14 +1638,15 @@ export default function PYQPage() {
                           <AlertCircle size={14} />
                           <span>
                             {currentQuestion.type === 'MSQ' 
-                              ? isMSQCorrect(selectedAnswers[currentQuestion.id]?.selected, currentQuestion.answer) ? 'Correct Answer!' : 'Incorrect Answer!'
+                              ? isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]?.selected) ? 'Correct Answer!' : 'Incorrect Answer!'
                               : currentQuestion.type === 'NAT'
-                              ? isNATCorrect(selectedAnswers[currentQuestion.id], currentQuestion.answer) ? 'Correct Answer!' : 'Incorrect Answer!'
-                              : selectedAnswers[currentQuestion.id] === currentQuestion.answer ? 'Correct Answer!' : 'Incorrect Answer!'}
+                              ? isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]) ? 'Correct Answer!' : 'Incorrect Answer!'
+                              : isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]) ? 'Correct Answer!' : 'Incorrect Answer!'}
                           </span>
                         </div>
                         <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                           <QuestionText text={currentQuestion.explanation} />
+                          <AnswerProvenance question={currentQuestion} />
                         </div>
                         {/* Explanation Diagram / Image (if present) */}
                         <QuestionImage 
@@ -1815,9 +1817,9 @@ export default function PYQPage() {
                     const isNATAnswered = q.type === 'NAT'
                     
                     if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
-                      const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
-                      const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
-                      const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                      const isMCQCorrect = q.type === 'MCQ' && isAnswerCorrect(q, ansState)
+                      const isMSQCorrectVal = q.type === 'MSQ' && isAnswerCorrect(q, ansState?.selected)
+                      const isNATCorrectVal = q.type === 'NAT' && isAnswerCorrect(q, ansState)
                       
                       const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
                       
@@ -1875,9 +1877,9 @@ export default function PYQPage() {
                         const isNATAnswered = q.type === 'NAT'
                         
                         if (isMCQAnswered || isNATAnswered || isMSQSubmitted) {
-                          const isMCQCorrect = q.type === 'MCQ' && ansState === q.answer
-                          const isMSQCorrectVal = q.type === 'MSQ' && isMSQCorrect(ansState?.selected, q.answer)
-                          const isNATCorrectVal = q.type === 'NAT' && isNATCorrect(ansState, q.answer)
+                          const isMCQCorrect = q.type === 'MCQ' && isAnswerCorrect(q, ansState)
+                          const isMSQCorrectVal = q.type === 'MSQ' && isAnswerCorrect(q, ansState?.selected)
+                          const isNATCorrectVal = q.type === 'NAT' && isAnswerCorrect(q, ansState)
                           
                           const correct = q.type === 'MSQ' ? isMSQCorrectVal : q.type === 'NAT' ? isNATCorrectVal : isMCQCorrect
                           
@@ -1950,8 +1952,6 @@ export default function PYQPage() {
                 currentQuestion={currentQuestion}
                 selectedAnswers={selectedAnswers}
                 setSelectedAnswers={setSelectedAnswers}
-                isMSQCorrect={isMSQCorrect}
-                isNATCorrect={isNATCorrect}
                 handleSelectMCQ={handleSelectMCQ}
                 handleToggleMSQ={handleToggleMSQ}
                 handleSubmitMSQ={handleSubmitMSQ}
@@ -1961,8 +1961,6 @@ export default function PYQPage() {
                 currentQuestion={currentQuestion}
                 selectedAnswers={selectedAnswers}
                 setSelectedAnswers={setSelectedAnswers}
-                isMSQCorrect={isMSQCorrect}
-                isNATCorrect={isNATCorrect}
                 handleSelectMCQ={handleSelectMCQ}
                 handleToggleMSQ={handleToggleMSQ}
                 handleSubmitMSQ={handleSubmitMSQ}

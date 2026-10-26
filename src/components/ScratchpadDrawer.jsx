@@ -8,13 +8,13 @@ import {
 import { useAppStore } from '../store/useAppStore'
 import QuestionImage from './QuestionImage'
 import QuestionText from './QuestionText'
+import AnswerProvenance from './AnswerProvenance'
+import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 
 export default function ScratchpadDrawer({
   currentQuestion,
   selectedAnswers = {},
   setSelectedAnswers,
-  isMSQCorrect,
-  isNATCorrect,
   handleSelectMCQ,
   handleToggleMSQ,
   handleSubmitMSQ,
@@ -1152,7 +1152,7 @@ export default function ScratchpadDrawer({
                 {currentQuestion.options.map((option, idx) => {
                   const ansState = selectedAnswers[currentQuestion.id]
                   const isSelected = ansState === idx
-                  const isCorrect = currentQuestion.answer === idx
+                  const isCorrect = isAcceptedOption(currentQuestion, idx)
                   const hasAnswered = ansState !== undefined
 
                   let btnStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-200'
@@ -1202,7 +1202,7 @@ export default function ScratchpadDrawer({
                   {currentQuestion.options.map((option, idx) => {
                     const ansState = selectedAnswers[currentQuestion.id] || { selected: [], submitted: false }
                     const isSelected = ansState.selected.includes(idx)
-                    const isCorrect = currentQuestion.answer.includes(idx)
+                    const isCorrect = isAcceptedOption(currentQuestion, idx)
                     const hasSubmitted = ansState.submitted
 
                     let btnStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-800 dark:text-slate-200'
@@ -1281,7 +1281,7 @@ export default function ScratchpadDrawer({
                   <div className="space-y-3 font-medium">
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className={`p-2.5 rounded border ${
-                        isNATCorrect(selectedAnswers[currentQuestion.id], currentQuestion.answer)
+                        isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id])
                           ? 'border-success bg-emerald-500/10 text-success'
                           : 'border-error bg-red-500/10 text-error'
                       }`}>
@@ -1290,7 +1290,7 @@ export default function ScratchpadDrawer({
                       </div>
                       <div className="p-2.5 rounded border border-success bg-emerald-500/5 text-success">
                         <span className="text-[9px] block font-bold text-slate-400 uppercase mb-0.5">Correct Key:</span>
-                        <span>{currentQuestion.answer}</span>
+                        <span>{formatAnswer(currentQuestion)}</span>
                       </div>
                     </div>
                   </div>
@@ -1307,14 +1307,15 @@ export default function ScratchpadDrawer({
                   <Check size={14} strokeWidth={2.5} />
                   <span>
                     {currentQuestion.type === 'MSQ' 
-                      ? isMSQCorrect(selectedAnswers[currentQuestion.id]?.selected, currentQuestion.answer) ? 'Correct Answer!' : 'Incorrect Answer!'
+                      ? isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]?.selected) ? 'Correct Answer!' : 'Incorrect Answer!'
                       : currentQuestion.type === 'NAT'
-                      ? isNATCorrect(selectedAnswers[currentQuestion.id], currentQuestion.answer) ? 'Correct Answer!' : 'Incorrect Answer!'
-                      : selectedAnswers[currentQuestion.id] === currentQuestion.answer ? 'Correct Answer!' : 'Incorrect Answer!'}
+                      ? isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]) ? 'Correct Answer!' : 'Incorrect Answer!'
+                      : isAnswerCorrect(currentQuestion, selectedAnswers[currentQuestion.id]) ? 'Correct Answer!' : 'Incorrect Answer!'}
                   </span>
                 </div>
                 <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/40 pt-2">
-                  {currentQuestion.explanation}
+                  <QuestionText text={currentQuestion.explanation} />
+                  <AnswerProvenance question={currentQuestion} />
                 </div>
               </div>
             )}

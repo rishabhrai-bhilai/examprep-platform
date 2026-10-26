@@ -6,6 +6,9 @@ import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
+import AnswerProvenance from '../components/AnswerProvenance'
+import { getTags } from '../utils/topics'
+import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
@@ -415,7 +418,8 @@ export default function MockTestsPage() {
       const qMarks = q.marks || 1
       const qType = q.type || 'MCQ'
       const qSubject = q.subject || 'General Aptitude'
-      const qTopic = q.topic || 'General'
+      // Primary (first) tag, so each question counts toward one topic
+      const qTopic = getTags(q)[0]?.topic || 'General'
       const qDifficulty = q.difficulty || 'Medium'
       const qTimeSpent = timeSpent[q.id] || 0
 
@@ -453,7 +457,7 @@ export default function MockTestsPage() {
         status = 'unanswered'
         timePerQuestionStatus.unanswered += qTimeSpent
         timeSpentPerQuestionCount.unanswered++
-      } else if (selected === q.answer) {
+      } else if (isAnswerCorrect(q, selected)) {
         correct++
         status = 'correct'
         gained = qMarks
@@ -989,7 +993,7 @@ export default function MockTestsPage() {
     testQuestions.forEach(q => {
       const selected = answers[q.id]
       const qTimeSpent = (reportData.timeSpentMap?.[q.id]) || 0
-      const isCorrect = selected === q.answer
+      const isCorrect = isAnswerCorrect(q, selected)
       const isIncorrect = selected !== undefined && selected !== null && !isCorrect
 
       if (isCorrect) {
@@ -1645,7 +1649,7 @@ export default function MockTestsPage() {
               {testQuestions
                 .map((q, idx) => {
                   const selected = answers[q.id]
-                  const isCorrect = selected === q.answer
+                  const isCorrect = isAnswerCorrect(q, selected)
                   const isUnanswered = selected === undefined
 
                   return { q, idx, selected, isCorrect, isUnanswered }
@@ -1713,7 +1717,7 @@ export default function MockTestsPage() {
                         <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/15 text-success">
                           <span className="text-slate-400 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Correct Answer Key:</span>
                           <span>
-                            Option {String.fromCharCode(65 + q.answer)}: {q.options[q.answer]}
+                            {formatAnswer(q)}
                           </span>
                         </div>
                       </div>
@@ -1722,6 +1726,7 @@ export default function MockTestsPage() {
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
                         <QuestionText text={q.explanation} />
+                        <AnswerProvenance question={q} />
                         <QuestionImage 
                           src={q.explanationImageUrl || q.solutionImageUrl} 
                           alt="Explanation Diagram" 

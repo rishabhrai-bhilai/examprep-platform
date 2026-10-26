@@ -8,10 +8,13 @@ import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
+import AnswerProvenance from '../components/AnswerProvenance'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import RichTextEditor from '../components/RichTextEditor'
 import FormattedContent from '../components/FormattedContent'
 import FilterDropdown from '../components/FilterDropdown'
+import { compareSubjects } from '../utils/subjects'
+import { getTags, hasTopicName } from '../utils/topics'
 
 // Recursive component for rendering multi-level threaded replies
 function ThreadedReplyNode({
@@ -210,7 +213,7 @@ export default function DiscussionPage() {
   // Available filter options extracted from questions
   const availableSubjects = useMemo(() => {
     const subjects = new Set((questions || []).map(q => q.subject).filter(Boolean))
-    return Array.from(subjects).sort()
+    return Array.from(subjects).sort(compareSubjects)
   }, [questions])
 
   const parseSet = (s) => {
@@ -258,7 +261,7 @@ export default function DiscussionPage() {
     const relevant = selectedSubject === 'ALL'
       ? (questions || [])
       : (questions || []).filter(q => q.subject === selectedSubject)
-    const topics = new Set(relevant.map(q => q.topic).filter(Boolean))
+    const topics = new Set(relevant.flatMap(q => getTags(q).map(t => t.topic)))
     return Array.from(topics).sort()
   }, [questions, selectedSubject])
   
@@ -308,7 +311,8 @@ export default function DiscussionPage() {
   // Subject Configurations for Styling
   const getSubjectConfig = (subject) => {
     switch (subject) {
-      case 'Algorithms & Data Structures':
+      case 'Algorithms':
+      case 'Programming & Data Structures':
         return {
           icon: Layers,
           colorClass: 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20',
@@ -322,7 +326,7 @@ export default function DiscussionPage() {
           gradientClass: 'from-teal-500/5 to-emerald-500/5 hover:border-teal-500 dark:hover:border-teal-500',
           badgeColor: 'bg-teal-500/10 text-teal-650 dark:text-teal-400',
         }
-      case 'Databases (DBMS)':
+      case 'Databases':
         return {
           icon: Target,
           colorClass: 'text-blue-500 bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/20',
@@ -402,7 +406,7 @@ export default function DiscussionPage() {
           if (String(q.year) !== String(selectedYear)) return false
         }
       }
-      if (selectedTopic !== 'ALL' && q.topic !== selectedTopic) return false
+      if (selectedTopic !== 'ALL' && !hasTopicName(q, selectedTopic)) return false
 
       // 2. Search Query
       if (searchQuery.trim()) {
@@ -413,7 +417,7 @@ export default function DiscussionPage() {
         const setShort = q.set ? `s${q.set}` : ''
         const questionText = (q.question || '').toLowerCase()
         const subjectText = (q.subject || '').toLowerCase()
-        const topicText = (q.topic || '').toLowerCase()
+        const topicText = [q.topic, ...getTags(q).map(t => t.topic)].filter(Boolean).join(' ').toLowerCase()
         const idStr = (q.id || '').toString()
 
         // Direct year match (e.g. typing "2024", "2025", "gate 2024", "pyq 2024", "2025 set 2", "2024 s1")
@@ -585,7 +589,7 @@ export default function DiscussionPage() {
                     label: top,
                     count: questions.filter(q => {
                       if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
-                      return q.topic === top
+                      return hasTopicName(q, top)
                     }).length
                   }))
                 ]}
@@ -934,7 +938,8 @@ export default function DiscussionPage() {
                   <span>Solutions Explanation</span>
                 </div>
                 <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/40 pt-2 whitespace-pre-wrap">
-                  {selectedQuestion.explanation}
+                  <QuestionText text={selectedQuestion.explanation} />
+                  <AnswerProvenance question={selectedQuestion} />
                 </div>
               </div>
 
@@ -1024,8 +1029,6 @@ export default function DiscussionPage() {
               <ScratchpadDrawer
                 currentQuestion={selectedQuestion}
                 selectedAnswers={{ [selectedQuestion.id]: selectedQuestion.answer }}
-                isMSQCorrect={() => true}
-                isNATCorrect={() => true}
               />
             )}
           </div>

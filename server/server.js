@@ -156,7 +156,11 @@ app.get('/api/questions', (req, res) => {
     const subjectsList = subject.toString().split(',').map(s => s.trim().toLowerCase())
     filtered = filtered.filter(q => subjectsList.includes(q.subject.toLowerCase()))
   }
-  if (topic) filtered = filtered.filter(q => q.topic.toLowerCase() === topic.toString().toLowerCase())
+  if (topic) {
+    // Matches any of the question's topic tags (a question can have several)
+    const wanted = topic.toString().toLowerCase()
+    filtered = filtered.filter(q => (q.tags || []).some(t => t.topic.toLowerCase() === wanted))
+  }
   if (type) filtered = filtered.filter(q => q.type.toLowerCase() === type.toString().toLowerCase())
   if (marks) filtered = filtered.filter(q => q.marks.toString() === marks.toString())
   

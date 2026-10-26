@@ -8,9 +8,12 @@ import {
 import { useAppStore } from '../store/useAppStore'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
+import AnswerProvenance from '../components/AnswerProvenance'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import FilterDropdown from '../components/FilterDropdown'
 import { exportQuestionNotePdf, exportBulkNotesPdf, renderSheetToDataUrl } from '../utils/notesPdfExport'
+import { compareSubjects } from '../utils/subjects'
+import { getTags, hasTopicName } from '../utils/topics'
 
 export default function NotesPage() {
   const { 
@@ -57,7 +60,7 @@ export default function NotesPage() {
   // Extract unique subjects, years & topics from questions with notes
   const availableSubjects = useMemo(() => {
     const subjects = new Set(questionsWithNotes.map(q => q.subject).filter(Boolean))
-    return Array.from(subjects).sort()
+    return Array.from(subjects).sort(compareSubjects)
   }, [questionsWithNotes])
 
   const availableYears = useMemo(() => {
@@ -69,7 +72,7 @@ export default function NotesPage() {
     const relevant = selectedSubject === 'ALL'
       ? questionsWithNotes
       : questionsWithNotes.filter(q => q.subject === selectedSubject)
-    const topics = new Set(relevant.map(q => q.topic).filter(Boolean))
+    const topics = new Set(relevant.flatMap(q => getTags(q).map(t => t.topic)))
     return Array.from(topics).sort()
   }, [questionsWithNotes, selectedSubject])
 
@@ -80,12 +83,12 @@ export default function NotesPage() {
 
       if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
       if (selectedYear !== 'ALL' && String(q.year) !== String(selectedYear)) return false
-      if (selectedTopic !== 'ALL' && q.topic !== selectedTopic) return false
+      if (selectedTopic !== 'ALL' && !hasTopicName(q, selectedTopic)) return false
 
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
         const matchSubject = q.subject?.toLowerCase().includes(query)
-        const matchTopic = q.topic?.toLowerCase().includes(query)
+        const matchTopic = [q.topic, ...getTags(q).map(t => t.topic)].some(t => t?.toLowerCase().includes(query))
         const matchYear = q.year?.toString().includes(query)
         const matchQuestion = q.question?.toLowerCase().includes(query)
         const matchNoteName = note.name?.toLowerCase().includes(query)
@@ -385,7 +388,7 @@ export default function NotesPage() {
                         label: top,
                         count: questionsWithNotes.filter(q => {
                           if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
-                          return q.topic === top
+                          return hasTopicName(q, top)
                         }).length
                       }))
                     ]}
@@ -729,9 +732,10 @@ export default function NotesPage() {
                   {activeQuestion.explanation && (
                     <div className="p-4 rounded-card bg-indigo-50/30 dark:bg-indigo-950/20 border border-primary/20 space-y-1.5">
                       <span className="text-xs font-bold text-primary block">Official Solution & Explanation:</span>
-                      <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                        {activeQuestion.explanation}
-                      </p>
+                      <div className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                        <QuestionText text={activeQuestion.explanation} />
+                        <AnswerProvenance question={activeQuestion} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -884,8 +888,6 @@ export default function NotesPage() {
           currentQuestion={activeQuestion}
           selectedAnswers={{}}
           setSelectedAnswers={() => {}}
-          isMSQCorrect={() => false}
-          isNATCorrect={() => false}
         />
       )}
     </div>

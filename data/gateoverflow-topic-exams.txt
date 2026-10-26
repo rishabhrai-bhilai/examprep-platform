@@ -1,0 +1,415 @@
+# Topic list from https://gateoverflow.in/topic-exams (read 2026-10-24)
+# 11 subjects, 401 entries. Format: <GO question count> :: <entry name>
+# Entries with commas / "& more" are GO's own bundles of small tags.
+## algorithms
+9 :: Algorithm Design
+49 :: Asymptotic Notations
+6 :: Bellman Ford, Space Complexity
+6 :: Binary Search
+5 :: Bitonic Array, Comparison Based Algorithm, Number of Swap & more
+12 :: Depth First Search
+12 :: Dijkstras Algorithm
+13 :: Dynamic Programming
+14 :: Graph Algorithms
+6 :: Graph Isomorphism, Binary Tree, Binary Heap & more
+22 :: Graph Search
+7 :: Greedy Algorithms
+18 :: Hashing
+17 :: Huffman Code
+39 :: Identify Function
+5 :: Linear Probing
+5 :: Longest Common Subsequence
+5 :: Matrix Chain Ordering
+14 :: Merge Sort
+6 :: Merging
+54 :: Minimum Spanning Tree
+11 :: P NP NPC NPH
+6 :: Prims Algorithm, Algorithm Design Techniques
+5 :: Pseudocode, Open Addressing, Tree Traversal & more
+17 :: Quick Sort
+29 :: Recurrence Relation
+10 :: Recursion
+9 :: Searching
+15 :: Shortest Path
+52 :: Sorting
+7 :: Strongly Connected Components, Insertion Sort
+8 :: Syllabus, Strassens Matrix Multiplication, Machine Learning & more
+54 :: Time Complexity
+7 :: Topological Sort
+5 :: Tsp, Aggregate Analysis, Tree Coloring & more
+## co-architecture
+24 :: 8085 Microprocessor
+15 :: Addressing Modes
+6 :: Assembly, I Gate Test Series, Language & more
+5 :: Average Memory Access Time, Clock Cycles, ROM
+7 :: Branch Conditional Instructions
+6 :: CISC RISC Architecture, Data Hazards
+35 :: CO and Architecture
+109 :: Cache Memory
+5 :: Clock Frequency, Dynamic Memory, Tbb Mockgate 2 & more
+5 :: Cpu, Adder, Main Memory & more
+12 :: DMA
+6 :: Data Path
+5 :: Disk Scheduling, GO Mockgate 1
+5 :: Disk, Instruction Set Architecture
+5 :: File Organization, Register Allocation, Number Representation
+5 :: Horizontal Microprogramming, Ram, Data Path Delay & more
+5 :: IEEE Representation, Hit Ratio, Cache Misses
+5 :: IO Handling, Runtime Environment
+7 :: Instruction Execution
+10 :: Instruction Format
+11 :: Interrupts
+23 :: Machine Instruction
+10 :: Memory Interfacing
+5 :: Microprocessors
+15 :: Microprogramming
+5 :: Multilevel Paging, Out of Gatecse Syllabus, Video Lectures & more
+70 :: Pipelining
+5 :: Program Counter, Multilevel Cache, Register & more
+11 :: Speedup
+6 :: Virtual Memory, Data Dependency
+## compiler-design
+5 :: Basic Blocks, Three Address Code
+13 :: Code Optimization
+6 :: Compilation Phases
+5 :: Context Free Grammar, Tbb Mockgate 2
+12 :: First and Follow
+5 :: GO Mockgate 1, Constant Folding, Activation Record & more
+36 :: Grammar
+9 :: Intermediate Code
+37 :: LR Parser
+6 :: Left Recursion, Tbb Mockgate 1, Syllabus & more
+10 :: Lexical Analysis
+7 :: Linker, Assembler
+5 :: Live Variable Analysis, Expression Evaluation
+5 :: Liveness Analysis, Variable Scope, Symbol Table
+5 :: Numerical Answer, Macros
+7 :: Operator Precedence
+7 :: Parameter Passing
+37 :: Parsing
+7 :: Register Allocation
+17 :: Runtime Environment
+6 :: Static Single Assignment
+25 :: Syntax Directed Translation
+5 :: Target Code Generation, Compiler tokenization, Backpatching
+5 :: Tbb Mockgate 4, Viable Prefixes, Programming In C
+## computer-networks
+19 :: Application Layer Protocols
+7 :: Ask, Link State Routing, Bridges Switches & more
+6 :: Bit Stuffing, Bridges
+7 :: CRC Polynomial
+10 :: CSMA CD
+11 :: Communication
+14 :: Congestion Control
+5 :: Cryptography, Manchester Encoding, Wifi
+6 :: Data Communication, Study Resources, Transmission Delay & more
+15 :: Distance Vector Routing
+5 :: Electronic Payment Systems, Syllabus, Backoff Ethernet Collision & more
+9 :: Error Detection
+8 :: Ethernet
+12 :: Fragmentation
+5 :: GO Mockgate 1, Ipv6, Switches
+17 :: IP Addressing
+18 :: IP Packet
+11 :: LAN Technologies
+6 :: MAC Protocol
+5 :: Network Addressing, Error Correction, Probability
+5 :: Network Flow
+7 :: Network Layering
+15 :: Network Protocols
+6 :: Network Switching
+5 :: Osi Model, Channel Utilization, Propagation Delay & more
+21 :: Out of Gatecse Syllabus
+5 :: Packet Switching
+19 :: Routing
+5 :: Rsa Security Networks, Encoding, Full Duplex & more
+5 :: Sequencenumber, Sequence Number, Transmission Media
+26 :: Sliding Window
+8 :: Socket Programming, GO Back N, Network Layer & more
+5 :: Sockets, Firewall
+13 :: Stop and Wait
+28 :: Subnetting
+34 :: TCP
+5 :: Token Bucket, Wrap Around Time
+5 :: Token Ring
+7 :: UDP, Slotted Aloha
+## databases
+39 :: B Tree
+6 :: Candidate Key
+19 :: Conflict Serializable
+51 :: Database Normalization
+6 :: Dependency Preserving, Nested Query With Correlation, Tbb Mockgate 4 & more
+21 :: ER Diagram
+25 :: Functional Dependency
+22 :: Indexing
+7 :: Joins
+7 :: Lossless Decomposition, Easy1 Mark, Data Warehousing & more
+5 :: Lossless Join, Super Key, Database Schema & more
+5 :: Multivalued Dependency 4nf, View Serializable, Decomposition
+11 :: Normal Forms
+5 :: Output, Ask, Priority Queue & more
+7 :: Query, Tuple Relational Calculus
+7 :: Referential Integrity
+48 :: Relational Algebra
+13 :: Relational Calculus
+8 :: Relational Model, Natural Join
+9 :: Relations, Rdbms, Armstrong Axioms & more
+79 :: SQL
+41 :: Transaction and Concurrency
+6 :: Transactions and Concurrency Control, Bankers Algorithm, GO Mockgate 1
+5 :: Wait Die, Tbb Mockgate 1, Numerica Answers & more
+## digital-logic
+12 :: Adder
+5 :: Array Multiplier, ROM
+46 :: Boolean Algebra
+6 :: Booths Algorithm
+11 :: Canonical Normal Form
+7 :: Carry Generator, Fixed Point Representation, Static Hazard
+5 :: Carry Look Ahead Adder, Tbb Mockgate 2, Ripple Counter & more
+38 :: Circuit Output
+5 :: Clock Cycles, Reduction, Clock Frequency & more
+7 :: Combinational Circuit
+7 :: Decoder
+8 :: Digital Circuits
+26 :: Digital Counter
+5 :: Finite Automata, Integrated Circuits, Hazards
+7 :: Finite State Machines, Synchronous Asynchronous Circuits
+21 :: Flip Flop
+11 :: Floating Point Representation
+5 :: Functional Completeness
+21 :: IEEE Representation
+20 :: K Map
+5 :: Memory Interfacing
+22 :: Min No Gates
+5 :: Min Products of Sum Form, Shift Registers
+16 :: Min Sum of Products Form
+28 :: Multiplexer
+5 :: Nand Gates, Simplification, Minimum Number of Gates & more
+69 :: Number Representation
+5 :: Prime Implicants
+6 :: Ripple Carry Adder, Tbb Mockgate 4, Postive Logic Gate & more
+7 :: Ripple Counter Operation, Number System, Minimization & more
+5 :: Sequential Circuit, Cicruit
+## engineering-mathematics
+6 :: Admissions, Covariance, Hypothesis Testing & more
+6 :: Bayes Theorem, Probability Density Function
+10 :: Binomial Distribution
+5 :: Cartesian Coordinates, Eigen Vector, Inequality
+45 :: Conditional Probability
+14 :: Continuity
+5 :: Continuous Distribution, Square Invariant, Probability Distribution & more
+5 :: Convergence, Vector Calculus
+5 :: Convex Function, Out of Gatecse Syllabus
+5 :: Cumulative Distribution Function, Queuing Theory, Tbb Mockgate 2 & more
+12 :: Definite Integral
+19 :: Determinant
+8 :: Differential Equation
+25 :: Differentiation
+58 :: Eigen Value
+33 :: Expectation
+7 :: Exponential Distribution
+6 :: Functions
+5 :: GO Mockgate 1, Complex Number, Continuity and Differentiability & more
+5 :: GO Mockgate 1, Singular Value Decompositio, Orthonormality & more
+6 :: Iisc
+5 :: Iit Bombay, Tbb Mockgate 1, GO Mockgate 1 & more
+5 :: Iit, Number of Solutions, Basis & more
+13 :: Independent Events
+14 :: Integration
+38 :: Limits
+8 :: Linear Algerba, Gaussian Elimination, Subspace & more
+19 :: Machine Learning
+45 :: Matrix
+6 :: Matrix, Curves, Range & more
+36 :: Maxima Minima
+5 :: Mean Value Theorem, Polynomials, Divergence
+5 :: Multiplicity, Tbb Mockgate 4
+7 :: Normal Distribution
+5 :: Out of Gatecse Syllabus, Numerical Methods, Tbb Mockgate 3 & more
+5 :: Poisson Distribution
+75 :: Probability
+41 :: Random Variable
+21 :: Rank of Matrix
+5 :: Recurrence Relation, Joint Distribution, Counting & more
+5 :: Singular Value Decomposition
+12 :: Statistics
+34 :: System of Equations
+5 :: Taylor Series
+18 :: Uniform Distribution
+5 :: Variance
+35 :: Vector Space
+## general-aptitude
+6 :: 3d Structure, Counting, Assembling & more
+10 :: Absolute Value
+6 :: Age Relation, Seating Arrangement
+27 :: Algebra
+8 :: Alligation Mixture
+5 :: Analogy, Calendar, GO Mockgate 1
+6 :: Analogy, Narrative Sequencing, GO Mockgate 1 & more
+7 :: Antonyms
+5 :: Arithmetic Geometric Progression, Median, Congruent Modulo & more
+10 :: Arithmetic Series
+13 :: Average
+19 :: Bar Graph
+5 :: Bayes Theorem, Fractions
+10 :: Cartesian Coordinates
+5 :: Caselet Form, Venn Diagram, Pie Chart & more
+10 :: Circle
+11 :: Clock Time
+7 :: Clock Time, Cube, Contour Plots
+5 :: Code Words
+13 :: Combinatory
+7 :: Comparative Forms
+5 :: Compound Interest
+6 :: Conditional Probability
+5 :: Cones, Graph Coloring, Mensuration & more
+5 :: Convergence Divergence, Assembling Pieces
+7 :: Cost Market Price
+8 :: Counting
+6 :: Curves, Coordinate Geometry, Trigonometry
+8 :: Data Interpretation
+14 :: Direction Sense
+26 :: English Grammar
+5 :: Factors
+9 :: Family Relationship
+22 :: Functions
+5 :: Funnel Chart, Squares
+34 :: Geometry
+11 :: Grammatical Error
+7 :: Image Rotation
+6 :: Incorrect Sentence Part
+5 :: Inequality
+12 :: Line Graph
+19 :: Logarithms
+5 :: Logical Inference, Counting Figure, Inequality & more
+63 :: Logical Reasoning
+7 :: Maps, Tables, Currency Notes & more
+5 :: Maxima Minima
+10 :: Mirror Image
+138 :: Most Appropriate Word
+6 :: Noun Verb Adjective, Phrasal Verb
+5 :: Number Relations, Coding Decoding, Syllogism
+10 :: Number Series
+32 :: Number System
+7 :: Number Theory
+8 :: Numerical Aptitude
+18 :: Numerical Computation
+6 :: Odd One
+20 :: Paper Folding
+56 :: Passage Reading
+10 :: Patterns In Three Dimensions
+10 :: Patterns In Two Dimensions
+30 :: Percentage
+14 :: Permutation and Combination
+8 :: Phrase Meaning
+22 :: Pie Chart
+5 :: Pigeonhole Principle, Convex Sets Functions, Three Dimensional Geometry & more
+5 :: Polynomials
+5 :: Powers, Syllabus, Numerical Methods & more
+10 :: Prepositions
+7 :: Prime Numbers, Area, Age Relation
+40 :: Probability
+6 :: Probability Density Function, Lines, Digital Image Processing & more
+14 :: Profit Loss
+5 :: Pronouns, Most Appropriate Alternative
+5 :: Pyramid, Radar Chart, LCM HCF
+13 :: Quadratic Equations
+33 :: Ratio Proportion
+9 :: Round Table Arrangement
+5 :: Seating Arrangement, System of Equations
+5 :: Sentence Ordering
+16 :: Sequence Series
+5 :: Set Theory
+5 :: Simple Interest, Pipes Cistern, GO Mockgate 1
+5 :: Spatial Ability, Counting Figure, Assembling Figure
+26 :: Speed Time Distance
+5 :: Statement Sufficiency, Grammar, Statements Follow
+37 :: Statements Follow
+11 :: Statistics
+21 :: Synonyms
+12 :: Tabular Data
+5 :: Tbb Mockgate 4, Minimum Value, Cuboid & more
+26 :: Tenses
+5 :: Transformation of Shapes, Grouping, Patterns In 2d & more
+11 :: Triangles
+18 :: Venn Diagram
+5 :: Verbal Analogy, Tbb Mockgate 4
+47 :: Verbal Reasoning
+6 :: Volume, Modular Arithmetic
+19 :: Word Meaning
+35 :: Word Pairs
+23 :: Work Time
+## operating-system
+5 :: Applications In Windows, Page Faults, Thrashing & more
+8 :: Bankers Algorithm
+5 :: Cds, Windows, Tbb Mockgate 2
+6 :: Context Switch
+8 :: Critical Section, Pipes, Processes & more
+9 :: Deadlock Prevention Avoidance Detection
+32 :: Disk
+14 :: Disk Scheduling
+8 :: Exponential Averaging, Mutex, Linux & more
+9 :: File System
+14 :: Fork System Call
+6 :: GO Mockgate 1
+8 :: IO Handling
+5 :: Inode, File Organization
+6 :: Interrupts
+17 :: Memory Management
+10 :: Multilevel Paging
+5 :: OS Protection, Inter Process Communication
+41 :: Page Replacement
+7 :: Process
+62 :: Process Scheduling
+41 :: Process Synchronization
+25 :: Resource Allocation
+6 :: Resource Allocation Graph, Computer Peripherals, Effective Memory Access & more
+18 :: Semaphore
+6 :: Shell Script
+6 :: Srtf, Mutual Exclusion, Binary Semaphore
+5 :: System Calls, Linked Allocation, Process and Threads & more
+22 :: Threads
+7 :: Unix
+51 :: Virtual Memory
+## programming-and-ds
+12 :: AVL Tree
+9 :: Array
+47 :: Binary Heap
+60 :: Binary Search Tree
+51 :: Binary Tree
+6 :: Circular Queue, Recursion, Pseudocode & more
+21 :: Data Structures
+14 :: Hashing
+6 :: Infix Prefix
+33 :: Linked List
+8 :: Priority Queue, Time Complexity, Depth First Search & more
+21 :: Queue
+25 :: Stack
+9 :: Tbb Mockgate 2, Space Complexity, I Gate Test Series & more
+5 :: Tbb Mockgate 4
+18 :: Tree
+5 :: Tree Traversal
+## theory-of-computation
+12 :: Closure Property
+11 :: Context Free Grammar
+44 :: Context Free Language
+9 :: Countable Uncountable Set
+38 :: Decidability
+5 :: Dpda, Regular and Context Free Languages, Multiple Seects
+53 :: Finite Automata
+5 :: Grammar, Finite State Machines
+43 :: Identify Class Language
+8 :: Medium, Pumping Lemma, Regular Grammar
+30 :: Minimal State Automata
+6 :: Minimal State Dfa, Practice, Number of Dfa & more
+6 :: Non Determinism
+8 :: P NP NPC NPH
+9 :: Prefix Property, Tbb Mockgate 3, Homomorphism & more
+19 :: Pushdown Automata
+26 :: Recursive and Recursively Enumerable Languages
+7 :: Reduction, Number of States
+37 :: Regular Expression
+52 :: Regular Language
+6 :: Tbb Mockgate 2, GO Mockgate 1
+6 :: Tbb Mockgate 4
+13 :: Turing Machine

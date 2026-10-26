@@ -10,6 +10,10 @@ import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
+import AnswerProvenance from '../components/AnswerProvenance'
+import { compareSubjects } from '../utils/subjects'
+import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
+import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 
 export default function PYQMockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
@@ -77,7 +81,8 @@ export default function PYQMockTestsPage() {
   // Subject Configurations for Styling
   const getSubjectConfig = (subject) => {
     switch (subject) {
-      case 'Algorithms & Data Structures':
+      case 'Algorithms':
+      case 'Programming & Data Structures':
         return {
           icon: Layers,
           colorClass: 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20',
@@ -93,7 +98,7 @@ export default function PYQMockTestsPage() {
           badgeColor: 'bg-teal-500/10 text-teal-650 dark:text-teal-400',
           label: 'Paging, CPU scheduling, threads, sync'
         }
-      case 'Databases (DBMS)':
+      case 'Databases':
         return {
           icon: Target,
           colorClass: 'text-blue-500 bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/20',
@@ -207,11 +212,8 @@ export default function PYQMockTestsPage() {
     return acc
   }, {})
   
-  const topicsMap = questions.reduce((acc, q) => {
-    if (!acc[q.subject]) acc[q.subject] = {}
-    acc[q.subject][q.topic] = (acc[q.subject][q.topic] || 0) + 1
-    return acc
-  }, {})
+  // Every listed topic grouped by subject, with how many questions are tagged with it
+  const topicsMap = useMemo(() => buildTopicsMap(questions), [questions])
 
   // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems")
   const subjectAliases = {
@@ -240,7 +242,7 @@ export default function PYQMockTestsPage() {
 
   const flatTopicsList = Object.keys(topicsMap).reduce((acc, sub) => {
     Object.keys(topicsMap[sub]).forEach(topic => {
-      const topicQuestions = questions.filter(q => q.subject === sub && q.topic === topic)
+      const topicQuestions = questions.filter(q => hasTag(q, sub, topic))
       const years = Array.from(new Set(topicQuestions.map(q => q.year).filter(Boolean))).join(' ')
       const sampleQuestionKeywords = topicQuestions.map(q => q.question.toLowerCase()).slice(0, 5).join(' ')
       acc.push({
@@ -341,7 +343,7 @@ export default function PYQMockTestsPage() {
       title = `PYQ Subject Mock Test`
       modeInfo = `${selectedSubjects.join(', ')}`
     } else if (subView === 'topic') {
-      filtered = questions.filter(q => selectedTopics.some(t => t.subject === q.subject && t.topic === q.topic))
+      filtered = questions.filter(q => selectedTopics.some(t => hasTag(q, t.subject, t.topic)))
       title = `PYQ Topic Mock Test`
       const topicTitles = selectedTopics.map(t =>
         selectedTopics.filter(x => x.topic === t.topic).length > 1
@@ -368,9 +370,13 @@ export default function PYQMockTestsPage() {
     startMockTestSession(filtered, title, modeInfo)
   }
 
+  // wizardConfig.topics holds topicKey(subject, topic) strings
+  const matchesWizardTopics = q =>
+    getTags(q).some(t => wizardConfig.topics.includes(topicKey(t.subject, t.topic)))
+
   const handleStartWizardMock = () => {
     let filtered = questions.filter(q => {
-      if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
+      if (wizardConfig.topics.length > 0 && !matchesWizardTopics(q)) return false
       if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
       if (wizardConfig.marks.length > 0 && !wizardConfig.marks.includes(q.marks)) return false
       return true
@@ -398,6 +404,8 @@ export default function PYQMockTestsPage() {
 
   const handleToggleAllSubjectTopics = (sub) => {
     const subTopics = Object.keys(topicsMap[sub] || {})
+      .filter(t => topicsMap[sub][t] > 0)
+      .map(t => topicKey(sub, t))
     const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
     
     if (allSelected) {
@@ -415,7 +423,7 @@ export default function PYQMockTestsPage() {
 
   const getWizardAvailableQuestionsCount = () => {
     return questions.filter(q => {
-      if (wizardConfig.topics.length > 0 && !wizardConfig.topics.includes(q.topic)) return false
+      if (wizardConfig.topics.length > 0 && !matchesWizardTopics(q)) return false
       if (wizardConfig.types.length > 0 && !wizardConfig.types.includes(q.type)) return false
       if (wizardConfig.marks.length > 0 && !wizardConfig.marks.includes(q.marks)) return false
       return true
@@ -576,17 +584,6 @@ export default function PYQMockTestsPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  // --- CORRECTNESS HELPERS FOR REPORT ---
-  const isMSQCorrect = (selected, correctList) => {
-    if (!selected || selected.length !== correctList.length) return false
-    return selected.every(val => correctList.includes(val))
-  }
-
-  const isNATCorrect = (userAns, correctAns) => {
-    if (userAns === undefined || userAns === '') return false
-    return parseFloat(userAns) === parseFloat(correctAns)
-  }
-
   // --- EXAM SUBMISSION & STORAGE ---
   const handleSubmitTest = () => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -619,7 +616,8 @@ export default function PYQMockTestsPage() {
       const qMarks = q.marks || 1
       const qType = q.type || 'MCQ'
       const qSubject = q.subject || 'General Aptitude'
-      const qTopic = q.topic || 'General'
+      // Primary (first) tag, so each question counts toward one topic
+      const qTopic = getTags(q)[0]?.topic || 'General'
       const qDifficulty = q.difficulty || 'Medium'
       const qTimeSpent = timeSpent[q.id] || 0
 
@@ -656,11 +654,11 @@ export default function PYQMockTestsPage() {
         isUnanswered = true
       } else {
         if (qType === 'MCQ') {
-          isCorrect = userAns === q.answer
+          isCorrect = isAnswerCorrect(q, userAns)
         } else if (qType === 'MSQ') {
-          isCorrect = isMSQCorrect(userAns, q.answer)
+          isCorrect = isAnswerCorrect(q, userAns)
         } else if (qType === 'NAT') {
-          isCorrect = isNATCorrect(userAns, q.answer)
+          isCorrect = isAnswerCorrect(q, userAns)
         }
       }
 
@@ -986,7 +984,7 @@ export default function PYQMockTestsPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {Object.keys(subjectsMap).map(sub => {
+              {Object.keys(subjectsMap).sort(compareSubjects).map(sub => {
                 const config = getSubjectConfig(sub)
                 const SubjectIcon = config.icon
                 const isSelected = selectedSubjects.includes(sub)
@@ -1041,9 +1039,10 @@ export default function PYQMockTestsPage() {
                 {selectedTopics.length > 0 && (
                   <button
                     onClick={() => {
-                      const totalAvailable = selectedTopics.reduce((sum, item) => {
-                        return sum + (topicsMap[item.subject]?.[item.topic] || 0)
-                      }, 0)
+                      // Count each question once even if it carries several selected topics
+                      const totalAvailable = questions.filter(q =>
+                        selectedTopics.some(t => hasTag(q, t.subject, t.topic))
+                      ).length
                       setMaxAvailableQuestions(totalAvailable)
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
                       setShowQuestionLimitModal(true)
@@ -1098,7 +1097,7 @@ export default function PYQMockTestsPage() {
                   className="w-full h-10 pl-9 pr-8 text-xs font-semibold bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-btn focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100 appearance-none cursor-pointer shadow-sm"
                 >
                   <option value="All">All Subjects ({Object.keys(subjectsMap).length})</option>
-                  {Object.keys(subjectsMap).map(sub => (
+                  {Object.keys(subjectsMap).sort(compareSubjects).map(sub => (
                     <option key={sub} value={sub}>{sub}</option>
                   ))}
                 </select>
@@ -1178,10 +1177,14 @@ export default function PYQMockTestsPage() {
                 const config = getSubjectConfig(subjectName)
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
+                const isEmpty = questionCount === 0
                 return (
                   <div
                     key={`${subjectName}-${topicName}`}
+                    aria-disabled={isEmpty}
+                    title={isEmpty ? 'No questions tagged with this topic yet' : undefined}
                     onClick={() => {
+                      if (isEmpty) return
                       setSelectedTopics(prev => {
                         const exists = prev.some(t => t.subject === subjectName && t.topic === topicName)
                         return exists
@@ -1189,7 +1192,9 @@ export default function PYQMockTestsPage() {
                           : [...prev, { subject: subjectName, topic: topicName }]
                       })
                     }}
-                    className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} hover:shadow-md cursor-pointer transition-all duration-300 flex flex-col justify-between h-[140px] group hover:-translate-y-1 ${
+                    className={`relative p-5 rounded-card border bg-card-light dark:bg-card-dark bg-gradient-to-br ${config.gradientClass} transition-all duration-300 flex flex-col justify-between h-[140px] group ${
+                      isEmpty ? 'opacity-45 cursor-not-allowed' : 'hover:shadow-md cursor-pointer hover:-translate-y-1'
+                    } ${
                       isSelected ? 'border-primary ring-1 ring-primary/40' : 'border-border-light dark:border-border-dark'
                     }`}
                   >
@@ -1258,13 +1263,16 @@ export default function PYQMockTestsPage() {
                 </div>
                 
                 <div className="space-y-3 pt-2">
-                  {Object.keys(topicsMap).map(sub => {
+                  {Object.keys(topicsMap).sort(compareSubjects).map(sub => {
                     const isExpanded = expandedWizardSubject === sub
                     const config = getSubjectConfig(sub)
                     const SubjectIcon = config.icon
+                    // Topics with questions first; empty ones stay listed but can't be picked
                     const subTopics = Object.keys(topicsMap[sub] || {})
-                    const selectedInSub = subTopics.filter(t => wizardConfig.topics.includes(t)).length
-                    const allSelected = subTopics.length > 0 && subTopics.every(t => wizardConfig.topics.includes(t))
+                      .sort((a, b) => (topicsMap[sub][b] > 0) - (topicsMap[sub][a] > 0))
+                    const pickable = subTopics.filter(t => topicsMap[sub][t] > 0)
+                    const selectedInSub = pickable.filter(t => wizardConfig.topics.includes(topicKey(sub, t))).length
+                    const allSelected = pickable.length > 0 && selectedInSub === pickable.length
                     
                     return (
                       <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
@@ -1307,14 +1315,19 @@ export default function PYQMockTestsPage() {
                         {isExpanded && (
                           <div className="p-4 bg-slate-50/30 dark:bg-slate-900/10 border-t border-border-light dark:border-border-dark grid grid-cols-1 sm:grid-cols-2 gap-2.5 animate-fade-in">
                             {subTopics.map(topic => {
-                              const isChecked = wizardConfig.topics.includes(topic)
+                              const key = topicKey(sub, topic)
+                              const isChecked = wizardConfig.topics.includes(key)
                               const count = topicsMap[sub][topic]
+                              const isEmpty = count === 0
                               return (
                                 <div
                                   key={topic}
-                                  onClick={() => handleToggleWizardItem('topics', topic)}
-                                  className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold cursor-pointer transition-all duration-200 select-none ${
-                                    isChecked 
+                                  aria-disabled={isEmpty}
+                                  onClick={() => { if (!isEmpty) handleToggleWizardItem('topics', key) }}
+                                  className={`flex items-center justify-between gap-3 p-3 rounded-btn border text-xs font-semibold transition-all duration-200 select-none ${
+                                    isEmpty
+                                      ? 'opacity-45 cursor-not-allowed border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-500'
+                                      : isChecked 
                                       ? 'border-primary bg-primary/10 text-primary shadow-sm'
                                       : 'border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/55 hover:bg-slate-50 dark:hover:bg-slate-900/50 text-slate-700 dark:text-slate-350'
                                   }`}
@@ -1452,7 +1465,7 @@ export default function PYQMockTestsPage() {
                         <div className="min-w-0 flex-1 mr-2">
                           <span className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wide">Selected Chapters</span>
                           <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
-                            {wizardConfig.topics.join(', ')}
+                            {wizardConfig.topics.map(k => k.split('::')[1]).join(', ')}
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -2097,9 +2110,7 @@ export default function PYQMockTestsPage() {
       
       let isCorrect = false
       if (userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)) {
-        if (q.type === 'MCQ' && userAns === q.answer) isCorrect = true
-        else if (q.type === 'MSQ' && isMSQCorrect(userAns, q.answer)) isCorrect = true
-        else if (q.type === 'NAT' && isNATCorrect(userAns, q.answer)) isCorrect = true
+        if (isAnswerCorrect(q, userAns)) isCorrect = true
 
         if (isCorrect) {
           if (qTimeSpent < 60) pacers.quickCorrect++
@@ -2466,9 +2477,7 @@ export default function PYQMockTestsPage() {
                     questionsOfType.forEach(q => {
                       const ans = answers[q.id]
                       if (ans !== undefined && ans !== '') {
-                        if (q.type === 'MCQ' && ans === q.answer) correctCount++
-                        else if (q.type === 'MSQ' && isMSQCorrect(ans, q.answer)) correctCount++
-                        else if (q.type === 'NAT' && isNATCorrect(ans, q.answer)) correctCount++
+                        if (isAnswerCorrect(q, ans)) correctCount++
                       }
                     })
 
@@ -2738,9 +2747,7 @@ export default function PYQMockTestsPage() {
                   if (selected === undefined || selected === '' || (q.type === 'MSQ' && selected.length === 0)) {
                     isUnanswered = true
                   } else {
-                    if (q.type === 'MCQ') isCorrect = selected === q.answer
-                    else if (q.type === 'MSQ') isCorrect = isMSQCorrect(selected, q.answer)
-                    else if (q.type === 'NAT') isCorrect = isNATCorrect(selected, q.answer)
+                    isCorrect = isAnswerCorrect(q, selected)
                   }
 
                   return { q, idx, selected, isCorrect, isUnanswered }
@@ -2807,11 +2814,7 @@ export default function PYQMockTestsPage() {
                         <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/15 text-success">
                           <span className="text-slate-455 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Correct Answer Key:</span>
                           <span>
-                            {q.type === 'MCQ' 
-                              ? `Option ${String.fromCharCode(65 + q.answer)}: ${q.options[q.answer]}`
-                              : q.type === 'MSQ' 
-                              ? q.answer.map(idx => String.fromCharCode(65 + idx)).join(', ')
-                              : `Value: ${q.answer}`}
+                            {formatAnswer(q)}
                           </span>
                         </div>
                       </div>
@@ -2819,6 +2822,7 @@ export default function PYQMockTestsPage() {
                       <div className="p-4 rounded bg-indigo-500/5 border border-indigo-500/10 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         <span className="block font-bold text-primary mb-1 uppercase tracking-wider text-[9px]">Detailed Explanation</span>
                         <QuestionText text={q.explanation} />
+                        <AnswerProvenance question={q} />
                         <QuestionImage 
                           src={q.explanationImageUrl || q.solutionImageUrl} 
                           alt="Explanation Diagram" 
