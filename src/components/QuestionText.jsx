@@ -243,7 +243,9 @@ function renderMathContent(mathRaw, keyPrefix = 'math') {
 function renderInline(text, keyPrefix = 'inline') {
   if (!text) return null
 
-  const tokenRegex = /(<br\s*\/?>|\$[^$]+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|(?:\*\*[^*\n]+\*\*)|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
+  // Math spans skip escaped dollars (\$, e.g. the parser end-marker), both as
+  // delimiters and inside the maths.
+  const tokenRegex = /(<br\s*\/?>|(?<!\\)\$\$(?:[^$\\]|\\[\s\S])+\$\$|(?<!\\)\$(?:[^$\\]|\\[\s\S])+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|(?:\*\*[^*\n]+\*\*)|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
 
   const chunks = text.split(tokenRegex)
   return chunks.map((chunk, idx) => {
@@ -270,10 +272,11 @@ function renderInline(text, keyPrefix = 'inline') {
       return <br key={key} />
     }
 
-    // Math: $...$
+    // Math: $...$, or $$...$$ sharing a line with text (rendered in display style)
     if (chunk.startsWith('$') && chunk.endsWith('$') && chunk.length > 2) {
-      const mathRaw = chunk.slice(1, -1).trim()
-      const katexHtml = renderKaTeXHtml(mathRaw, false)
+      const isDisplay = chunk.startsWith('$$') && chunk.endsWith('$$') && chunk.length > 4
+      const mathRaw = isDisplay ? chunk.slice(2, -2).trim() : chunk.slice(1, -1).trim()
+      const katexHtml = renderKaTeXHtml(isDisplay ? `\\displaystyle ${mathRaw}` : mathRaw, false)
       if (katexHtml) {
         return (
           <span
@@ -372,7 +375,7 @@ function renderInline(text, keyPrefix = 'inline') {
     }
 
     // If chunk contains unescaped LaTeX math commands or subscripts
-    let processed = chunk.replace(/\\%/g, '%')
+    let processed = chunk.replace(/\\%/g, '%').replace(/\\\$/g, '$')
     if (
       processed.includes('\\') ||
       processed.includes('_{') ||
@@ -459,10 +462,13 @@ export default function QuestionText({ text, className = '', inline = false }) {
       continue
     }
 
-    // Display math: $$...$$
-    if (line.trim().startsWith('$$')) {
+    // Display math: $$...$$ alone on a line, or opening a multi-line block.
+    // A line like "$$x$$ equals" has more text after the closing $$, so it is
+    // left to renderInline instead.
+    const closeAt = line.trim().startsWith('$$') ? line.trim().indexOf('$$', 2) : -1
+    if (line.trim().startsWith('$$') && (closeAt === -1 || closeAt === line.trim().length - 2)) {
       const mathLines = []
-      if (line.trim().endsWith('$$') && line.trim().length > 4) {
+      if (closeAt !== -1 && line.trim().length > 4) {
         mathLines.push(line.trim().slice(2, -2).trim())
         lineIdx++
       } else {
