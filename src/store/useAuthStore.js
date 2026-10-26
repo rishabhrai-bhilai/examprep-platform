@@ -1,5 +1,21 @@
 import { create } from 'zustand'
 
+// POST JSON and return the parsed reply, throwing the server's error message on failure
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || 'Something went wrong. Please try again.')
+    err.retryAfter = data.retryAfter
+    throw err
+  }
+  return data
+}
+
 export const useAuthStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('user') || 'null'),
   token: localStorage.getItem('auth_token') || null,
@@ -70,40 +86,54 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signup: async (name, email, password) => {
+  // Sign up step 1: send the details; the server emails a 6-digit code.
+  // `website` is a honeypot field that real users never fill in.
+  startSignup: async (name, email, password, website = '') => {
     set({ loading: true, error: null })
     try {
       if (!name || !email || !password) {
         throw new Error('Please fill in all fields.')
       }
+      const data = await postJson('/api/auth/signup/start', { name, email, password, website })
+      set({ loading: false })
+      return { success: true, message: data.message }
+    } catch (err) {
+      set({ error: err.message, loading: false })
+      return { success: false, error: err.message, retryAfter: err.retryAfter }
+    }
+  },
 
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to create account.')
-      }
-
-      localStorage.setItem('auth_token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
-
-      set({
-        user: data.user,
-        token: data.token,
-        isAuthenticated: true,
-        loading: false,
-        error: null
-      })
-
-      get().closeAuthPrompt()
+  // Sign up step 2: confirm the code; this creates the account and signs in
+  verifySignup: async (email, code) => {
+    set({ loading: true, error: null })
+    try {
+      const data = await postJson('/api/auth/signup/verify', { email, code })
+      get().setSession(data.token, data.user)
       return { success: true, user: data.user }
     } catch (err) {
       set({ error: err.message, loading: false })
       return { success: false, error: err.message }
+    }
+  },
+
+  setSession: (token, user) => {
+    localStorage.setItem('auth_token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user, token, isAuthenticated: true, loading: false, error: null })
+    get().closeAuthPrompt()
+  },
+
+  // Public sign-in options: { googleClientId, devGoogleLogin, emailEnabled }
+  authConfig: null,
+  fetchAuthConfig: async () => {
+    if (get().authConfig) return get().authConfig
+    try {
+      const res = await fetch('/api/auth/config')
+      const config = res.ok ? await res.json() : null
+      if (config) set({ authConfig: config })
+      return config
+    } catch {
+      return null
     }
   },
 
@@ -198,18 +228,32 @@ export const useAuthStore = create((set, get) => ({
     set({ user: null, token: null, isAuthenticated: false, error: null })
   },
 
+  // Emails a reset code (the reply is the same whether or not the account exists)
   forgotPassword: async (email) => {
     set({ loading: true, error: null })
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
       if (!email) {
         throw new Error('Please enter your email.')
       }
+      const data = await postJson('/api/auth/password/forgot', { email })
       set({ loading: false })
-      return true
+      return { success: true, message: data.message }
     } catch (err) {
       set({ error: err.message, loading: false })
-      return false
+      return { success: false, error: err.message, retryAfter: err.retryAfter }
+    }
+  },
+
+  // Sets a new password with the emailed code, then signs in
+  resetPassword: async (email, code, password) => {
+    set({ loading: true, error: null })
+    try {
+      const data = await postJson('/api/auth/password/reset', { email, code, password })
+      get().setSession(data.token, data.user)
+      return { success: true, user: data.user }
+    } catch (err) {
+      set({ error: err.message, loading: false })
+      return { success: false, error: err.message }
     }
   },
 

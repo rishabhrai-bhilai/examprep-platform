@@ -16,7 +16,8 @@ const FILES = {
   bookmarks: path.join(DATA_DIR, 'bookmarks.json'),
   notes: path.join(DATA_DIR, 'notes.json'),
   testRecords: path.join(DATA_DIR, 'test_records.json'),
-  discussions: path.join(DATA_DIR, 'discussions.json')
+  discussions: path.join(DATA_DIR, 'discussions.json'),
+  reports: path.join(DATA_DIR, 'reports.json')
 }
 
 // Safely read JSON file with default fallback
@@ -101,6 +102,49 @@ export const userDb = {
     users[index] = { ...users[index], ...safeUpdates, updatedAt: Date.now() }
     writeJsonAtomic(FILES.users, users)
     return users[index]
+  },
+
+  // The only way to change a password hash and its salt (update() refuses salt)
+  setPassword: (id, passwordHash, salt) => {
+    const users = readJson(FILES.users, [])
+    const index = users.findIndex(u => u.id === id)
+    if (index === -1) return null
+    users[index] = { ...users[index], passwordHash, salt, updatedAt: Date.now() }
+    writeJsonAtomic(FILES.users, users)
+    return users[index]
+  }
+}
+
+// --- ISSUE REPORTS DB ---
+// Stored as Report[]: { id, userId, userName, userEmail, category, questionId, page,
+//   message, status: 'open' | 'in_progress' | 'resolved', adminNote, createdAt, updatedAt }
+export const reportDb = {
+  getAll: () => readJson(FILES.reports, []),
+
+  getByUser: (userId) => readJson(FILES.reports, []).filter(r => r.userId === userId),
+
+  create: (report) => {
+    const reports = readJson(FILES.reports, [])
+    const newReport = {
+      id: `rep-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      status: 'open',
+      adminNote: '',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      ...report
+    }
+    reports.push(newReport)
+    writeJsonAtomic(FILES.reports, reports)
+    return newReport
+  },
+
+  update: (id, updates) => {
+    const reports = readJson(FILES.reports, [])
+    const index = reports.findIndex(r => r.id === id)
+    if (index === -1) return null
+    reports[index] = { ...reports[index], ...updates, id, updatedAt: Date.now() }
+    writeJsonAtomic(FILES.reports, reports)
+    return reports[index]
   }
 }
 

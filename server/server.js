@@ -10,14 +10,22 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb } from './db/index.js'
-import { 
-  hashPassword, 
-  verifyPassword, 
-  generateToken, 
-  parseGoogleCredential, 
-  requireAuth 
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb } from './db/index.js'
+import {
+  hashPassword,
+  verifyPassword,
+  generateToken,
+  verifyToken,
+  verifyGoogleCredential,
+  requireAuth,
+  requireAdmin,
+  isAdminEmail,
+  loginLockedFor,
+  recordFailedLogin,
+  clearFailedLogins
 } from './services/auth.js'
+import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
+import { sendOtpMail, canSendEmail } from './services/mailer.js'
 
 // Load environment variables
 dotenv.config()
@@ -30,15 +38,33 @@ const NODE_ENV = process.env.NODE_ENV || 'development'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Render (and most hosts) sit behind one proxy; without this every visitor
+// shares the proxy's IP and the rate limits below would hit everyone at once
+app.set('trust proxy', 1)
+
 // Helper to sanitize user object sent over API (strip passwordHash and salt)
 const sanitizeUser = (user) => {
   if (!user) return null
   const { passwordHash, salt, ...safeUser } = user
-  return safeUser
+  return { ...safeUser, hasPassword: !!passwordHash, isAdmin: isAdminEmail(user.email) }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MIN_PASSWORD = 8
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase()
+const passwordProblem = (password) => {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters long.`
+  if (password.length > 128) return 'Password is too long.'
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) return 'Password must contain at least one letter and one number.'
+  return null
 }
 
 // 1. Security Headers (Helmet) with Google Identity & YouTube CSP directives
 app.use(helmet({
+  // Google's sign-in popup needs to talk back to this window, and Google
+  // Identity Services needs the page origin in the Referer header
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -100,25 +126,31 @@ if (NODE_ENV === 'development') {
 }
 
 // 5. Rate Limiting
-// General API limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: NODE_ENV === 'development' ? 5000 : 300,
-  message: { error: 'Too many requests from this IP, please try again after 15 minutes.' },
+const isDev = NODE_ENV === 'development'
+// Signed-in users are limited per account (so a shared college Wi-Fi IP isn't
+// one bucket), everyone else per IP
+const userOrIpKey = (req) => {
+  const header = req.headers.authorization
+  const payload = header?.startsWith('Bearer ') ? verifyToken(header.slice(7)) : null
+  return payload?.userId ? `user:${payload.userId}` : `ip:${req.ip}`
+}
+const limiter = (windowMs, max, error, keyGenerator) => rateLimit({
+  windowMs,
+  max: isDev ? max * 20 : max,
+  message: { error },
   standardHeaders: true,
   legacyHeaders: false,
+  ...(keyGenerator ? { keyGenerator } : {})
 })
-app.use('/api/', apiLimiter)
 
-// Strict Auth Limiter (protects against credential stuffing & brute-force)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: NODE_ENV === 'development' ? 1000 : 25,
-  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-})
-app.use('/api/auth/', authLimiter)
+// General API limiter: 100 requests a minute
+app.use('/api/', limiter(60 * 1000, 100, 'Too many requests. Please slow down and try again in a minute.', userOrIpKey))
+
+// Password logins and code checks (brute-force protection on top of the per-email lockout)
+const authLimiter = limiter(15 * 60 * 1000, 20, 'Too many sign-in attempts. Please try again after 15 minutes.')
+// Anything that sends an email
+const emailLimiter = limiter(60 * 60 * 1000, 8, 'Too many code requests. Please try again in an hour.')
+const reportLimiter = limiter(60 * 60 * 1000, 10, 'You have sent a lot of reports. Please try again in an hour.', userOrIpKey)
 
 // Parse JSON request bodies
 app.use(express.json({ limit: '10mb' }))
@@ -179,33 +211,85 @@ app.get('/api/questions/:id', (req, res) => {
 
 // --- REST API: AUTHENTICATION ---
 
-// 1. Sign Up (Email + Password)
-app.post('/api/auth/signup', (req, res) => {
-  try {
-    const { name, email, password } = req.body
+// What the sign-in pages can offer (the Google client id is public)
+app.get('/api/auth/config', (req, res) => {
+  res.status(200).json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    devGoogleLogin: !process.env.GOOGLE_CLIENT_ID && NODE_ENV !== 'production',
+    emailEnabled: canSendEmail()
+  })
+})
 
-    if (!name || !name.trim()) {
+// Sends a code, or explains why it couldn't
+async function sendCode(res, purpose, email, data) {
+  const issued = issueOtp(purpose, email, data)
+  if (issued.retryAfter) {
+    res.status(429).json({ error: `Please wait ${issued.retryAfter}s before requesting another code.`, retryAfter: issued.retryAfter })
+    return false
+  }
+  try {
+    await sendOtpMail(email, issued.code, purpose, OTP_MINUTES)
+    return true
+  } catch (err) {
+    console.error(`Failed to send ${purpose} code:`, err.message)
+    res.status(503).json({ error: 'Could not send the email right now. Please try again in a few minutes.' })
+    return false
+  }
+}
+
+// 1. Sign Up step 1: check the details and email a verification code.
+// The account is only created once the code is confirmed.
+app.post('/api/auth/signup/start', emailLimiter, async (req, res) => {
+  try {
+    const { name, password, website } = req.body
+    const email = normalizeEmail(req.body.email)
+
+    // Honeypot: the field is hidden from people, bots fill it in
+    if (website) return res.status(400).json({ error: 'Could not create the account.' })
+    if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'Full name is required.' })
     }
-    if (!email || !email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (String(name).trim().length > 60) {
+      return res.status(400).json({ error: 'Name must be at most 60 characters.' })
+    }
+    if (!EMAIL_RE.test(email)) {
       return res.status(400).json({ error: 'Please provide a valid email address.' })
     }
-    if (!password || password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long.' })
-    }
+    const problem = passwordProblem(password)
+    if (problem) return res.status(400).json({ error: problem })
 
-    const existingUser = userDb.findByEmail(email)
-    if (existingUser) {
+    if (userDb.findByEmail(email)) {
       return res.status(409).json({ error: 'An account with this email address already exists. Please log in.' })
     }
 
     const { hash, salt } = hashPassword(password)
+    if (!(await sendCode(res, 'signup', email, { name: String(name).trim(), passwordHash: hash, salt }))) return
+    res.status(200).json({ message: `We sent a 6-digit code to ${email}.`, email })
+  } catch (err) {
+    console.error('Signup error:', err)
+    res.status(500).json({ error: 'Internal server error during registration.' })
+  }
+})
+
+// 2. Sign Up step 2: confirm the code and create the account
+app.post('/api/auth/signup/verify', authLimiter, (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email)
+    const result = verifyOtp('signup', email, req.body.code)
+    if (!result.ok) return res.status(400).json({ error: result.error })
+
+    if (userDb.findByEmail(email)) {
+      return res.status(409).json({ error: 'An account with this email address already exists. Please log in.' })
+    }
+
     const newUser = userDb.create({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      passwordHash: hash,
-      salt,
-      provider: 'local'
+      name: result.data.name,
+      email,
+      passwordHash: result.data.passwordHash,
+      salt: result.data.salt,
+      provider: 'local',
+      emailVerified: true,
+      profileCompleted: false
     })
 
     const token = generateToken({ userId: newUser.id, email: newUser.email })
@@ -215,36 +299,47 @@ app.post('/api/auth/signup', (req, res) => {
       user: sanitizeUser(newUser)
     })
   } catch (err) {
-    console.error('Signup error:', err)
+    console.error('Signup verify error:', err)
     res.status(500).json({ error: 'Internal server error during registration.' })
   }
 })
 
-// 2. Log In (Email + Password)
-app.post('/api/auth/login', (req, res) => {
+// 3. Log In (Email + Password)
+app.post('/api/auth/login', authLimiter, (req, res) => {
   try {
-    const { email, password } = req.body
+    const { password } = req.body
+    const email = normalizeEmail(req.body.email)
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Please enter both email and password.' })
     }
 
+    const lockedMinutes = loginLockedFor(email)
+    if (lockedMinutes) {
+      return res.status(429).json({
+        error: `Too many wrong passwords. Try again in ${lockedMinutes} minute(s), or reset your password.`
+      })
+    }
+
     const user = userDb.findByEmail(email)
     if (!user) {
+      recordFailedLogin(email)
       return res.status(401).json({ error: 'Invalid email or password.' })
     }
 
-    if (user.provider === 'google' && !user.passwordHash) {
-      return res.status(400).json({ 
-        error: 'This account is linked with Google. Please click "Continue with Google" to sign in.' 
+    if (!user.passwordHash) {
+      return res.status(400).json({
+        error: 'This account uses Google sign-in. Click "Continue with Google", or use "Forgot password" to add a password.'
       })
     }
 
     const isValid = verifyPassword(password, user.passwordHash, user.salt)
     if (!isValid) {
+      recordFailedLogin(email)
       return res.status(401).json({ error: 'Invalid email or password.' })
     }
 
+    clearFailedLogins(email)
     const token = generateToken({ userId: user.id, email: user.email })
     res.status(200).json({
       message: 'Login successful.',
@@ -257,30 +352,34 @@ app.post('/api/auth/login', (req, res) => {
   }
 })
 
-// 3. Google Sign-In / OAuth
-app.post('/api/auth/google', (req, res) => {
+// 4. Google Sign-In: the ID token is verified with Google before anything is trusted
+app.post('/api/auth/google', authLimiter, async (req, res) => {
   try {
-    const { credential, profile } = req.body
-    const googleUser = parseGoogleCredential(credential) || profile
+    const googleUser = await verifyGoogleCredential(req.body.credential)
 
     if (!googleUser || !googleUser.email) {
-      return res.status(400).json({ error: 'Invalid or missing Google authentication credentials.' })
+      return res.status(401).json({ error: 'Google sign-in could not be verified. Please try again.' })
     }
 
     let user = userDb.findByEmail(googleUser.email)
     if (!user) {
-      // Create new user with Google profile
       user = userDb.create({
         name: googleUser.name || googleUser.email.split('@')[0],
         email: googleUser.email.toLowerCase(),
-        avatar: googleUser.avatar,
-        provider: 'google'
+        ...(googleUser.avatar ? { avatar: googleUser.avatar } : {}),
+        googleAvatar: googleUser.avatar || null,
+        googleId: googleUser.sub || null,
+        avatarSource: 'google',
+        provider: 'google',
+        emailVerified: true,
+        profileCompleted: false
       })
     } else {
-      // Update avatar if provided
-      if (googleUser.avatar && user.avatar !== googleUser.avatar) {
-        user = userDb.update(user.id, { avatar: googleUser.avatar })
-      }
+      // Keep the Google photo on file, but don't replace an avatar the user picked
+      const updates = { googleAvatar: googleUser.avatar || null, emailVerified: true }
+      if (googleUser.sub && !user.googleId) updates.googleId = googleUser.sub
+      if (googleUser.avatar && user.avatarSource !== 'custom') updates.avatar = googleUser.avatar
+      user = userDb.update(user.id, updates)
     }
 
     const token = generateToken({ userId: user.id, email: user.email })
@@ -295,7 +394,50 @@ app.post('/api/auth/google', (req, res) => {
   }
 })
 
-// 4. Current User Session Check
+// 5. Forgot password: email a reset code. The reply is the same whether or not
+// the account exists, so this can't be used to find out who has signed up.
+app.post('/api/auth/password/forgot', emailLimiter, async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email)
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' })
+    }
+    const generic = { message: `If an account exists for ${email}, we sent it a 6-digit code.`, email }
+    if (!userDb.findByEmail(email)) return res.status(200).json(generic)
+    if (!(await sendCode(res, 'reset', email))) return
+    res.status(200).json(generic)
+  } catch (err) {
+    console.error('Forgot password error:', err)
+    res.status(500).json({ error: 'Internal server error.' })
+  }
+})
+
+// 6. Reset password with the emailed code (also lets Google accounts add a password)
+app.post('/api/auth/password/reset', authLimiter, (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email)
+    const problem = passwordProblem(req.body.password)
+    if (problem) return res.status(400).json({ error: problem })
+
+    const result = verifyOtp('reset', email, req.body.code)
+    if (!result.ok) return res.status(400).json({ error: result.error })
+
+    const user = userDb.findByEmail(email)
+    if (!user) return res.status(400).json({ error: 'This code has expired. Please request a new one.' })
+
+    const { hash, salt } = hashPassword(req.body.password)
+    const updated = userDb.setPassword(user.id, hash, salt)
+    clearFailedLogins(email)
+
+    const token = generateToken({ userId: updated.id, email: updated.email })
+    res.status(200).json({ message: 'Password updated.', token, user: sanitizeUser(updated) })
+  } catch (err) {
+    console.error('Reset password error:', err)
+    res.status(500).json({ error: 'Internal server error.' })
+  }
+})
+
+// 7. Current User Session Check
 app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = userDb.findById(req.user.id)
   if (!user) {
@@ -304,22 +446,118 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.status(200).json({ user: sanitizeUser(user) })
 })
 
-// 5. Update Profile
+// 8. Update Profile
+const MAX_AVATAR_DATA_URL = 300 * 1024
 app.put('/api/auth/profile', requireAuth, (req, res) => {
   try {
-    const { name, avatar, streak, solvedQuestions, rank } = req.body
+    const { name, age, phone, targetYear, avatar, completeProfile, streak, solvedQuestions, rank } = req.body
     const updates = {}
-    if (name && typeof name === 'string') updates.name = name.trim()
-    if (avatar && typeof avatar === 'string') updates.avatar = avatar
+
+    if (name !== undefined) {
+      const trimmed = typeof name === 'string' ? name.trim() : ''
+      if (!trimmed || trimmed.length > 60) return res.status(400).json({ error: 'Name must be 1 to 60 characters.' })
+      updates.name = trimmed
+    }
+    if (age !== undefined && age !== null && age !== '') {
+      const n = Number(age)
+      if (!Number.isInteger(n) || n < 10 || n > 100) return res.status(400).json({ error: 'Please enter a valid age (10 to 100).' })
+      updates.age = n
+    }
+    if (phone !== undefined) {
+      const cleaned = typeof phone === 'string' ? phone.trim() : ''
+      if (cleaned && !/^\+?[0-9][0-9\s-]{6,15}$/.test(cleaned)) return res.status(400).json({ error: 'Please enter a valid phone number.' })
+      updates.phone = cleaned
+    }
+    if (targetYear !== undefined) {
+      const y = targetYear === '' || targetYear === null ? null : Number(targetYear)
+      if (y !== null && (!Number.isInteger(y) || y < 2020 || y > 2040)) return res.status(400).json({ error: 'Please pick a valid target year.' })
+      updates.targetYear = y
+    }
+    if (avatar !== undefined) {
+      const isUrl = typeof avatar === 'string' && /^https:\/\/\S+$/.test(avatar) && avatar.length <= 500
+      const isImage = typeof avatar === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)
+      if (!isUrl && !isImage) return res.status(400).json({ error: 'Unsupported profile picture.' })
+      if (isImage && avatar.length > MAX_AVATAR_DATA_URL) return res.status(400).json({ error: 'Profile picture is too large.' })
+      updates.avatar = avatar
+      updates.avatarSource = 'custom'
+    }
     if (streak !== undefined) updates.streak = Number(streak)
     if (solvedQuestions !== undefined) updates.solvedQuestions = Number(solvedQuestions)
     if (rank !== undefined) updates.rank = Number(rank)
+
+    if (completeProfile) {
+      const current = userDb.findById(req.user.id)
+      const finalName = updates.name ?? current?.name
+      const finalAge = updates.age ?? current?.age
+      if (!finalName || !finalAge) return res.status(400).json({ error: 'Name and age are required.' })
+      updates.profileCompleted = true
+    }
 
     const updated = userDb.update(req.user.id, updates)
     res.status(200).json({ message: 'Profile updated successfully.', user: sanitizeUser(updated) })
   } catch (err) {
     res.status(500).json({ error: 'Failed to update profile.' })
   }
+})
+
+// --- REST API: ISSUE REPORTS ---
+const REPORT_CATEGORIES = ['question', 'bug', 'suggestion', 'other']
+const REPORT_STATUSES = ['open', 'in_progress', 'resolved']
+
+app.post('/api/reports', requireAuth, reportLimiter, (req, res) => {
+  try {
+    const { category, message, page } = req.body
+    if (!REPORT_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Please choose a category.' })
+    const text = typeof message === 'string' ? message.trim() : ''
+    if (text.length < 10) return res.status(400).json({ error: 'Please describe the issue in at least 10 characters.' })
+    if (text.length > 2000) return res.status(400).json({ error: 'Please keep the description under 2000 characters.' })
+
+    let questionId = null
+    if (req.body.questionId !== undefined && req.body.questionId !== null && req.body.questionId !== '') {
+      questionId = Number(req.body.questionId)
+      if (!questions.some(q => q.id === questionId)) return res.status(400).json({ error: 'That question could not be found.' })
+    }
+    if (category === 'question' && questionId === null) {
+      return res.status(400).json({ error: 'Please say which question is wrong.' })
+    }
+
+    const report = reportDb.create({
+      userId: req.user.id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      category,
+      questionId,
+      page: typeof page === 'string' ? page.slice(0, 200) : '',
+      message: text
+    })
+    res.status(201).json({ message: 'Thanks! Your report has been sent.', report })
+  } catch (err) {
+    console.error('Report error:', err)
+    res.status(500).json({ error: 'Failed to send the report.' })
+  }
+})
+
+app.get('/api/reports/mine', requireAuth, (req, res) => {
+  const reports = reportDb.getByUser(req.user.id).sort((a, b) => b.createdAt - a.createdAt)
+  res.status(200).json(reports)
+})
+
+app.get('/api/reports', requireAuth, requireAdmin, (req, res) => {
+  const reports = reportDb.getAll().sort((a, b) => b.createdAt - a.createdAt)
+  res.status(200).json(reports)
+})
+
+app.patch('/api/reports/:id', requireAuth, requireAdmin, (req, res) => {
+  const { status, adminNote } = req.body
+  const updates = {}
+  if (status !== undefined) {
+    if (!REPORT_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status.' })
+    updates.status = status
+  }
+  if (adminNote !== undefined) updates.adminNote = String(adminNote).slice(0, 1000)
+  const updated = reportDb.update(req.params.id, updates)
+  if (!updated) return res.status(404).json({ error: 'Report not found.' })
+  res.status(200).json(updated)
 })
 
 // --- REST API: DUAL-STORAGE CLOUD SYNCHRONIZATION ---

@@ -1,9 +1,31 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight } from 'lucide-react'
+import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight, Hash, Phone, Target, AlertCircle, KeyRound } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
+import AvatarPicker from '../components/AvatarPicker'
+
+const PHONE_RE = /^\+?[0-9][0-9\s-]{6,15}$/
+
+const getTargetYearOptions = () => {
+  const year = new Date().getFullYear()
+  return [year + 1, year + 2, year + 3]
+}
+
+const validateProfileFields = ({ name, age, phone }) => {
+  const trimmedName = (name || '').trim()
+  if (!trimmedName) return 'Please enter your name.'
+  if (trimmedName.length > 60) return 'Name must be 60 characters or fewer.'
+  const ageStr = String(age ?? '').trim()
+  if (ageStr !== '') {
+    const ageNum = Number(ageStr)
+    if (!Number.isInteger(ageNum) || ageNum < 10 || ageNum > 100) return 'Age must be a whole number between 10 and 100.'
+  }
+  const phoneStr = (phone || '').trim()
+  if (phoneStr && !PHONE_RE.test(phoneStr)) return 'Please enter a valid phone number (digits, spaces or dashes, optional leading +).'
+  return null
+}
 
 export default function ProfilePage() {
   const { user, logout, isAuthenticated, updateProfile, openAuthPrompt } = useAuthStore()
@@ -11,24 +33,57 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.name || 'Aspirant')
   const [email, setEmail] = useState(user?.email || 'aspirant@examprep.com')
+  const [age, setAge] = useState(user?.age ? String(user.age) : '')
+  const [phone, setPhone] = useState(user?.phone || '')
+  const [targetYear, setTargetYear] = useState(user?.targetYear ? String(user.targetYear) : '')
   const [isSaved, setIsSaved] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const [activeHistoryTab, setActiveHistoryTab] = useState('mock')
 
   useEffect(() => {
     if (user) {
       setName(user.name || 'Aspirant')
       setEmail(user.email || 'aspirant@examprep.com')
+      setAge(user.age ? String(user.age) : '')
+      setPhone(user.phone || '')
+      setTargetYear(user.targetYear ? String(user.targetYear) : '')
     }
   }, [user])
 
   const handleSave = async (e) => {
     e.preventDefault()
-    setIsSaved(true)
-    setTimeout(() => setIsSaved(false), 2500)
-    
+    setIsSaved(false)
+    const validationError = validateProfileFields({ name, age, phone })
+    if (validationError) {
+      setSaveError(validationError)
+      return
+    }
+    setSaveError('')
+    setIsSaving(true)
+
     // Update local storage and server database
-    await updateProfile({ name })
-    await syncUserData()
+    const updates = {
+      name: name.trim(),
+      phone: phone.trim(),
+      targetYear: targetYear ? Number(targetYear) : null
+    }
+    if (String(age).trim() !== '') updates.age = Number(age)
+
+    try {
+      const result = await updateProfile(updates)
+      if (result?.success) {
+        setIsSaved(true)
+        setTimeout(() => setIsSaved(false), 2500)
+        await syncUserData()
+      } else {
+        setSaveError(result?.error || 'Could not save your changes. Please try again.')
+      }
+    } catch (err) {
+      setSaveError(err?.message || 'Could not save your changes. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleResetData = () => {
@@ -104,7 +159,7 @@ export default function ProfilePage() {
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen">
-      
+
       {/* Page Title & Cloud Sync Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -120,24 +175,32 @@ export default function ProfilePage() {
 
       {/* Two columns split */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        
+
         {/* Profile Details (Left 2 cols) */}
         <div className="md:col-span-2 space-y-6">
-          
+
+          {/* Card 0: Profile Picture */}
+          <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
+            <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Profile Picture</h3>
+            <AvatarPicker user={user} onSave={(avatar) => updateProfile({ avatar })} />
+          </div>
+
           {/* Card 1: User Prefs */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Account Details</h3>
-            
+
             <form onSubmit={handleSave} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Aspirant Name</label>
+                <label htmlFor="profile-name" className="text-xs font-semibold text-slate-500 uppercase">Aspirant Name</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                     <User size={16} />
                   </span>
                   <input
+                    id="profile-name"
                     type="text"
                     required
+                    maxLength={60}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
@@ -146,12 +209,13 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-500 uppercase">Email Address</label>
+                <label htmlFor="profile-email" className="text-xs font-semibold text-slate-500 uppercase">Email Address</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                     <Mail size={16} />
                   </span>
                   <input
+                    id="profile-email"
                     type="email"
                     disabled
                     value={email}
@@ -160,17 +224,102 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="profile-age" className="text-xs font-semibold text-slate-500 uppercase">Age</label>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                      <Hash size={16} />
+                    </span>
+                    <input
+                      id="profile-age"
+                      type="number"
+                      min={10}
+                      max={100}
+                      step={1}
+                      inputMode="numeric"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="profile-phone" className="text-xs font-semibold text-slate-500 uppercase">Phone Number</label>
+                    <span className="text-[10px] font-semibold text-slate-400">Optional</span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                      <Phone size={16} />
+                    </span>
+                    <input
+                      id="profile-phone"
+                      type="tel"
+                      autoComplete="tel"
+                      placeholder="+91 98765 43210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="profile-target-year" className="text-xs font-semibold text-slate-500 uppercase">Target GATE Year</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Target size={16} />
+                  </span>
+                  <select
+                    id="profile-target-year"
+                    value={targetYear}
+                    onChange={(e) => setTargetYear(e.target.value)}
+                    className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
+                  >
+                    <option value="">Not sure yet</option>
+                    {targetYear && !getTargetYearOptions().includes(Number(targetYear)) && (
+                      <option value={targetYear}>GATE {targetYear}</option>
+                    )}
+                    {getTargetYearOptions().map((y) => (
+                      <option key={y} value={String(y)}>GATE {y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                <KeyRound size={14} className="text-slate-400" />
+                <span>Sign-in method:</span>
+                <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+                  {user?.provider === 'google' ? 'Google' : 'Email & password'}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <Link to="/forgot-password" className="font-semibold text-primary hover:underline">
+                  {user?.hasPassword ? 'Change password' : 'Add a password'}
+                </Link>
+              </div>
+
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn transition-colors shadow-sm active:scale-95"
+                  disabled={isSaving}
+                  className="px-5 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn transition-colors shadow-sm active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Changes
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
                 {isSaved && (
                   <span className="text-xs font-semibold text-success flex items-center gap-1">
                     <CheckCircle size={14} />
                     <span>Saved and synced to cloud!</span>
+                  </span>
+                )}
+                {saveError && (
+                  <span className="text-xs font-semibold text-error flex items-center gap-1" role="alert">
+                    <AlertCircle size={14} />
+                    <span>{saveError}</span>
                   </span>
                 )}
               </div>
@@ -180,7 +329,7 @@ export default function ProfilePage() {
           {/* Badges / Achievements */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Earned Badges</h3>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {badges.map((badge, idx) => {
                 const Icon = badge.icon
@@ -201,26 +350,26 @@ export default function ProfilePage() {
 
         {/* Analytics & Tools (Right 1 col) */}
         <div className="space-y-6">
-          
+
           {/* Practice Summary */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4 text-center">
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Performance Card</h3>
-            
+
             <div className="flex flex-col items-center py-4 border-b border-slate-100 dark:border-slate-800/40">
-              <span className="text-3xl font-extrabold text-primary">{user?.solvedQuestions || 34}</span>
+              <span className="text-3xl font-extrabold text-primary">{user?.solvedQuestions ?? 0}</span>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Questions Solved</span>
             </div>
 
             <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800/40 text-xs">
               <span className="text-slate-500 font-medium">Rank</span>
-              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">#{user?.rank || 1205}</span>
+              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{user?.rank ? `#${user.rank}` : '—'}</span>
             </div>
-            
+
             <div className="flex justify-between items-center py-3 text-xs">
               <span className="text-slate-500 font-medium">Daily Streak</span>
               <span className="font-bold text-orange-500 flex items-center gap-1">
                 <Flame size={14} className="fill-orange-500" />
-                <span>{user?.streak || 5} Days</span>
+                <span>{user?.streak ?? 0} Days</span>
               </span>
             </div>
           </div>
@@ -251,7 +400,7 @@ export default function ProfilePage() {
 
         // Mock stats
         const mockAttempts = mockHistory.length
-        const mockAvgScore = mockAttempts > 0 
+        const mockAvgScore = mockAttempts > 0
           ? (mockHistory.reduce((sum, h) => sum + h.score, 0) / mockAttempts).toFixed(2)
           : '0.00'
         const mockBestScore = mockAttempts > 0
