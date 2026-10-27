@@ -1,7 +1,17 @@
 import crypto from 'crypto'
 import { userDb } from '../db/index.js'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gate-prep-platform-secure-jwt-key-2026-supersecret-gatekeeper'
+// Read on use: this module loads before server.js runs dotenv.config()
+const DEFAULT_JWT_SECRET = 'gate-prep-platform-secure-jwt-key-2026-supersecret-gatekeeper'
+let warnedAboutSecret = false
+function jwtSecret() {
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production' && !warnedAboutSecret) {
+    // The default is public in the repo, so anyone could forge a login token with it
+    console.warn('[security] JWT_SECRET is not set: login tokens are signed with the default key. Set JWT_SECRET.')
+    warnedAboutSecret = true
+  }
+  return process.env.JWT_SECRET || DEFAULT_JWT_SECRET
+}
 
 // --- PASSWORD HASHING (SCRYPT + SALT) ---
 export function hashPassword(password) {
@@ -60,7 +70,7 @@ export function generateToken(payload, expiresInSeconds = 7 * 24 * 3600) {
   const dataToSign = `${encodedHeader}.${encodedPayload}`
 
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', jwtSecret())
     .update(dataToSign)
     .digest('base64url')
 
@@ -76,7 +86,7 @@ export function verifyToken(token) {
   const dataToSign = `${encodedHeader}.${encodedPayload}`
 
   const expectedSignature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', jwtSecret())
     .update(dataToSign)
     .digest('base64url')
 
@@ -143,6 +153,62 @@ export function parseGoogleCredential(credential) {
   return null
 }
 
+// --- GOOGLE ID TOKEN VERIFICATION ---
+// Checks the token with Google (signature, expiry) and that it was issued for our
+// client id. Without GOOGLE_CLIENT_ID, development falls back to the demo sign-in.
+export async function verifyGoogleCredential(credential) {
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  if (!clientId) {
+    return process.env.NODE_ENV === 'production' ? null : parseGoogleCredential(credential)
+  }
+  if (!credential || typeof credential !== 'string') return null
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`)
+    if (!res.ok) return null
+    const info = await res.json()
+    const issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com'
+    if (info.aud !== clientId || !issuerOk || info.email_verified !== 'true' || !info.email) return null
+    if (Number(info.exp) * 1000 < Date.now()) return null
+    return {
+      email: info.email,
+      name: info.name || info.email.split('@')[0],
+      avatar: info.picture || null,
+      sub: info.sub,
+      emailVerified: true
+    }
+  } catch (err) {
+    console.error('Google token verification failed:', err.message)
+    return null
+  }
+}
+
+// --- FAILED LOGIN LOCKOUT ---
+// After 5 wrong passwords for an email within 15 minutes, that email is locked for 15 minutes.
+const LOCK_WINDOW_MS = 15 * 60 * 1000
+const MAX_FAILED_LOGINS = 5
+const failedLogins = new Map() // email -> { count, firstAt, lockedUntil }
+
+export function loginLockedFor(email) {
+  const entry = failedLogins.get(email)
+  if (!entry || !entry.lockedUntil) return 0
+  const left = entry.lockedUntil - Date.now()
+  if (left <= 0) { failedLogins.delete(email); return 0 }
+  return Math.ceil(left / 60000)
+}
+
+export function recordFailedLogin(email) {
+  const now = Date.now()
+  let entry = failedLogins.get(email)
+  if (!entry || now - entry.firstAt > LOCK_WINDOW_MS) entry = { count: 0, firstAt: now, lockedUntil: 0 }
+  entry.count++
+  if (entry.count >= MAX_FAILED_LOGINS) entry.lockedUntil = now + LOCK_WINDOW_MS
+  failedLogins.set(email, entry)
+}
+
+export function clearFailedLogins(email) {
+  failedLogins.delete(email)
+}
+
 // --- REQUIRE AUTH MIDDLEWARE ---
 export function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization
@@ -171,7 +237,19 @@ export function requireAuth(req, res, next) {
     streak: user.streak,
     solvedQuestions: user.solvedQuestions,
     rank: user.rank,
-    provider: user.provider
+    provider: user.provider,
+    isAdmin: isAdminEmail(user.email)
   }
+  next()
+}
+
+// Admins (comma-separated ADMIN_EMAILS) can see and update every issue report.
+export function isAdminEmail(email) {
+  const admins = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  return !!email && admins.includes(email.toLowerCase())
+}
+
+export function requireAdmin(req, res, next) {
+  if (!req.user?.isAdmin) return res.status(403).json({ error: 'Only admins can do this.' })
   next()
 }

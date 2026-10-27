@@ -20,12 +20,15 @@ import BookmarksPage from './pages/BookmarksPage'
 import NotesPage from './pages/NotesPage'
 import ProfilePage from './pages/ProfilePage'
 import DiscussionPage from './pages/DiscussionPage'
+import ReportPage from './pages/ReportPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
 import BookmarkSelectorModal from './components/BookmarkSelectorModal'
 import VideoSolutionModal from './components/VideoSolutionModal'
 import AuthPromptModal from './components/AuthPromptModal'
+import OnboardingModal from './components/OnboardingModal'
+import ReportIssueModal from './components/ReportIssueModal'
 
 function App() {
   const { theme, fetchQuestions, syncUserData } = useAppStore()
@@ -72,6 +75,7 @@ function App() {
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<ProfilePage />} />
+          <Route path="/report" element={<ReportPage />} />
         </Route>
 
         {/* Fallback Redirect */}
@@ -83,6 +87,8 @@ function App() {
       <BookmarkSelectorModal />
       <VideoSolutionModal />
       <AuthPromptModal />
+      <OnboardingModal />
+      <ReportIssueModal />
     </BrowserRouter>
   )
 }
