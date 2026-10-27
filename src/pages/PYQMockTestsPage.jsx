@@ -16,7 +16,7 @@ import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 
 export default function PYQMockTestsPage() {
-  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
+  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
   
   // Selection Hub State
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
@@ -751,6 +751,14 @@ export default function PYQMockTestsPage() {
       timeSpentMap: timeSpent,
       modeInfo: activeTestModeInfo
     }
+
+    // Every answered question also counts toward the user's practice record
+    recordAttempts(activeTestQuestions
+      .filter(q => {
+        const a = answers[q.id]
+        return a !== undefined && a !== null && a !== '' && !(Array.isArray(a) && a.length === 0)
+      })
+      .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
     setReportData(data)
     

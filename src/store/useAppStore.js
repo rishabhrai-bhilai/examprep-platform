@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import initialQuestions from '../data/questions.json'
 import { dummyDiscussions } from '../utils/dummyData'
 import { useAuthStore } from './useAuthStore'
+import { addAttempt, mergePractice, sanitizePractice } from '../../shared/practice.js'
 
 const getInitialTheme = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -79,6 +80,23 @@ const getInitialSolutionVotes = () => {
     return {}
   } catch (e) {
     return {}
+  }
+}
+
+// Per-question practice attempts ({ attempts, days }, see shared/practice.js)
+const PRACTICE_KEY = 'practiceAttempts'
+const getInitialPractice = () => {
+  try {
+    return sanitizePractice(JSON.parse(localStorage.getItem(PRACTICE_KEY) || '{}'))
+  } catch (e) {
+    return { attempts: {}, days: {} }
+  }
+}
+const savePracticeLocally = (practice) => {
+  try {
+    localStorage.setItem(PRACTICE_KEY, JSON.stringify(practice))
+  } catch (e) {
+    console.warn('Could not persist practice attempts', e)
   }
 }
 
@@ -181,6 +199,52 @@ export const syncTestRecordsToServer = async () => {
   }
 }
 
+// Sends the whole practice map (the server merges it in). Answers come in bursts,
+// so this waits a moment and sends once. The token is taken when the answer is
+// recorded, so a sign-out right after still saves it to the right account.
+let attemptsSyncTimer = null
+let attemptsSyncToken = null
+const sendAttempts = async (token, practice, keepalive = false) => {
+  try {
+    const res = await fetch('/api/sync/attempts', {
+      method: 'PUT',
+      keepalive,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        ...practice,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
+      })
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    // The server keeps solvedQuestions / streak on the user record
+    const auth = useAuthStore.getState()
+    if (data.user && auth.token === token) {
+      localStorage.setItem('user', JSON.stringify(data.user))
+      useAuthStore.setState({ user: data.user })
+    }
+  } catch (e) {
+    console.warn('Failed to sync practice attempts to cloud:', e.message)
+  }
+}
+
+export const syncAttemptsToServer = (practice, { immediate = false } = {}) => {
+  const token = attemptsSyncToken || localStorage.getItem('auth_token')
+  if (!token) return
+  attemptsSyncToken = token
+  clearTimeout(attemptsSyncTimer)
+  const run = (keepalive) => {
+    attemptsSyncTimer = null
+    attemptsSyncToken = null
+    return sendAttempts(token, practice, keepalive)
+  }
+  if (immediate) return run(true)
+  attemptsSyncTimer = setTimeout(() => run(false), 1500)
+}
+
 export const useAppStore = create((set, get) => ({
   theme: getInitialTheme(),
   bookmarks: getInitialBookmarks(),
@@ -191,6 +255,7 @@ export const useAppStore = create((set, get) => ({
   solutionVotes: getInitialSolutionVotes(),
   myCommentIds: getInitialMyCommentIds(),
   questionNotes: JSON.parse(localStorage.getItem('questionNotes') || '{}'),
+  practice: getInitialPractice(),
   activeQuestionIndex: 0,
   calculatorOpen: false,
   activeDiscussionQuestionId: null,
@@ -282,12 +347,20 @@ export const useAppStore = create((set, get) => ({
         }
       })
 
+      // 5. Merge practice attempts (guest answers carry over into the account)
+      const mergedPractice = mergePractice(
+        sanitizePractice({ attempts: serverData.attempts, days: serverData.days }),
+        get().practice
+      )
+
       // Update state & localStorage
       set({
         bookmarks: mergedBookmarks,
         bookmarkFolders: mergedFolders,
-        questionNotes: mergedNotes
+        questionNotes: mergedNotes,
+        practice: mergedPractice
       })
+      savePracticeLocally(mergedPractice)
 
       localStorage.setItem('bookmarks', JSON.stringify(mergedBookmarks))
       localStorage.setItem('bookmarkFolders', JSON.stringify(mergedFolders))
@@ -299,9 +372,25 @@ export const useAppStore = create((set, get) => ({
       syncBookmarksToServer(mergedBookmarks, mergedFolders)
       syncNotesToServer(mergedNotes)
       syncTestRecordsToServer()
+      syncAttemptsToServer(mergedPractice, { immediate: true })
     } catch (err) {
       console.warn('Sync failed:', err.message)
     }
+  },
+
+  // --- PRACTICE ATTEMPTS ---
+  // entries: [{ questionId, correct, timeSpentSec }]
+  recordAttempts: (entries) => {
+    if (!entries?.length) return
+    const answeredAt = Date.now()
+    const practice = entries.reduce((acc, e) => addAttempt(acc, { ...e, answeredAt }), get().practice)
+    set({ practice })
+    savePracticeLocally(practice)
+    syncAttemptsToServer(practice)
+  },
+
+  recordAttempt: (questionId, correct, timeSpentSec = 0) => {
+    get().recordAttempts([{ questionId, correct, timeSpentSec }])
   },
 
   // --- BOOKMARKS ---
@@ -766,3 +855,16 @@ export const useAppStore = create((set, get) => ({
     }
   },
 }))
+
+// Signing out sends any unsent answers to that account, then forgets them here,
+// so the next person on this browser starts from their own numbers
+useAuthStore.subscribe((state, prev) => {
+  if (prev.isAuthenticated && !state.isAuthenticated) {
+    if (attemptsSyncTimer && prev.token) {
+      attemptsSyncToken = prev.token
+      syncAttemptsToServer(useAppStore.getState().practice, { immediate: true })
+    }
+    localStorage.removeItem(PRACTICE_KEY)
+    useAppStore.setState({ practice: { attempts: {}, days: {} } })
+  }
+})

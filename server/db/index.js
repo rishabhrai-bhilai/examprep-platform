@@ -17,7 +17,8 @@ const FILES = {
   notes: path.join(DATA_DIR, 'notes.json'),
   testRecords: path.join(DATA_DIR, 'test_records.json'),
   discussions: path.join(DATA_DIR, 'discussions.json'),
-  reports: path.join(DATA_DIR, 'reports.json')
+  reports: path.join(DATA_DIR, 'reports.json'),
+  attempts: path.join(DATA_DIR, 'attempts.json')
 }
 
 // Safely read JSON file with default fallback
@@ -79,9 +80,9 @@ export const userDb = {
       provider: userData.provider || 'local', // 'local' | 'google'
       avatar: userData.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(userData.name)}`,
       createdAt: Date.now(),
-      streak: userData.streak !== undefined ? userData.streak : 1,
-      solvedQuestions: userData.solvedQuestions || 0,
-      rank: userData.rank || 1500,
+      // Derived from the user's practice attempts (see refreshPracticeStats in server.js)
+      streak: 0,
+      solvedQuestions: 0,
       ...userData
     }
     users.push(newUser)
@@ -209,6 +210,25 @@ export const testRecordDb = {
       updatedAt: Date.now()
     }
     writeJsonAtomic(FILES.testRecords, all)
+    return all[userId]
+  }
+}
+
+// --- PRACTICE ATTEMPTS DB ---
+// Stored as { [userId]: { attempts: { [questionId]: Attempt }, days: { 'YYYY-MM-DD': DayTotals },
+//   timeZone: string | null, updatedAt: number } } (shapes in shared/practice.js)
+export const attemptDb = {
+  getUserAttempts: (userId) => {
+    if (!userId) return { attempts: {}, days: {}, timeZone: null }
+    const all = readJson(FILES.attempts, {})
+    return all[userId] || { attempts: {}, days: {}, timeZone: null }
+  },
+
+  saveUserAttempts: (userId, { attempts = {}, days = {}, timeZone = null }) => {
+    if (!userId) return null
+    const all = readJson(FILES.attempts, {})
+    all[userId] = { attempts, days, timeZone, updatedAt: Date.now() }
+    writeJsonAtomic(FILES.attempts, all)
     return all[userId]
   }
 }

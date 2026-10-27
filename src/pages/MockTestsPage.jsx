@@ -13,7 +13,7 @@ import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
   const [activeTest, setActiveTest] = useState(null)
-  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive } = useAppStore()
+  const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
   
   useEffect(() => {
     setIsPracticeActive(view === 'testing')
@@ -44,112 +44,6 @@ export default function MockTestsPage() {
   const [reportData, setReportData] = useState(null)
   const [activeReportTab, setActiveReportTab] = useState('overview')
   const [questionFilter, setQuestionFilter] = useState('all')
-
-  // Initialize dummy history if none exists
-  useEffect(() => {
-    const existing = localStorage.getItem('gate_mock_history')
-    if (!existing) {
-      const dummyHistory = [
-        {
-          testId: 'test-1',
-          testTitle: 'GATE Computer Science - Mini Mock Test',
-          date: '15 May 2026',
-          time: '04:15 PM',
-          timestamp: 1778931300000,
-          questionsCount: 20,
-          score: 12.0,
-          maxScore: 20,
-          percentage: '75.0',
-          attemptRate: '80.0',
-          timeTaken: 540,
-          timeTakenFormatted: '09:00',
-          timeUtilizationRate: '60.0',
-          avgTimeCorrect: 120,
-          avgTimeIncorrect: 180,
-          avgTimeUnanswered: 30,
-          panicZoneErrors: 1,
-          estimatedGateScore: 480,
-          estimatedRank: 3200,
-          subjectStats: {},
-          topicStats: {},
-          difficultyStats: {}
-        },
-        {
-          testId: 'test-1',
-          testTitle: 'GATE Computer Science - Mini Mock Test',
-          date: '18 May 2026',
-          time: '11:20 AM',
-          timestamp: 1779192000000,
-          questionsCount: 20,
-          score: 14.5,
-          maxScore: 20,
-          percentage: '80.0',
-          attemptRate: '100.0',
-          timeTaken: 620,
-          timeTakenFormatted: '10:20',
-          timeUtilizationRate: '68.9',
-          avgTimeCorrect: 110,
-          avgTimeIncorrect: 160,
-          avgTimeUnanswered: 0,
-          panicZoneErrors: 0,
-          estimatedGateScore: 540,
-          estimatedRank: 2400,
-          subjectStats: {},
-          topicStats: {},
-          difficultyStats: {}
-        },
-        {
-          testId: 'test-1',
-          testTitle: 'GATE Computer Science - Mini Mock Test',
-          date: '22 May 2026',
-          time: '08:45 PM',
-          timestamp: 1779537900000,
-          questionsCount: 20,
-          score: 11.0,
-          maxScore: 20,
-          percentage: '60.0',
-          attemptRate: '100.0',
-          timeTaken: 710,
-          timeTakenFormatted: '11:50',
-          timeUtilizationRate: '78.9',
-          avgTimeCorrect: 130,
-          avgTimeIncorrect: 150,
-          avgTimeUnanswered: 0,
-          panicZoneErrors: 2,
-          estimatedGateScore: 450,
-          estimatedRank: 4100,
-          subjectStats: {},
-          topicStats: {},
-          difficultyStats: {}
-        },
-        {
-          testId: 'test-1',
-          testTitle: 'GATE Computer Science - Mini Mock Test',
-          date: '26 May 2026',
-          time: '02:30 PM',
-          timestamp: 1779885000000,
-          questionsCount: 20,
-          score: 16.0,
-          maxScore: 20,
-          percentage: '90.0',
-          attemptRate: '100.0',
-          timeTaken: 580,
-          timeTakenFormatted: '09:40',
-          timeUtilizationRate: '64.4',
-          avgTimeCorrect: 100,
-          avgTimeIncorrect: 180,
-          avgTimeUnanswered: 0,
-          panicZoneErrors: 0,
-          estimatedGateScore: 610,
-          estimatedRank: 1200,
-          subjectStats: {},
-          topicStats: {},
-          difficultyStats: {}
-        }
-      ]
-      localStorage.setItem('gate_mock_history', JSON.stringify(dummyHistory))
-    }
-  }, [])
 
   // Initialize questions inside a test
   const testQuestions = activeTest
@@ -554,6 +448,14 @@ export default function MockTestsPage() {
       errorTags: {}, // to be populated by student
       timeSpentMap: timeSpent // save raw time per question
     }
+
+    // Every answered question also counts toward the user's practice record
+    recordAttempts(testQuestions
+      .filter(q => {
+        const a = answers[q.id]
+        return a !== undefined && a !== null && a !== '' && !(Array.isArray(a) && a.length === 0)
+      })
+      .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
     setReportData(data)
 

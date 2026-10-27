@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight, Hash, Phone, Target, AlertCircle, KeyRound } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import AvatarPicker from '../components/AvatarPicker'
+import { practiceSummary, formatDuration } from '../utils/practiceStats'
 
 const PHONE_RE = /^\+?[0-9][0-9\s-]{6,15}$/
 
@@ -29,7 +30,8 @@ const validateProfileFields = ({ name, age, phone }) => {
 
 export default function ProfilePage() {
   const { user, logout, isAuthenticated, updateProfile, openAuthPrompt } = useAuthStore()
-  const { bookmarks, setActiveQuestionIndex, syncUserData } = useAppStore()
+  const { bookmarks, setActiveQuestionIndex, syncUserData, practice } = useAppStore()
+  const stats = useMemo(() => practiceSummary(practice), [practice])
 
   const [name, setName] = useState(user?.name || 'Aspirant')
   const [email, setEmail] = useState(user?.email || 'aspirant@examprep.com')
@@ -107,7 +109,7 @@ export default function ProfilePage() {
               Register / Login to access your profile
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-              Your personal profile stores your study streak, rank statistics, mock test records, and cloud-synced scratchpad notes and bookmarks.
+              Your personal profile stores your study streak, practice statistics, mock test records, and cloud-synced scratchpad notes and bookmarks.
             </p>
           </div>
 
@@ -118,7 +120,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
               <Award size={16} className="text-amber-500 shrink-0" />
-              <span>Track your rank, solved questions count, and earned badges</span>
+              <span>Track your solved questions, accuracy, and earned badges</span>
             </div>
             <div className="flex items-center gap-2.5 text-slate-700 dark:text-slate-300">
               <Flame size={16} className="text-orange-500 shrink-0" />
@@ -152,9 +154,9 @@ export default function ProfilePage() {
   }
 
   const badges = [
-    { name: "First Steps", desc: "Solved 1st question", icon: Sparkles, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
-    { name: "5-day Streak", desc: "Maintained 5 day daily streak", icon: Flame, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
-    { name: "Saver", desc: "Bookmarked 3+ questions", icon: Award, color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20" },
+    { name: "First Steps", desc: "Solved 1st question", earned: stats.solved >= 1, icon: Sparkles, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
+    { name: "5-day Streak", desc: "Maintained 5 day daily streak", earned: stats.longestStreak >= 5, icon: Flame, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
+    { name: "Saver", desc: "Bookmarked 3+ questions", earned: (bookmarks?.length || 0) >= 3, icon: Award, color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20" },
   ]
 
   return (
@@ -328,17 +330,25 @@ export default function ProfilePage() {
 
           {/* Badges / Achievements */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
-            <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Earned Badges</h3>
+            <div className="flex justify-between items-baseline">
+              <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Badges</h3>
+              <span className="text-[10px] text-slate-400 font-semibold">{badges.filter(b => b.earned).length} of {badges.length} earned</span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {badges.map((badge, idx) => {
                 const Icon = badge.icon
                 return (
-                  <div key={idx} className={`p-4 rounded-btn border text-center flex flex-col items-center justify-center space-y-2 ${badge.color}`}>
-                    <Icon size={24} className="mb-1" />
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-btn border text-center flex flex-col items-center justify-center space-y-2 ${
+                      badge.earned ? badge.color : 'text-slate-400 bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
+                    }`}
+                  >
+                    {badge.earned ? <Icon size={24} className="mb-1" /> : <Lock size={24} className="mb-1" />}
                     <div>
                       <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{badge.name}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{badge.desc}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{badge.earned ? badge.desc : `Locked: ${badge.desc.toLowerCase()}`}</p>
                     </div>
                   </div>
                 )
@@ -356,20 +366,36 @@ export default function ProfilePage() {
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Performance Card</h3>
 
             <div className="flex flex-col items-center py-4 border-b border-slate-100 dark:border-slate-800/40">
-              <span className="text-3xl font-extrabold text-primary">{user?.solvedQuestions ?? 0}</span>
+              <span className="text-3xl font-extrabold text-primary">{stats.solved}</span>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">Questions Solved</span>
+              {stats.attempted === 0 && (
+                <Link to="/pyq" className="text-[11px] text-primary font-semibold hover:underline mt-2">Answer your first PYQ</Link>
+              )}
             </div>
 
             <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800/40 text-xs">
-              <span className="text-slate-500 font-medium">Rank</span>
-              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{user?.rank ? `#${user.rank}` : '—'}</span>
+              <span className="text-slate-500 font-medium">Attempted</span>
+              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{stats.attempted}</span>
+            </div>
+
+            <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800/40 text-xs">
+              <span className="text-slate-500 font-medium">Accuracy</span>
+              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{stats.accuracy === null ? '—' : `${stats.accuracy}%`}</span>
+            </div>
+
+            <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800/40 text-xs">
+              <span className="text-slate-500 font-medium">Practice Time</span>
+              <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{formatDuration(stats.practiceSec)}</span>
             </div>
 
             <div className="flex justify-between items-center py-3 text-xs">
               <span className="text-slate-500 font-medium">Daily Streak</span>
-              <span className="font-bold text-orange-500 flex items-center gap-1">
-                <Flame size={14} className="fill-orange-500" />
-                <span>{user?.streak ?? 0} Days</span>
+              <span
+                className={`font-bold flex items-center gap-1 ${stats.streak > 0 ? 'text-orange-500' : 'text-slate-400'}`}
+                title={`Longest streak: ${stats.longestStreak} day${stats.longestStreak === 1 ? '' : 's'}`}
+              >
+                <Flame size={14} className={stats.streak > 0 ? 'fill-orange-500' : ''} />
+                <span>{stats.streak} {stats.streak === 1 ? 'Day' : 'Days'}</span>
               </span>
             </div>
           </div>

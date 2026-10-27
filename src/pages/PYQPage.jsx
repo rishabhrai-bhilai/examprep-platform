@@ -34,7 +34,9 @@ export default function PYQPage() {
     setScratchpadOpenQuestionId,
     questionNotes,
     questions,
-    setIsPracticeActive
+    setIsPracticeActive,
+    practice,
+    recordAttempt
   } = useAppStore()
   const openReportModal = useReportStore((state) => state.openReportModal)
 
@@ -183,6 +185,29 @@ export default function PYQPage() {
   const safeIndex = (activeQuestionIndex >= 0 && activeQuestionIndex < activeQuestions.length) ? activeQuestionIndex : 0
   const currentQuestion = activeQuestions[safeIndex] || null
   const totalQuestions = activeQuestions.length
+
+  // When the current question came on screen, for the time spent on it
+  const questionShownAtRef = useRef(Date.now())
+  useEffect(() => {
+    questionShownAtRef.current = Date.now()
+  }, [currentQuestion?.id, view])
+
+  // Dot on a grid button for a question answered in an earlier session
+  const renderHistoryDot = (q) => {
+    const past = practice.attempts[q.id]
+    if (!past || selectedAnswers[q.id] !== undefined) return null
+    return (
+      <span
+        className={`absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-card-light dark:border-card-dark ${past.solvedAt ? 'bg-success' : 'bg-amber-500'}`}
+        title={past.solvedAt ? 'Solved before' : 'Attempted before, not solved yet'}
+      />
+    )
+  }
+
+  const recordCurrentAnswer = (answer) => {
+    const timeSpentSec = Math.round((Date.now() - questionShownAtRef.current) / 1000)
+    recordAttempt(currentQuestion.id, isAnswerCorrect(currentQuestion, answer), timeSpentSec)
+  }
 
   // --- STATS COMPILING ---
   const parseSet = (s) => {
@@ -555,6 +580,7 @@ export default function PYQPage() {
   const handleSelectMCQ = (idx) => {
     if (selectedAnswers[currentQuestion.id] !== undefined) return
     setSelectedAnswers(prev => ({ ...prev, [currentQuestion.id]: idx }))
+    recordCurrentAnswer(idx)
   }
 
   const handleToggleMSQ = (idx) => {
@@ -574,6 +600,9 @@ export default function PYQPage() {
   }
 
   const handleSubmitMSQ = () => {
+    const current = selectedAnswers[currentQuestion.id]
+    if (current?.submitted) return
+    recordCurrentAnswer(current?.selected || [])
     setSelectedAnswers(prev => {
       const currentVal = prev[currentQuestion.id] || { selected: [], submitted: false }
       return {
@@ -584,8 +613,9 @@ export default function PYQPage() {
   }
 
   const handleNATSubmit = (val) => {
-    if (selectedAnswers[currentQuestion.id] !== undefined) return
+    if (selectedAnswers[currentQuestion.id] !== undefined || !val.trim()) return
     setSelectedAnswers(prev => ({ ...prev, [currentQuestion.id]: val.trim() }))
+    recordCurrentAnswer(val.trim())
   }
 
   // --- TRANSITION ANIMATIONS ---
@@ -1854,9 +1884,10 @@ export default function PYQPage() {
                     <button
                       key={q.id}
                       onClick={() => setActiveQuestionIndex(idx)}
-                      className={`h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
+                      className={`relative h-9 w-9 rounded-btn flex items-center justify-center text-xs font-bold border transition-all hover:bg-slate-100 dark:hover:bg-slate-800 ${btnClass}`}
                     >
                       {idx + 1}
+                      {renderHistoryDot(q)}
                     </button>
                   )
                 })}
@@ -1917,9 +1948,10 @@ export default function PYQPage() {
                             setActiveQuestionIndex(idx)
                             setShowMobilePalette(false)
                           }}
-                          className={`h-9 w-full rounded-btn flex items-center justify-center text-xs font-bold border transition-all ${btnClass}`}
+                          className={`relative h-9 w-full rounded-btn flex items-center justify-center text-xs font-bold border transition-all ${btnClass}`}
                         >
                           {idx + 1}
+                          {renderHistoryDot(q)}
                         </button>
                       )
                     })}
@@ -1939,6 +1971,16 @@ export default function PYQPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shrink-0"></span>
                       <span>Unattempted</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 flex justify-around text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-success shrink-0"></span>
+                      <span>Solved before</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                      <span>Tried before</span>
                     </div>
                   </div>
 

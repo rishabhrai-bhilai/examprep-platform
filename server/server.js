@@ -10,7 +10,8 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb } from './db/index.js'
+import { mergePractice, sanitizePractice, practiceSummary, dayKey } from '../shared/practice.js'
 import {
   hashPassword,
   verifyPassword,
@@ -43,10 +44,31 @@ const __dirname = path.dirname(__filename)
 app.set('trust proxy', 1)
 
 // Helper to sanitize user object sent over API (strip passwordHash and salt)
+// (`rank` is left over from older accounts and was never a real ranking)
 const sanitizeUser = (user) => {
   if (!user) return null
-  const { passwordHash, salt, ...safeUser } = user
+  const { passwordHash, salt, rank, ...safeUser } = user
   return { ...safeUser, hasPassword: !!passwordHash, isAdmin: isAdminEmail(user.email) }
+}
+
+const isValidTimeZone = (tz) => {
+  if (typeof tz !== 'string' || !tz || tz.length > 64) return false
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// solvedQuestions and streak on the user record are derived from their practice
+// attempts. The streak lapses with time, so this runs whenever the user is read.
+const refreshPracticeStats = (user) => {
+  if (!user) return user
+  const saved = attemptDb.getUserAttempts(user.id)
+  const summary = practiceSummary(saved, dayKey(Date.now(), saved.timeZone))
+  if (user.solvedQuestions === summary.solved && user.streak === summary.streak) return user
+  return userDb.update(user.id, { solvedQuestions: summary.solved, streak: summary.streak }) || user
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -344,7 +366,7 @@ app.post('/api/auth/login', authLimiter, (req, res) => {
     res.status(200).json({
       message: 'Login successful.',
       token,
-      user: sanitizeUser(user)
+      user: sanitizeUser(refreshPracticeStats(user))
     })
   } catch (err) {
     console.error('Login error:', err)
@@ -386,7 +408,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
     res.status(200).json({
       message: 'Google login successful.',
       token,
-      user: sanitizeUser(user)
+      user: sanitizeUser(refreshPracticeStats(user))
     })
   } catch (err) {
     console.error('Google Auth error:', err)
@@ -443,14 +465,14 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   if (!user) {
     return res.status(404).json({ error: 'User not found.' })
   }
-  res.status(200).json({ user: sanitizeUser(user) })
+  res.status(200).json({ user: sanitizeUser(refreshPracticeStats(user)) })
 })
 
 // 8. Update Profile
 const MAX_AVATAR_DATA_URL = 300 * 1024
 app.put('/api/auth/profile', requireAuth, (req, res) => {
   try {
-    const { name, age, phone, targetYear, avatar, completeProfile, streak, solvedQuestions, rank } = req.body
+    const { name, age, phone, targetYear, avatar, completeProfile } = req.body
     const updates = {}
 
     if (name !== undefined) {
@@ -481,9 +503,6 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
       updates.avatar = avatar
       updates.avatarSource = 'custom'
     }
-    if (streak !== undefined) updates.streak = Number(streak)
-    if (solvedQuestions !== undefined) updates.solvedQuestions = Number(solvedQuestions)
-    if (rank !== undefined) updates.rank = Number(rank)
 
     if (completeProfile) {
       const current = userDb.findById(req.user.id)
@@ -569,8 +588,11 @@ app.get('/api/sync/user-data', requireAuth, (req, res) => {
     const bookmarks = bookmarkDb.getUserBookmarks(userId)
     const notes = noteDb.getUserNotes(userId)
     const testRecords = testRecordDb.getUserRecords(userId)
+    const practice = attemptDb.getUserAttempts(userId)
 
     res.status(200).json({
+      attempts: practice.attempts || {},
+      days: practice.days || {},
       bookmarks: bookmarks.bookmarks || [],
       bookmarkFolders: bookmarks.bookmarkFolders || { "General": [] },
       questionNotes: notes.questionNotes || {},
@@ -620,7 +642,48 @@ app.put('/api/sync/test-records', requireAuth, (req, res) => {
   }
 })
 
-// 5. Discussion Forum Synchronization & Persistence
+// 5. Practice Attempts (every answered question, see shared/practice.js)
+const questionIds = new Set(questions.map(q => q.id))
+
+app.get('/api/sync/attempts', requireAuth, (req, res) => {
+  try {
+    const saved = attemptDb.getUserAttempts(req.user.id)
+    const user = refreshPracticeStats(userDb.findById(req.user.id))
+    res.status(200).json({
+      attempts: saved.attempts || {},
+      days: saved.days || {},
+      summary: practiceSummary(saved, dayKey(Date.now(), saved.timeZone)),
+      user: sanitizeUser(user)
+    })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve practice attempts.' })
+  }
+})
+
+// Merges (never replaces) so two devices syncing at once can't wipe each other's answers
+app.put('/api/sync/attempts', requireAuth, (req, res) => {
+  try {
+    const userId = req.user.id
+    const incoming = sanitizePractice(req.body || {}, id => questionIds.has(id))
+    const saved = attemptDb.getUserAttempts(userId)
+    const merged = mergePractice(sanitizePractice(saved), incoming)
+    const timeZone = isValidTimeZone(req.body?.timeZone) ? req.body.timeZone : (saved.timeZone || null)
+    attemptDb.saveUserAttempts(userId, { ...merged, timeZone })
+    const user = refreshPracticeStats(userDb.findById(userId))
+    res.status(200).json({
+      success: true,
+      attempts: merged.attempts,
+      days: merged.days,
+      summary: practiceSummary(merged, dayKey(Date.now(), timeZone)),
+      user: sanitizeUser(user)
+    })
+  } catch (err) {
+    console.error('Attempts sync error:', err)
+    res.status(500).json({ error: 'Failed to sync practice attempts.' })
+  }
+})
+
+// 6. Discussion Forum Synchronization & Persistence
 app.get('/api/discussions', (req, res) => {
   try {
     const discussions = discussionDb.getAll()
