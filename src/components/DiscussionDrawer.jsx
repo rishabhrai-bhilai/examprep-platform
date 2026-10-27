@@ -13,6 +13,7 @@ import AnswerProvenance from './AnswerProvenance'
 import FormattedContent from './FormattedContent'
 import RichTextEditor from './RichTextEditor'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
+import QuestionIdBadge from './QuestionIdBadge'
 
 // Recursive component for rendering multi-level threaded replies
 function ThreadedReplyNode({
@@ -323,6 +324,7 @@ export default function DiscussionDrawer({
               <span className="truncate max-w-[120px]">{currentQuestion.topic}</span>
               <span>•</span>
               <span className="font-semibold">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
+              <QuestionIdBadge id={currentQuestion.id} />
             </div>
 
             <div className="flex items-center gap-1.5">
