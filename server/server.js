@@ -26,6 +26,7 @@ import {
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
+import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './services/discussions.js'
 import { sendOtpMail, canSendEmail } from './services/mailer.js'
 
 // Load environment variables
@@ -173,6 +174,7 @@ const authLimiter = limiter(15 * 60 * 1000, 20, 'Too many sign-in attempts. Plea
 // Anything that sends an email
 const emailLimiter = limiter(60 * 60 * 1000, 8, 'Too many code requests. Please try again in an hour.')
 const reportLimiter = limiter(60 * 60 * 1000, 10, 'You have sent a lot of reports. Please try again in an hour.', userOrIpKey)
+const postLimiter = limiter(10 * 60 * 1000, 30, 'You are posting very fast. Please wait a few minutes.', userOrIpKey)
 
 // Parse JSON request bodies
 app.use(express.json({ limit: '10mb' }))
@@ -686,22 +688,67 @@ app.put('/api/sync/attempts', requireAuth, (req, res) => {
 // 6. Discussion Forum Synchronization & Persistence
 app.get('/api/discussions', (req, res) => {
   try {
-    const discussions = discussionDb.getAll()
-    res.status(200).json(discussions)
+    res.status(200).json(publicDiscussions(discussionDb.getAll()))
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve discussions.' })
   }
 })
 
-app.post('/api/discussions/sync', requireAuth, (req, res) => {
+// Each change touches one post, and the author is always the signed-in user.
+// (There used to be a sync endpoint that replaced every discussion with whatever
+// the browser sent, which let any account rewrite or wipe other people's posts.)
+const knownQuestion = (req, res) => {
+  const qid = Number(req.params.questionId)
+  if (!Number.isInteger(qid) || !questions.some(q => q.id === qid)) {
+    res.status(404).json({ error: 'Question not found.' })
+    return null
+  }
+  return String(qid)
+}
+
+app.post('/api/discussions/:questionId/posts', requireAuth, postLimiter, (req, res) => {
   try {
-    const { discussions } = req.body
-    if (discussions && typeof discussions === 'object') {
-      discussionDb.saveAll(discussions)
-    }
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const author = { ...req.user, avatar: /^https:\/\/\S+$/.test(req.user.avatar || '') ? req.user.avatar : null }
+    const result = addPost(all, qid, author, req.body)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
+    res.status(201).json({ post: publicPost(result.post) })
+  } catch (err) {
+    console.error('Post error:', err)
+    res.status(500).json({ error: 'Failed to save your comment.' })
+  }
+})
+
+app.delete('/api/discussions/:questionId/posts/:postId', requireAuth, (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const result = deletePost(all, qid, req.params.postId, req.user, req.user.isAdmin)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
     res.status(200).json({ success: true })
   } catch (err) {
-    res.status(500).json({ error: 'Failed to persist discussions.' })
+    res.status(500).json({ error: 'Failed to delete the comment.' })
+  }
+})
+
+app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimiter, (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const vote = req.body?.vote === undefined ? null : req.body.vote
+    const result = votePost(all, qid, req.params.postId, req.user.id, vote)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
+    const { upvotes, downvotes } = publicPost(result.post)
+    res.status(200).json({ upvotes, downvotes })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save your vote.' })
   }
 })
 

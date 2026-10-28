@@ -236,7 +236,6 @@ export function requireAuth(req, res, next) {
     avatar: user.avatar,
     streak: user.streak,
     solvedQuestions: user.solvedQuestions,
-    rank: user.rank,
     provider: user.provider,
     isAdmin: isAdminEmail(user.email)
   }
