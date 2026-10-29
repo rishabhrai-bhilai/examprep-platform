@@ -74,9 +74,8 @@ export default function BookletPage() {
     fetchDiscussions()
   }, [fetchQuestions, fetchDiscussions])
 
-  // --- HIERARCHY BUILDER: SUBJECTS -> TOPICS WITH COUNTS & SIMULATED PAGE NUMBERS ---
+  // --- HIERARCHY BUILDER: SUBJECTS -> TOPICS WITH COUNTS ---
   const { subjectsHierarchy, totalTopicsCount } = useMemo(() => {
-    let currentPage = 1
     let topicCounter = 0
 
     // Build map of questions per subject and topic
@@ -110,39 +109,25 @@ export default function BookletPage() {
         new Set([...definedTopics, ...Array.from(presentTopicsMap.keys())])
       )
 
-      // Calculate subject topics with question counts and page ranges
       const subjectTopics = []
-      const subjectStartPage = currentPage
 
       allTopicNames.forEach((topicName) => {
         const count = presentTopicsMap.get(topicName) || 0
-        // Calculate simulated page allocation based on question volume (avg 2-3 questions per booklet page)
-        const pagesSpan = Math.max(1, Math.ceil(count / 2.5))
-        const startPg = currentPage
-        const endPg = currentPage + pagesSpan - 1
-        currentPage = endPg + 1
         topicCounter++
 
         subjectTopics.push({
           topicName,
-          questionCount: count,
-          startPage: startPg,
-          endPage: endPg,
-          pageLabel: `${String(startPg).padStart(2, '0')} - ${String(endPg).padStart(2, '0')}`
+          questionCount: count
         })
       })
 
-      const subjectEndPage = Math.max(subjectStartPage, currentPage - 1)
       const totalSubjectQuestions = subjectTopics.reduce((acc, t) => acc + t.questionCount, 0)
 
       if (subjectTopics.length > 0) {
         result.push({
           subjectName,
           topics: subjectTopics,
-          totalQuestions: totalSubjectQuestions,
-          startPage: subjectStartPage,
-          endPage: subjectEndPage,
-          pageLabel: `${String(subjectStartPage).padStart(2, '0')} - ${String(subjectEndPage).padStart(2, '0')}`
+          totalQuestions: totalSubjectQuestions
         })
       }
     })
@@ -325,18 +310,17 @@ export default function BookletPage() {
 
     return (
       <div key={subject.subjectName} className="space-y-2">
-        {/* Subject Header Row (e.g. "I. Discrete Mathematics ........... 01 - 262") */}
+        {/* Subject Header Row */}
         <div className="flex items-baseline justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1.5">
-          <div className="flex items-baseline gap-2 font-serif font-black text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark tracking-wide">
-            <span className="text-primary font-bold">{romanNumeral}.</span>
+          <div className="flex items-baseline gap-2 font-bold text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark tracking-tight">
+            <span className="text-primary">{romanNumeral}.</span>
             <span className="truncate">{subject.subjectName}</span>
           </div>
           
-          <div className="flex items-baseline gap-2 font-serif font-bold text-xs text-slate-700 dark:text-slate-300 shrink-0">
-            <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-              {subject.totalQuestions} Qs
+          <div className="flex items-baseline gap-2 shrink-0">
+            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+              {subject.totalQuestions} Questions
             </span>
-            <span className="font-mono text-xs">{subject.pageLabel}</span>
           </div>
         </div>
 
@@ -348,10 +332,10 @@ export default function BookletPage() {
               onClick={() => handleSelectTopic(subject.subjectName, topic.topicName)}
               title={`Open Chapter: ${topic.topicName}`}
               data-testid="topic-item"
-              className="w-full text-left py-1 px-1.5 rounded-md group flex items-baseline justify-between hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer"
+              className="w-full text-left py-1.5 px-2 rounded-lg group flex items-baseline justify-between hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer"
             >
               {/* Topic Name */}
-              <div className="flex items-baseline gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors shrink-0 max-w-[62%] sm:max-w-[70%]">
+              <div className="flex items-baseline gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors shrink-0 max-w-[65%] sm:max-w-[75%]">
                 <span className="text-slate-400 font-mono text-[10px] w-5 text-right shrink-0">
                   {tIdx + 1}.
                 </span>
@@ -361,17 +345,12 @@ export default function BookletPage() {
               </div>
 
               {/* Dotted Leader Line */}
-              <span className="flex-1 mx-2 border-b border-dotted border-slate-300 dark:border-slate-700/80 group-hover:border-primary/40" />
+              <span className="flex-1 mx-3 border-b border-dotted border-slate-300 dark:border-slate-700/80 group-hover:border-primary/40" />
 
-              {/* Questions count and Page Number */}
-              <div className="flex items-baseline gap-2 text-xs font-mono text-slate-500 dark:text-slate-400 group-hover:text-primary shrink-0">
-                <span className="text-[10px] text-slate-400 group-hover:text-primary/70 font-sans hidden sm:inline">
-                  {topic.questionCount} {topic.questionCount === 1 ? 'Q' : 'Qs'}
-                </span>
-                <span className="text-slate-600 dark:text-slate-300 font-bold text-[11px]">
-                  {topic.pageLabel}
-                </span>
-              </div>
+              {/* Questions count (Page number removed) */}
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors shrink-0">
+                {topic.questionCount} {topic.questionCount === 1 ? 'question' : 'questions'}
+              </span>
             </button>
           ))}
         </div>
@@ -384,18 +363,18 @@ export default function BookletPage() {
   // ---------------------------------------------------------------------------------------
   if (isContentsView || !selectedSubject || !selectedTopic) {
     return (
-      <div className="max-w-[1550px] mx-auto px-2 sm:px-4 lg:px-6 py-4 pb-20">
-        {/* Book Container with vintage/academic ruled border styling */}
-        <div className="bg-card-light dark:bg-card-dark border-2 border-slate-300 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative transition-all">
+      <div className="max-w-[1550px] mx-auto px-2 sm:px-4 lg:px-6 py-4 pb-20 font-sans">
+        {/* Book Container with modern sleek border styling */}
+        <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative transition-all">
           
           {/* Minimal Horizontal Header: Contents Heading on Left, Metadata & Search on Right */}
-          <div className="border-b-2 border-slate-300 dark:border-slate-800 px-4 sm:px-6 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-card-dark dark:to-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-card-dark dark:to-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
             
             {/* Left Side: Heading "CONTENTS" and brief descriptor */}
             <div className="flex items-center gap-3 shrink-0">
               <div className="flex items-center gap-1.5 text-primary">
                 <BookOpen size={18} />
-                <h1 className="text-xl sm:text-2xl font-serif font-black tracking-widest text-text-primary-light dark:text-text-primary-dark uppercase">
+                <h1 className="text-lg sm:text-xl font-bold tracking-wider text-text-primary-light dark:text-text-primary-dark uppercase">
                   CONTENTS
                 </h1>
               </div>
@@ -464,9 +443,9 @@ export default function BookletPage() {
               {/* LEFT SIDE (PAGE 1) */}
               <div className="flex flex-col">
                 {/* Left Column Header Row */}
-                <div className="border-b border-slate-300 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-serif font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  <span>Name of the Subject & Topic</span>
-                  <span className="text-right">Questions • Page</span>
+                <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <span>Subject & Topic</span>
+                  <span className="text-right">Questions</span>
                 </div>
 
                 {/* Left Column Content */}
@@ -478,9 +457,9 @@ export default function BookletPage() {
               {/* RIGHT SIDE (PAGE 2) */}
               <div className="flex flex-col border-t lg:border-t-0 border-slate-200 dark:border-slate-800">
                 {/* Right Column Header Row */}
-                <div className="border-b border-slate-300 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-serif font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  <span>Name of the Subject & Topic</span>
-                  <span className="text-right">Questions • Page</span>
+                <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <span>Subject & Topic</span>
+                  <span className="text-right">Questions</span>
                 </div>
 
                 {/* Right Column Content */}
@@ -488,7 +467,7 @@ export default function BookletPage() {
                   {rightSubjects.length > 0 ? (
                     rightSubjects.map((subject, idx) => renderSubjectBlock(subject, leftSubjects.length + idx))
                   ) : (
-                    <div className="text-center py-10 text-xs text-slate-400 font-serif">
+                    <div className="text-center py-10 text-xs text-slate-400 font-medium">
                       — End of Subjects —
                     </div>
                   )}
@@ -499,7 +478,7 @@ export default function BookletPage() {
           )}
 
           {/* Book Bottom Ornamental Footer */}
-          <div className="border-t-2 border-slate-300 dark:border-slate-800 py-3 px-6 text-center text-xs text-slate-400 font-serif bg-slate-50/50 dark:bg-slate-900/30">
+          <div className="border-t border-slate-200 dark:border-slate-800 py-3 px-6 text-center text-xs text-slate-400 font-medium bg-slate-50/50 dark:bg-slate-900/30">
             <span>— End of Contents —</span>
           </div>
         </div>
@@ -599,7 +578,7 @@ export default function BookletPage() {
                   </span>
                 </div>
                 
-                <h1 className="text-xl sm:text-2xl font-serif font-black tracking-tight text-text-primary-light dark:text-text-primary-dark">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
                   {selectedTopic}
                 </h1>
               </div>
@@ -619,7 +598,7 @@ export default function BookletPage() {
           {/* SECTION 1: ONE MARK QUESTIONS */}
           <div ref={oneMarkRef} className="space-y-4">
             <div className="flex items-center gap-3 border-b-2 border-slate-300 dark:border-slate-800 pb-2">
-              <span className="font-serif font-black text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
+              <span className="font-bold text-base sm:text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                 One Mark Questions
               </span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black">
@@ -666,7 +645,7 @@ export default function BookletPage() {
                         </div>
 
                         {/* GATE Year Tag (e.g. "(GATE 2024)") */}
-                        <div className="font-serif font-black text-xs text-slate-700 dark:text-slate-300 shrink-0">
+                        <div className="font-bold text-xs font-mono text-slate-700 dark:text-slate-300 shrink-0">
                           (GATE - {q.year}{q.set ? ` S${q.set}` : ''})
                         </div>
                       </div>
@@ -765,7 +744,7 @@ export default function BookletPage() {
           {/* SECTION 2: TWO MARK QUESTIONS */}
           <div ref={twoMarkRef} className="space-y-4 pt-6">
             <div className="flex items-center gap-3 border-b-2 border-slate-300 dark:border-slate-800 pb-2">
-              <span className="font-serif font-black text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
+              <span className="font-bold text-base sm:text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                 Two Mark Questions
               </span>
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black">
@@ -813,7 +792,7 @@ export default function BookletPage() {
                         </div>
 
                         {/* GATE Year Tag (e.g. "(GATE 2023)") */}
-                        <div className="font-serif font-black text-xs text-slate-700 dark:text-slate-300 shrink-0">
+                        <div className="font-bold text-xs font-mono text-slate-700 dark:text-slate-300 shrink-0">
                           (GATE - {q.year}{q.set ? ` S${q.set}` : ''})
                         </div>
                       </div>
