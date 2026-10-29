@@ -205,7 +205,7 @@ export default function ReportPage() {
   const filteredAll = statusFilter === 'all' ? allReports : allReports.filter(r => r.status === statusFilter)
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark">
       {/* Page Title */}
       <div>
         <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">

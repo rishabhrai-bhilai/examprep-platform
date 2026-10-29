@@ -107,7 +107,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100vh-4rem)] flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100dvh-4rem)] flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
           isCollapsed ? 'md:w-20' : 'md:w-64'
         } ${
           sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-none md:transform-none'

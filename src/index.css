@@ -42,7 +42,7 @@
 
 @layer base {
   html, body {
-    @apply font-sans m-0 p-0 overflow-x-hidden scroll-smooth;
+    @apply font-sans m-0 p-0 overflow-x-clip scroll-smooth;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

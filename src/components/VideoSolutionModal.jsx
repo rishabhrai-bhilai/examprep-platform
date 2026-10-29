@@ -46,7 +46,7 @@ export default function VideoSolutionModal() {
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
       {/* Modal Card */}
-      <div className="relative w-full max-w-4xl bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-modal shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-[650px]">
+      <div className="relative w-full max-w-4xl bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-modal shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90dvh] md:h-[650px]">
         
         {/* Left/Main Column: Video Player */}
         <div className="flex-1 bg-black flex flex-col justify-between relative min-h-[250px] md:min-h-0">

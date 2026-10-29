@@ -1065,7 +1065,7 @@ export default function ScratchpadDrawer({
   } : null
 
   return (
-    <div className="fixed inset-0 z-[100] w-screen h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
       
       {/* Mobile view tabs */}
       <div className="flex md:hidden border-b border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/50 shrink-0">

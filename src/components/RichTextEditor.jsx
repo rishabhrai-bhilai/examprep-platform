@@ -237,7 +237,7 @@ export default function RichTextEditor({
 
   // Active Height calculation
   const activeHeight = isFullscreen
-    ? 'calc(100vh - 160px)'
+    ? 'calc(100dvh - 160px)'
     : mode === 'full'
       ? (isExpanded ? '560px' : '400px')
       : (isExpanded ? '340px' : '180px')
@@ -764,7 +764,7 @@ export default function RichTextEditor({
   return (
     <div 
       className={`flex flex-col bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm transition-all ${
-        isFullscreen ? 'fixed inset-0 z-[200] rounded-none shadow-2xl h-screen' : className
+        isFullscreen ? 'fixed inset-0 z-[200] rounded-none shadow-2xl' : className
       }`}
     >
       {/* 1. TOOLBAR HEADER (High Z-Index, No Clipping) */}

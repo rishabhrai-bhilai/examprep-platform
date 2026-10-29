@@ -253,7 +253,7 @@ export default function NotesPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 font-sans overflow-hidden">
       
       <AnimatePresence mode="wait">
         {/* ========================================================================= */}

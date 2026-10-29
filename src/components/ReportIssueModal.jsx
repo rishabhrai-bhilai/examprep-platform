@@ -25,7 +25,7 @@ export default function ReportIssueModal() {
   return (
     <AnimatePresence>
       {/* z-[90]: one level below AuthPromptModal (z-[100]) so the login prompt can stack on top */}
-      <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="fixed inset-0 z-[90] flex justify-center p-4 sm:p-6 overflow-y-auto">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -44,7 +44,7 @@ export default function ReportIssueModal() {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.94, opacity: 0, y: 15 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-lg bg-card-light dark:bg-card-dark rounded-2xl shadow-2xl border border-border-light dark:border-border-dark p-6 sm:p-7 space-y-5 z-10"
+          className="relative my-auto w-full max-w-lg bg-card-light dark:bg-card-dark rounded-2xl shadow-2xl border border-border-light dark:border-border-dark p-6 sm:p-7 space-y-5 z-10"
         >
           {/* Close Button */}
           <button

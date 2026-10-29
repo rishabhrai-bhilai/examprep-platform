@@ -14,6 +14,7 @@ import AnswerProvenance from '../components/AnswerProvenance'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
+import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 
 export default function PYQMockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
@@ -460,8 +461,6 @@ export default function PYQMockTestsPage() {
   const [direction, setDirection] = useState('next')
   const [cooldown, setCooldown] = useState(false)
   const scrollContainerRef = useRef(null)
-  const touchStartRef = useRef(0)
-  const wheelAccumulatorRef = useRef(0)
 
   const variants = {
     initial: (dir) => ({
@@ -507,54 +506,8 @@ export default function PYQMockTestsPage() {
     }
   }
 
-  const handleTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientY
-  }
-
-  const handleTouchEnd = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) return
-
-    const touchEnd = e.changedTouches[0].clientY
-    const deltaY = touchStartRef.current - touchEnd
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
-    const isAtTop = el.scrollTop === 0
-
-    if (deltaY > 60 && isAtBottom) {
-      goToNextQuestion()
-    } else if (deltaY < -60 && isAtTop) {
-      goToPrevQuestion()
-    }
-  }
-
-  const handleWheel = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) {
-      wheelAccumulatorRef.current = 0
-      return
-    }
-
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
-    const isAtTop = el.scrollTop <= 2
-
-    if (e.deltaY > 0 && isAtBottom) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += e.deltaY
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToNextQuestion()
-      }
-    } else if (e.deltaY < 0 && isAtTop) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += Math.abs(e.deltaY)
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToPrevQuestion()
-      }
-    } else {
-      wheelAccumulatorRef.current = 0
-    }
-  }
+  const { onWheel: handleWheel, onTouchStart: handleTouchStart, onTouchEnd: handleTouchEnd } =
+    useReelGestures(scrollContainerRef, { onNext: goToNextQuestion, onPrev: goToPrevQuestion, disabled: cooldown })
 
   // Keyboard navigation
   useEffect(() => {
@@ -563,12 +516,12 @@ export default function PYQMockTestsPage() {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowDown') {
         const el = scrollContainerRef.current
-        if (el && el.scrollHeight - el.scrollTop <= el.clientHeight + 2) {
+        if (el && isAtBottom(el)) {
           goToNextQuestion()
         }
       } else if (e.key === 'ArrowUp') {
         const el = scrollContainerRef.current
-        if (el && el.scrollTop === 0) {
+        if (el && isAtTop(el)) {
           goToPrevQuestion()
         }
       }
@@ -809,7 +762,7 @@ export default function PYQMockTestsPage() {
   // 1. SELECTION LIST/HUB VIEW
   if (view === 'list') {
     return (
-      <div className="flex-1 overflow-y-auto bg-bg-light dark:bg-bg-dark min-h-screen relative transition-colors duration-200">
+      <div className="bg-bg-light dark:bg-bg-dark relative transition-colors duration-200">
         
         {/* Hub Main */}
         {subView === 'hub' && (
@@ -959,7 +912,7 @@ export default function PYQMockTestsPage() {
 
         {/* 3. Subject-wise List */}
         {subView === 'subject' && (
-          <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 min-h-screen">
+          <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Subject Wise Mock</h2>
@@ -1036,7 +989,7 @@ export default function PYQMockTestsPage() {
 
         {/* 4. Topic-wise List */}
         {subView === 'topic' && (
-          <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 min-h-screen">
+          <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Topic Wise Mock</h2>
@@ -1580,7 +1533,7 @@ export default function PYQMockTestsPage() {
         {/* Dynamic Question Limit Selector Modal */}
         <AnimatePresence>
           {showQuestionLimitModal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] flex justify-center p-4 overflow-y-auto">
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -1593,7 +1546,7 @@ export default function PYQMockTestsPage() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ type: 'spring', duration: 0.4 }}
-                className="relative w-full max-w-md bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft-lg p-6 space-y-6 z-10"
+                className="relative my-auto w-full max-w-md bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft-lg p-6 space-y-6 z-10"
               >
                 <div className="space-y-1.5">
                   <h3 className="text-lg font-extrabold text-slate-850 dark:text-slate-100 flex items-center gap-2">
@@ -1769,7 +1722,7 @@ export default function PYQMockTestsPage() {
                     onWheel={handleWheel}
                     onTouchStart={handleTouchStart}
                     onTouchEnd={handleTouchEnd}
-                    className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
+                    className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
                   >
                     <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
                       <span className="font-bold text-primary">Question {currentQuestionIndex + 1} of {activeTestQuestions.length}</span>
@@ -2152,7 +2105,7 @@ export default function PYQMockTestsPage() {
     }
 
     return (
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen print:bg-white print:p-0 print:text-black">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark print:bg-white print:p-0 print:text-black">
         {/* Print Title */}
         <div className="hidden print:block text-center space-y-2 pb-6 border-b border-slate-200">
           <h1 className="text-2xl font-bold">GATE CSE PYQ Mock Exam Report</h1>

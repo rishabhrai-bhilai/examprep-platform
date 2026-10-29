@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import QuestionIdBadge from '../components/QuestionIdBadge'
 import { 
   MessageSquare, Search, BookOpen, Clock, Calendar, Award, ThumbsUp, ThumbsDown, 
@@ -178,6 +178,8 @@ function ThreadedReplyNode({
   )
 }
 
+const FEED_BATCH = 30
+
 export default function DiscussionPage() {
   const { 
     questions, 
@@ -210,6 +212,25 @@ export default function DiscussionPage() {
   const [selectedSubject, setSelectedSubject] = useState('ALL')
   const [selectedYear, setSelectedYear] = useState('ALL')
   const [selectedTopic, setSelectedTopic] = useState('ALL')
+
+  // The feed shows questions in batches as you scroll; all ~2000 cards at once made scrolling crawl
+  const [visibleCount, setVisibleCount] = useState(FEED_BATCH)
+  const listRef = useRef(null)
+  const listScrollTopRef = useRef(0)
+  const loadMoreRef = useRef(null)
+  useEffect(() => {
+    setVisibleCount(FEED_BATCH)
+    if (listRef.current) listRef.current.scrollTop = 0
+  }, [searchQuery, activeFilter, selectedSubject, selectedYear, selectedTopic])
+
+  // Opening a question replaces the list; coming back returns to the same spot
+  const openQuestion = (q) => {
+    listScrollTopRef.current = listRef.current?.scrollTop || 0
+    setSelectedQuestion(q)
+  }
+  useEffect(() => {
+    if (!selectedQuestion && listRef.current) listRef.current.scrollTop = listScrollTopRef.current
+  }, [selectedQuestion])
 
   // Available filter options extracted from questions
   const availableSubjects = useMemo(() => {
@@ -528,12 +549,23 @@ export default function DiscussionPage() {
     return (b.timestamp || 0) - (a.timestamp || 0)
   })
 
+  const hasMore = filteredQuestions.length > visibleCount
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel || !hasMore) return
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setVisibleCount(c => c + FEED_BATCH)
+    }, { root: listRef.current, rootMargin: '600px 0px' })
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, visibleCount, selectedQuestion])
+
   return (
-    <div className="flex-1 bg-bg-light dark:bg-bg-dark h-[calc(100vh-4rem)] flex flex-col overflow-hidden relative transition-colors duration-200">
+    <div className="flex-1 bg-bg-light dark:bg-bg-dark h-full flex flex-col overflow-hidden relative transition-colors duration-200">
       
       {/* 1. QUESTIONS LIST VIEW */}
       {!selectedQuestion ? (
-        <div className="flex-1 overflow-y-auto px-4 py-6 md:p-8 max-w-5xl mx-auto w-full space-y-6 custom-scrollbar">
+        <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-6 md:p-8 max-w-5xl mx-auto w-full space-y-6 custom-scrollbar">
           {/* Header & Right-aligned Dropdown Filters */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -687,7 +719,7 @@ export default function DiscussionPage() {
                 )}
               </div>
             ) : (
-              filteredQuestions.map(q => {
+              filteredQuestions.slice(0, visibleCount).map(q => {
                 const config = getSubjectConfig(q.subject)
                 const Icon = config?.icon || Brain
                 const qDiscussions = (discussions && discussions[q.id]) || []
@@ -696,7 +728,7 @@ export default function DiscussionPage() {
                 return (
                   <div
                     key={q.id}
-                    onClick={() => setSelectedQuestion(q)}
+                    onClick={() => openQuestion(q)}
                     className="p-5 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card hover:border-slate-300 dark:hover:border-slate-800 hover:shadow-soft cursor-pointer transition-all duration-200 flex flex-col justify-between gap-4 relative group"
                   >
                     {/* Top Row: Badges */}
@@ -755,6 +787,17 @@ export default function DiscussionPage() {
                   </div>
                 )
               })
+            )}
+            {hasMore && (
+              <div ref={loadMoreRef} className="flex justify-center py-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(c => c + FEED_BATCH)}
+                  className="px-4 py-2 text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-btn transition-colors"
+                >
+                  Show more ({filteredQuestions.length - visibleCount} left)
+                </button>
+              </div>
             )}
           </div>
         </div>

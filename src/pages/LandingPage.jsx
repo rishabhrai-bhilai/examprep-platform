@@ -38,7 +38,7 @@ export default function LandingPage() {
   ]
 
   return (
-    <div className="bg-bg-light dark:bg-bg-dark text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+    <div className="bg-bg-light dark:bg-bg-dark text-slate-800 dark:text-slate-100 min-h-dvh transition-colors duration-200">
       
       {/* Navigation Header for Landing Page */}
       <nav className="h-16 px-6 md:px-12 border-b border-border-light dark:border-border-dark flex items-center justify-between sticky top-0 bg-card-light/95 dark:bg-card-dark/95 backdrop-blur-md z-40">
