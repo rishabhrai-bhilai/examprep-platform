@@ -48,6 +48,7 @@ export default function BookletPage() {
 
   // Search & filter in Table of Contents
   const [contentsSearch, setContentsSearch] = useState('')
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState('ALL')
 
   // Questions split view state
   const [activeQuestionId, setActiveQuestionId] = useState(null)
@@ -59,9 +60,6 @@ export default function BookletPage() {
   const [activeReplyId, setActiveReplyId] = useState(null)
   const [replyDrafts, setReplyDrafts] = useState({})
   const [submittingComment, setSubmittingComment] = useState(false)
-
-  // Floating button hover animation state
-  const [isHoveringFloatingWidget, setIsHoveringFloatingWidget] = useState(false)
 
   // Refs for scrolling to 1-mark and 2-mark sections
   const oneMarkRef = useRef(null)
@@ -135,12 +133,16 @@ export default function BookletPage() {
     return { subjectsHierarchy: result, totalTopicsCount: topicCounter }
   }, [questions])
 
-  // Filter Table of Contents by search query
+  // Filter Table of Contents by search query & subject filter
   const filteredSubjectsHierarchy = useMemo(() => {
-    if (!contentsSearch.trim()) return subjectsHierarchy
+    let list = subjectsHierarchy
+    if (selectedSubjectFilter !== 'ALL') {
+      list = list.filter(s => s.subjectName === selectedSubjectFilter)
+    }
+    if (!contentsSearch.trim()) return list
     const q = contentsSearch.toLowerCase().trim()
 
-    return subjectsHierarchy
+    return list
       .map(subj => {
         const matchesSubject = subj.subjectName.toLowerCase().includes(q)
         const matchedTopics = subj.topics.filter(t => 
@@ -155,7 +157,7 @@ export default function BookletPage() {
         return null
       })
       .filter(Boolean)
-  }, [subjectsHierarchy, contentsSearch])
+  }, [subjectsHierarchy, contentsSearch, selectedSubjectFilter])
 
   // --- FILTER & SEGREGATE QUESTIONS FOR SELECTED TOPIC ---
   const { oneMarkQuestions, twoMarkQuestions, allTopicQuestions } = useMemo(() => {
@@ -304,53 +306,59 @@ export default function BookletPage() {
     ]
   }, [filteredSubjectsHierarchy])
 
-  // Helper to render a single subject block with its topics
+  // Helper to render a single subject block with modern chapter styling
   const renderSubjectBlock = (subject, globalSubjectIndex) => {
-    const romanNumeral = ROMAN_NUMERALS[globalSubjectIndex % ROMAN_NUMERALS.length] || `${globalSubjectIndex + 1}.`
+    const chapterNumber = String(globalSubjectIndex + 1).padStart(2, '0')
+    const topicsList = subject.topics || []
 
     return (
-      <div key={subject.subjectName} className="space-y-2">
-        {/* Subject Header Row */}
-        <div className="flex items-baseline justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1.5">
-          <div className="flex items-baseline gap-2 font-bold text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark tracking-tight">
-            <span className="text-primary">{romanNumeral}.</span>
-            <span className="truncate">{subject.subjectName}</span>
+      <div 
+        key={subject.subjectName} 
+        className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-4 sm:p-5 shadow-xs space-y-3 transition-all hover:border-slate-300 dark:hover:border-slate-700"
+      >
+        {/* Subject Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-850 pb-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 shrink-0">
+              Ch {chapterNumber}
+            </span>
+            <h2 className="font-bold text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark tracking-tight truncate">
+              {subject.subjectName}
+            </h2>
           </div>
           
-          <div className="flex items-baseline gap-2 shrink-0">
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-              {subject.totalQuestions} Questions
-            </span>
-          </div>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
+            {subject.totalQuestions} Questions
+          </span>
         </div>
 
-        {/* Topics Sub-List under Subject */}
-        <div className="space-y-0.5 pl-2 sm:pl-3">
-          {subject.topics.map((topic, tIdx) => (
+        {/* Topics list as modern interactive tiles in a responsive grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+          {topicsList.map((topic, tIdx) => (
             <button
               key={topic.topicName}
               onClick={() => handleSelectTopic(subject.subjectName, topic.topicName)}
               title={`Open Chapter: ${topic.topicName}`}
               data-testid="topic-item"
-              className="w-full text-left py-1.5 px-2 rounded-lg group flex items-baseline justify-between hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer"
+              className="group flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-850 hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all text-left w-full cursor-pointer"
             >
-              {/* Topic Name */}
-              <div className="flex items-baseline gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors shrink-0 max-w-[65%] sm:max-w-[75%]">
-                <span className="text-slate-400 font-mono text-[10px] w-5 text-right shrink-0">
+              {/* Topic Index & Name */}
+              <div className="flex items-center gap-2 min-w-0 pr-1.5">
+                <span className="w-4 h-4 rounded text-slate-400 text-[10px] font-mono font-bold flex items-center justify-center shrink-0 group-hover:text-primary transition-colors">
                   {tIdx + 1}.
                 </span>
-                <span className="group-hover:underline underline-offset-2 decoration-primary/40 truncate">
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors truncate">
                   {topic.topicName}
                 </span>
               </div>
-
-              {/* Dotted Leader Line */}
-              <span className="flex-1 mx-3 border-b border-dotted border-slate-300 dark:border-slate-700/80 group-hover:border-primary/40" />
-
-              {/* Questions count (Page number removed) */}
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors shrink-0">
-                {topic.questionCount} {topic.questionCount === 1 ? 'question' : 'questions'}
-              </span>
+              
+              {/* Questions count pill & subtle chevron */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  {topic.questionCount} {topic.questionCount === 1 ? 'Q' : 'Qs'}
+                </span>
+                <ChevronRight size={12} className="text-slate-300 dark:text-slate-600 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+              </div>
             </button>
           ))}
         </div>
@@ -363,125 +371,166 @@ export default function BookletPage() {
   // ---------------------------------------------------------------------------------------
   if (isContentsView || !selectedSubject || !selectedTopic) {
     return (
-      <div className="max-w-[1550px] mx-auto px-2 sm:px-4 lg:px-6 py-4 pb-20 font-sans">
-        {/* Book Container with modern sleek border styling */}
-        <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative transition-all">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-3 pb-20 font-sans space-y-4">
+        
+        {/* Sticky Header Section: Pins both Top Bar and Subject Filter Ribbon so it never moves up */}
+        <div className="sticky top-0 z-30 bg-bg-light/95 dark:bg-bg-dark/95 backdrop-blur-md pt-2 pb-3 space-y-2.5 -mx-3 sm:-mx-6 px-3 sm:px-6 border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs transition-all">
           
-          {/* Minimal Horizontal Header: Contents Heading on Left, Metadata & Search on Right */}
-          <div className="border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-card-dark dark:to-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Top Bar Card: Content Heading on Left, Metadata & Search on Right */}
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl px-4 sm:px-6 py-2.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
             
-            {/* Left Side: Heading "CONTENTS" and brief descriptor */}
+            {/* Left: Heading & Subtitle */}
             <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-1.5 text-primary">
-                <BookOpen size={18} />
-                <h1 className="text-lg sm:text-xl font-bold tracking-wider text-text-primary-light dark:text-text-primary-dark uppercase">
-                  CONTENTS
-                </h1>
+              <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <BookOpen size={17} />
               </div>
-              <span className="hidden sm:inline-block w-px h-4 bg-slate-300 dark:bg-slate-700" />
-              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
-                GATE CS & IT Previous Years' Questions (2007 – 2026)
-              </span>
+              <div>
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
+                  PYQ BOOKLET CONTENTS
+                </h1>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  GATE Computer Science & Information Technology • 2007 – 2026
+                </p>
+              </div>
             </div>
 
-            {/* Right Side / Horizontal Spread: Metadata Badges + Search Input */}
+            {/* Right: Metadata Badges & Search */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              {/* Metadata Badges */}
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   <span className="text-primary font-bold">{subjectsHierarchy.length}</span> Subjects
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   <span className="text-primary font-bold">{totalTopicsCount}</span> Topics
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   <span className="text-primary font-bold">{questions.length}</span> Solved Qs
                 </span>
               </div>
 
-              {/* Compact Search Box */}
-              <div className="relative w-full sm:w-56 md:w-64">
-                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
-                  <Search size={13} />
+              {/* Prominent Search Box */}
+              <div className="relative w-full sm:w-64 md:w-80">
+                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Search size={14} />
                 </span>
                 <input
                   type="text"
-                  placeholder="Filter topic or subject..."
+                  placeholder="Search topic or subject (e.g. Graph, Cache, SQL)..."
                   value={contentsSearch}
                   onChange={(e) => setContentsSearch(e.target.value)}
-                  className="w-full h-8 pl-7 pr-6 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:border-primary text-text-primary-light dark:text-text-primary-dark shadow-xs"
+                  className="w-full h-9 pl-9 pr-8 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-text-primary-light dark:text-text-primary-dark shadow-xs transition-all"
                 />
                 {contentsSearch && (
                   <button
                     onClick={() => setContentsSearch('')}
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600"
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                    title="Clear search"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Book Content Spread: Divided into 2 Parts (Left Page & Right Page) */}
-          {filteredSubjectsHierarchy.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <BookOpen size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
-              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                No subjects or topics match "{contentsSearch}"
-              </p>
+          {/* Fast Subject Filter Ribbon */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none text-xs">
+            <button
+              onClick={() => setSelectedSubjectFilter('ALL')}
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all cursor-pointer ${
+                selectedSubjectFilter === 'ALL'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/40'
+              }`}
+            >
+              All Subjects ({subjectsHierarchy.length})
+            </button>
+            {subjectsHierarchy.map(subj => (
               <button
-                onClick={() => setContentsSearch('')}
-                className="text-xs text-primary font-bold hover:underline"
+                key={subj.subjectName}
+                onClick={() => setSelectedSubjectFilter(subj.subjectName)}
+                className={`px-3 py-1.5 rounded-xl font-semibold text-xs shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedSubjectFilter === subj.subjectName
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'bg-card-light dark:bg-card-dark text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:border-primary/40'
+                }`}
               >
-                Clear search query
+                <span>{subj.subjectName}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  selectedSubjectFilter === subj.subjectName ? 'bg-white/20 text-white font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  {subj.totalQuestions}
+                </span>
               </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x-2 divide-slate-200 dark:divide-slate-800">
-              
-              {/* LEFT SIDE (PAGE 1) */}
-              <div className="flex flex-col">
-                {/* Left Column Header Row */}
-                <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  <span>Subject & Topic</span>
-                  <span className="text-right">Questions</span>
-                </div>
-
-                {/* Left Column Content */}
-                <div className="p-4 sm:p-6 space-y-6 flex-1">
-                  {leftSubjects.map((subject, idx) => renderSubjectBlock(subject, idx))}
-                </div>
-              </div>
-
-              {/* RIGHT SIDE (PAGE 2) */}
-              <div className="flex flex-col border-t lg:border-t-0 border-slate-200 dark:border-slate-800">
-                {/* Right Column Header Row */}
-                <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  <span>Subject & Topic</span>
-                  <span className="text-right">Questions</span>
-                </div>
-
-                {/* Right Column Content */}
-                <div className="p-4 sm:p-6 space-y-6 flex-1">
-                  {rightSubjects.length > 0 ? (
-                    rightSubjects.map((subject, idx) => renderSubjectBlock(subject, leftSubjects.length + idx))
-                  ) : (
-                    <div className="text-center py-10 text-xs text-slate-400 font-medium">
-                      — End of Subjects —
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* Book Bottom Ornamental Footer */}
-          <div className="border-t border-slate-200 dark:border-slate-800 py-3 px-6 text-center text-xs text-slate-400 font-medium bg-slate-50/50 dark:bg-slate-900/30">
-            <span>— End of Contents —</span>
+            ))}
           </div>
+
         </div>
+
+        {/* Book Content Spread: Divided into 2 Parts (Left Page & Right Page) */}
+        {filteredSubjectsHierarchy.length === 0 ? (
+          <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl p-16 text-center space-y-3">
+            <BookOpen size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+              No subjects or topics match "{contentsSearch}"
+            </p>
+            <button
+              onClick={() => { setContentsSearch(''); setSelectedSubjectFilter('ALL'); }}
+              className="text-xs text-primary font-bold hover:underline"
+            >
+              Reset search and filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+            
+            {/* LEFT SIDE (PAGE 1) */}
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Volume I • Syllabus Part A
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  {leftSubjects.reduce((acc, s) => acc + s.totalQuestions, 0)} Questions
+                </span>
+              </div>
+
+              <div className="space-y-3.5">
+                {leftSubjects.map((subject, idx) => renderSubjectBlock(subject, idx))}
+              </div>
+            </div>
+
+            {/* RIGHT SIDE (PAGE 2) */}
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Volume II • Syllabus Part B
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  {rightSubjects.reduce((acc, s) => acc + s.totalQuestions, 0)} Questions
+                </span>
+              </div>
+
+              <div className="space-y-3.5">
+                {rightSubjects.length > 0 ? (
+                  rightSubjects.map((subject, idx) => renderSubjectBlock(subject, leftSubjects.length + idx))
+                ) : (
+                  <div className="bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-xl p-8 text-center text-xs text-slate-400">
+                    — End of Subjects —
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
       </div>
     )
   }
@@ -498,8 +547,11 @@ export default function BookletPage() {
         {/* Breadcrumb path */}
         <div className="flex items-center gap-2 text-xs min-w-0">
           <button
-            onClick={() => setIsContentsView(true)}
-            className="inline-flex items-center gap-1.5 font-bold text-primary hover:text-primary-hover px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/15 transition-all text-xs shrink-0"
+            onClick={() => {
+              setIsContentsView(true)
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+            }}
+            className="inline-flex items-center gap-1.5 font-bold text-primary hover:text-primary-hover px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/15 transition-all text-xs shrink-0 cursor-pointer"
           >
             <BookText size={14} />
             <span>Contents</span>
@@ -524,13 +576,13 @@ export default function BookletPage() {
           <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold">
             <button
               onClick={() => oneMarkRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
             >
               1-Mark ({oneMarkQuestions.length})
             </button>
             <button
               onClick={() => twoMarkRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
             >
               2-Marks ({twoMarkQuestions.length})
             </button>
@@ -540,70 +592,34 @@ export default function BookletPage() {
           <button
             onClick={() => setSortAscending(!sortAscending)}
             title={sortAscending ? "Sorted: Oldest first (2007 → 2026)" : "Sorted: Newest first (2026 → 2007)"}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-primary text-[11px] font-semibold transition-colors shadow-xs"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-primary text-[11px] font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <ArrowUpDown size={12} />
             <span className="hidden md:inline">{sortAscending ? '2007 → 2026' : '2026 → 2007'}</span>
           </button>
-
-          {/* Full-screen Contents Switcher */}
-          <button
-            onClick={() => setIsContentsView(true)}
-            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
-            title="Expand Full Table of Contents"
-          >
-            <Maximize2 size={14} />
-          </button>
         </div>
       </div>
 
-      {/* 2. SPLIT-SCREEN 2-AREA CONTAINER */}
-      <div className="flex flex-col lg:flex-row gap-4 p-3 sm:p-5 max-w-[1600px] mx-auto">
+      {/* 2. SPLIT-SCREEN 2-AREA CONTAINER: 40% QUESTIONS / 60% DISCUSSION & SOLUTION */}
+      <div className="flex flex-col lg:flex-row gap-5 p-3 sm:p-5 max-w-[1700px] mx-auto">
         
         {/* ========================================================================= */}
-        {/* LEFT AREA: QUESTION BOOKLET (Takes ~60% width on Desktop) */}
+        {/* LEFT AREA: QUESTION BOOKLET (40% width on Desktop) */}
         {/* ========================================================================= */}
-        <div ref={questionsContainerRef} className="flex-1 min-w-0 space-y-6">
-          
-          {/* Chapter Banner Styled like Image 2 */}
-          <div className="bg-card-light dark:bg-card-dark border-2 border-slate-300 dark:border-slate-800 rounded-2xl p-5 shadow-soft relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                    Chapter • {selectedSubject}
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {allTopicQuestions.length} Questions
-                  </span>
-                </div>
-                
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-                  {selectedTopic}
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsContentsView(true)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
-                >
-                  <BookText size={14} />
-                  <span>Browse other topics</span>
-                </button>
-              </div>
-            </div>
-          </div>
+        <div ref={questionsContainerRef} className="w-full lg:w-[40%] xl:w-[40%] shrink-0 space-y-5 min-w-0">
 
           {/* SECTION 1: ONE MARK QUESTIONS */}
           <div ref={oneMarkRef} className="space-y-4">
-            <div className="flex items-center gap-3 border-b-2 border-slate-300 dark:border-slate-800 pb-2">
-              <span className="font-bold text-base sm:text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
-                One Mark Questions
-              </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-black">
-                {oneMarkQuestions.length} {oneMarkQuestions.length === 1 ? 'Question' : 'Questions'}
-              </span>
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <h2 className="font-bold text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
+                  One Mark Questions
+                </h2>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">
+                  {oneMarkQuestions.length} {oneMarkQuestions.length === 1 ? 'Question' : 'Questions'}
+                </span>
+              </div>
             </div>
 
             {oneMarkQuestions.length === 0 ? (
@@ -611,7 +627,7 @@ export default function BookletPage() {
                 No 1-mark questions found for this topic.
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {oneMarkQuestions.map((q, idx) => {
                   const isCurrentActive = activeQuestion?.id === q.id
                   const isBookmarked = (bookmarks || []).includes(q.id)
@@ -622,31 +638,31 @@ export default function BookletPage() {
                     <div
                       key={q.id}
                       id={`booklet-question-${q.id}`}
-                      className={`bg-card-light dark:bg-card-dark border rounded-xl p-4 sm:p-5 transition-all ${
+                      className={`bg-card-light dark:bg-card-dark border rounded-2xl p-4 sm:p-5 transition-all duration-200 ${
                         isCurrentActive 
                           ? 'border-primary ring-2 ring-primary/20 shadow-md' 
-                          : 'border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 shadow-soft'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
                       }`}
                     >
                       {/* Question Top Meta */}
-                      <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-sm text-primary">
-                            {qNumberStr}.
+                          <span className="font-mono font-bold text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                            Q {qNumberStr}
                           </span>
                           
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
                             {q.type}
                           </span>
 
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
                             1 Mark
                           </span>
                         </div>
 
-                        {/* GATE Year Tag (e.g. "(GATE 2024)") */}
-                        <div className="font-bold text-xs font-mono text-slate-700 dark:text-slate-300 shrink-0">
-                          (GATE - {q.year}{q.set ? ` S${q.set}` : ''})
+                        {/* GATE Year Tag */}
+                        <div className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                          GATE {q.year}{q.set ? ` S${q.set}` : ''}
                         </div>
                       </div>
 
@@ -664,15 +680,15 @@ export default function BookletPage() {
 
                       {/* MCQ / MSQ Options Grid */}
                       {Array.isArray(q.options) && q.options.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 my-3 text-xs">
+                        <div className="grid grid-cols-1 gap-2 my-2.5 text-xs">
                           {q.options.map((opt, optIdx) => {
                             const optionLetter = String.fromCharCode(65 + optIdx)
                             return (
                               <div
                                 key={optIdx}
-                                className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850 bg-slate-50/60 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300"
+                                className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-100 dark:border-slate-850 bg-slate-50/60 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 hover:border-primary/30 transition-colors"
                               >
-                                <span className="font-bold text-slate-500 shrink-0">
+                                <span className="font-bold text-slate-500 dark:text-slate-400 shrink-0 text-xs mt-0.5">
                                   ({optionLetter})
                                 </span>
                                 <div className="flex-1 font-medium leading-snug">
@@ -690,7 +706,7 @@ export default function BookletPage() {
                           {/* Solution Button */}
                           <button
                             onClick={() => handleOpenQuestionPane(q.id, 'solution')}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                               isCurrentActive && activeRightTab === 'solution'
                                 ? 'bg-primary text-white shadow-xs'
                                 : 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -703,30 +719,41 @@ export default function BookletPage() {
                           {/* Discussion Button */}
                           <button
                             onClick={() => handleOpenQuestionPane(q.id, 'discussion')}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                               isCurrentActive && activeRightTab === 'discussion'
-                                ? 'bg-primary text-white shadow-xs'
+                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                           >
                             <MessageSquare size={13} />
                             <span>Discussion</span>
                             {commentsCount > 0 && (
-                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-primary/20 text-primary">
+                              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary text-white">
                                 {commentsCount}
                               </span>
                             )}
                           </button>
+
+                          {/* Video Solution Button if available */}
+                          {q.videoUrl && (
+                            <button
+                              onClick={() => openVideoSolution(q.videoUrl)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                            >
+                              <Play size={12} className="fill-current" />
+                              <span>Video</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* Bookmark Button */}
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => toggleQuestionInFolder('General', q.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${
+                            className={`p-2 rounded-xl transition-colors cursor-pointer ${
                               isBookmarked
                                 ? 'text-primary bg-primary/10'
-                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                             }`}
                             title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
                           >
@@ -743,13 +770,16 @@ export default function BookletPage() {
 
           {/* SECTION 2: TWO MARK QUESTIONS */}
           <div ref={twoMarkRef} className="space-y-4 pt-6">
-            <div className="flex items-center gap-3 border-b-2 border-slate-300 dark:border-slate-800 pb-2">
-              <span className="font-bold text-base sm:text-lg text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
-                Two Mark Questions
-              </span>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-black">
-                {twoMarkQuestions.length} {twoMarkQuestions.length === 1 ? 'Question' : 'Questions'}
-              </span>
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <h2 className="font-bold text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
+                  Two Mark Questions
+                </h2>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold">
+                  {twoMarkQuestions.length} {twoMarkQuestions.length === 1 ? 'Question' : 'Questions'}
+                </span>
+              </div>
             </div>
 
             {twoMarkQuestions.length === 0 ? (
@@ -757,7 +787,7 @@ export default function BookletPage() {
                 No 2-mark questions found for this topic.
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {twoMarkQuestions.map((q, idx) => {
                   const isCurrentActive = activeQuestion?.id === q.id
                   const isBookmarked = (bookmarks || []).includes(q.id)
@@ -769,31 +799,31 @@ export default function BookletPage() {
                     <div
                       key={q.id}
                       id={`booklet-question-${q.id}`}
-                      className={`bg-card-light dark:bg-card-dark border rounded-xl p-4 sm:p-5 transition-all ${
+                      className={`bg-card-light dark:bg-card-dark border rounded-2xl p-4 sm:p-5 transition-all duration-200 ${
                         isCurrentActive 
                           ? 'border-primary ring-2 ring-primary/20 shadow-md' 
-                          : 'border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700 shadow-soft'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
                       }`}
                     >
                       {/* Question Top Meta */}
-                      <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-sm text-primary">
-                            {qNumberStr}.
+                          <span className="font-mono font-bold text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                            Q {qNumberStr}
                           </span>
                           
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">
                             {q.type}
                           </span>
 
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                             2 Marks
                           </span>
                         </div>
 
-                        {/* GATE Year Tag (e.g. "(GATE 2023)") */}
-                        <div className="font-bold text-xs font-mono text-slate-700 dark:text-slate-300 shrink-0">
-                          (GATE - {q.year}{q.set ? ` S${q.set}` : ''})
+                        {/* GATE Year Tag */}
+                        <div className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                          GATE {q.year}{q.set ? ` S${q.set}` : ''}
                         </div>
                       </div>
 
@@ -811,15 +841,15 @@ export default function BookletPage() {
 
                       {/* MCQ / MSQ Options Grid */}
                       {Array.isArray(q.options) && q.options.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 my-3 text-xs">
+                        <div className="grid grid-cols-1 gap-2 my-2.5 text-xs">
                           {q.options.map((opt, optIdx) => {
                             const optionLetter = String.fromCharCode(65 + optIdx)
                             return (
                               <div
                                 key={optIdx}
-                                className="flex items-start gap-2 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850 bg-slate-50/60 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300"
+                                className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-100 dark:border-slate-850 bg-slate-50/60 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 hover:border-primary/30 transition-colors"
                               >
-                                <span className="font-bold text-slate-500 shrink-0">
+                                <span className="font-bold text-slate-500 dark:text-slate-400 shrink-0 text-xs mt-0.5">
                                   ({optionLetter})
                                 </span>
                                 <div className="flex-1 font-medium leading-snug">
@@ -837,7 +867,7 @@ export default function BookletPage() {
                           {/* Solution Button */}
                           <button
                             onClick={() => handleOpenQuestionPane(q.id, 'solution')}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                               isCurrentActive && activeRightTab === 'solution'
                                 ? 'bg-primary text-white shadow-xs'
                                 : 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -850,30 +880,41 @@ export default function BookletPage() {
                           {/* Discussion Button */}
                           <button
                             onClick={() => handleOpenQuestionPane(q.id, 'discussion')}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 ${
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                               isCurrentActive && activeRightTab === 'discussion'
-                                ? 'bg-primary text-white shadow-xs'
+                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                           >
                             <MessageSquare size={13} />
                             <span>Discussion</span>
                             {commentsCount > 0 && (
-                              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-primary/20 text-primary">
+                              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary text-white">
                                 {commentsCount}
                               </span>
                             )}
                           </button>
+
+                          {/* Video Solution Button if available */}
+                          {q.videoUrl && (
+                            <button
+                              onClick={() => openVideoSolution(q.videoUrl)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                            >
+                              <Play size={12} className="fill-current" />
+                              <span>Video</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* Bookmark Button */}
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => toggleQuestionInFolder('General', q.id)}
-                            className={`p-1.5 rounded-lg transition-colors ${
+                            className={`p-2 rounded-xl transition-colors cursor-pointer ${
                               isBookmarked
                                 ? 'text-primary bg-primary/10'
-                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                             }`}
                             title={isBookmarked ? "Remove Bookmark" : "Save Bookmark"}
                           >
@@ -890,16 +931,16 @@ export default function BookletPage() {
         </div>
 
         {/* ========================================================================= */}
-        {/* RIGHT AREA: SOLUTION & DISCUSSION WORKSPACE (Sticky Split Panel) */}
+        {/* RIGHT AREA: SOLUTION & DISCUSSION WORKSPACE (Remaining 60% width) */}
         {/* ========================================================================= */}
-        <div className="w-full lg:w-[420px] xl:w-[460px] shrink-0">
-          <div className="sticky top-14 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-2xl shadow-soft overflow-hidden flex flex-col max-h-[calc(100vh-5rem)]">
+        <div className="w-full lg:w-[60%] xl:w-[60%] lg:flex-1 min-w-0">
+          <div className="sticky top-14 bg-card-light dark:bg-card-dark border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden flex flex-col max-h-[calc(100vh-5rem)]">
             
             {/* Split Panel Tab Switcher */}
-            <div className="p-2 border-b border-border-light dark:border-border-dark bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-1.5">
+            <div className="p-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-1.5">
               <button
                 onClick={() => setActiveRightTab('solution')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   activeRightTab === 'solution'
                     ? 'bg-white dark:bg-slate-800 text-primary shadow-xs border border-slate-200 dark:border-slate-700'
                     : 'text-slate-500 hover:text-text-primary-light dark:hover:text-text-primary-dark'
@@ -911,7 +952,7 @@ export default function BookletPage() {
 
               <button
                 onClick={() => setActiveRightTab('discussion')}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   activeRightTab === 'discussion'
                     ? 'bg-white dark:bg-slate-800 text-primary shadow-xs border border-slate-200 dark:border-slate-700'
                     : 'text-slate-500 hover:text-text-primary-light dark:hover:text-text-primary-dark'
@@ -920,7 +961,7 @@ export default function BookletPage() {
                 <MessageSquare size={14} className={activeRightTab === 'discussion' ? 'text-primary' : ''} />
                 <span>Discussion</span>
                 {activeDiscussionsList.length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-primary/20 text-primary">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-primary text-white">
                     {activeDiscussionsList.length}
                   </span>
                 )}
@@ -1173,42 +1214,6 @@ export default function BookletPage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 3. FLOATING CIRCULAR CONTENTS WIDGET (Exact User Requirement) */}
-      {/* "the book content page collapse in in a small cirlcle like floating div box */}
-      {/* or what ever you think will look best UI vise, which can be clicked later on */}
-      {/* to again take the entire screen" */}
-      {/* ========================================================================= */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => {
-            setIsContentsView(true)
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-          onMouseEnter={() => setIsHoveringFloatingWidget(true)}
-          onMouseLeave={() => setIsHoveringFloatingWidget(false)}
-          className="group relative flex items-center justify-center p-3.5 sm:px-4 sm:py-3.5 rounded-full bg-gradient-to-r from-primary to-indigo-600 hover:from-primary-hover hover:to-indigo-700 text-white shadow-xl hover:shadow-2xl transition-all duration-300 transform active:scale-90 border-2 border-white/20 cursor-pointer"
-          aria-label="Open Table of Contents (Full Screen)"
-          title="Open Table of Contents (Full Screen)"
-        >
-          {/* Animated Glow Ring */}
-          <span className="absolute -inset-1 rounded-full bg-primary/30 blur-sm group-hover:blur-md transition-all animate-pulse" />
-
-          {/* Book Icon */}
-          <BookText size={20} className="relative z-10 shrink-0 transform group-hover:scale-110 transition-transform" />
-
-          {/* Expandable Label on Desktop */}
-          <span className="relative z-10 hidden sm:inline ml-2 text-xs font-black tracking-wide uppercase whitespace-nowrap">
-            Table of Contents
-          </span>
-
-          {/* Mobile Tooltip */}
-          <span className="sm:hidden absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10 z-20">
-            Table of Contents
-          </span>
-        </button>
       </div>
 
     </div>
