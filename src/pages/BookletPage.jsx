@@ -280,154 +280,226 @@ export default function BookletPage() {
     setActiveReplyId(null)
   }
 
+  // Split filtered subjects into two visually balanced columns (left & right page)
+  const [leftSubjects, rightSubjects] = useMemo(() => {
+    if (!filteredSubjectsHierarchy || filteredSubjectsHierarchy.length === 0) {
+      return [[], []]
+    }
+    if (filteredSubjectsHierarchy.length === 1) {
+      return [filteredSubjectsHierarchy, []]
+    }
+
+    // Balance by topic weight so left and right pages have approximately equal vertical length
+    let totalWeight = 0
+    filteredSubjectsHierarchy.forEach(s => {
+      totalWeight += (s.topics?.length || 1) + 2.5
+    })
+
+    const targetWeight = totalWeight / 2
+    let accumulated = 0
+    let splitIdx = 0
+
+    for (let i = 0; i < filteredSubjectsHierarchy.length; i++) {
+      const s = filteredSubjectsHierarchy[i]
+      const weight = (s.topics?.length || 1) + 2.5
+      if (i > 0 && (accumulated + weight / 2) >= targetWeight) {
+        splitIdx = i
+        break
+      }
+      accumulated += weight
+      splitIdx = i + 1
+    }
+
+    if (splitIdx === 0) splitIdx = 1
+    if (splitIdx >= filteredSubjectsHierarchy.length) splitIdx = filteredSubjectsHierarchy.length - 1
+
+    return [
+      filteredSubjectsHierarchy.slice(0, splitIdx),
+      filteredSubjectsHierarchy.slice(splitIdx)
+    ]
+  }, [filteredSubjectsHierarchy])
+
+  // Helper to render a single subject block with its topics
+  const renderSubjectBlock = (subject, globalSubjectIndex) => {
+    const romanNumeral = ROMAN_NUMERALS[globalSubjectIndex % ROMAN_NUMERALS.length] || `${globalSubjectIndex + 1}.`
+
+    return (
+      <div key={subject.subjectName} className="space-y-2">
+        {/* Subject Header Row (e.g. "I. Discrete Mathematics ........... 01 - 262") */}
+        <div className="flex items-baseline justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1.5">
+          <div className="flex items-baseline gap-2 font-serif font-black text-sm sm:text-base text-text-primary-light dark:text-text-primary-dark tracking-wide">
+            <span className="text-primary font-bold">{romanNumeral}.</span>
+            <span className="truncate">{subject.subjectName}</span>
+          </div>
+          
+          <div className="flex items-baseline gap-2 font-serif font-bold text-xs text-slate-700 dark:text-slate-300 shrink-0">
+            <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
+              {subject.totalQuestions} Qs
+            </span>
+            <span className="font-mono text-xs">{subject.pageLabel}</span>
+          </div>
+        </div>
+
+        {/* Topics Sub-List under Subject */}
+        <div className="space-y-0.5 pl-2 sm:pl-3">
+          {subject.topics.map((topic, tIdx) => (
+            <button
+              key={topic.topicName}
+              onClick={() => handleSelectTopic(subject.subjectName, topic.topicName)}
+              title={`Open Chapter: ${topic.topicName}`}
+              data-testid="topic-item"
+              className="w-full text-left py-1 px-1.5 rounded-md group flex items-baseline justify-between hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer"
+            >
+              {/* Topic Name */}
+              <div className="flex items-baseline gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors shrink-0 max-w-[62%] sm:max-w-[70%]">
+                <span className="text-slate-400 font-mono text-[10px] w-5 text-right shrink-0">
+                  {tIdx + 1}.
+                </span>
+                <span className="group-hover:underline underline-offset-2 decoration-primary/40 truncate">
+                  {topic.topicName}
+                </span>
+              </div>
+
+              {/* Dotted Leader Line */}
+              <span className="flex-1 mx-2 border-b border-dotted border-slate-300 dark:border-slate-700/80 group-hover:border-primary/40" />
+
+              {/* Questions count and Page Number */}
+              <div className="flex items-baseline gap-2 text-xs font-mono text-slate-500 dark:text-slate-400 group-hover:text-primary shrink-0">
+                <span className="text-[10px] text-slate-400 group-hover:text-primary/70 font-sans hidden sm:inline">
+                  {topic.questionCount} {topic.questionCount === 1 ? 'Q' : 'Qs'}
+                </span>
+                <span className="text-slate-600 dark:text-slate-300 font-bold text-[11px]">
+                  {topic.pageLabel}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   // ---------------------------------------------------------------------------------------
   // VIEW 1: FULL BOOKLET TABLE OF CONTENTS (When isContentsView is true or no topic selected)
   // ---------------------------------------------------------------------------------------
   if (isContentsView || !selectedSubject || !selectedTopic) {
     return (
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 pb-24">
+      <div className="max-w-[1550px] mx-auto px-2 sm:px-4 lg:px-6 py-4 pb-20">
         {/* Book Container with vintage/academic ruled border styling */}
         <div className="bg-card-light dark:bg-card-dark border-2 border-slate-300 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden relative transition-all">
           
-          {/* Classical Double Border Motif at Top (Matching Image 1) */}
-          <div className="border-b-4 border-double border-slate-300 dark:border-slate-800 py-6 px-6 sm:px-12 text-center bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-card-dark">
-            <div className="flex items-center justify-center gap-3 text-slate-400 dark:text-slate-600 mb-1">
-              <span className="text-xs font-serif tracking-widest">❖ ❖ ❖</span>
-            </div>
+          {/* Minimal Horizontal Header: Contents Heading on Left, Metadata & Search on Right */}
+          <div className="border-b-2 border-slate-300 dark:border-slate-800 px-4 sm:px-6 py-2.5 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900 dark:via-card-dark dark:to-slate-900 flex flex-col md:flex-row md:items-center justify-between gap-3">
             
-            <h1 className="text-3xl sm:text-5xl font-serif font-black tracking-widest text-text-primary-light dark:text-text-primary-dark uppercase">
-              CONTENTS
-            </h1>
-            
-            <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-xl mx-auto">
-              GATE Computer Science & Information Technology • Topicwise Previous Years' Questions (2007 – 2026)
-            </p>
-
-            {/* Quick Search & Summary Row */}
-            <div className="mt-5 max-w-md mx-auto relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Search size={16} />
-              </span>
-              <input
-                type="text"
-                placeholder="Search subject or topic (e.g. Graph Theory, Parsing, SQL)..."
-                value={contentsSearch}
-                onChange={(e) => setContentsSearch(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary text-text-primary-light dark:text-text-primary-dark shadow-xs"
-              />
-              {contentsSearch && (
-                <button
-                  onClick={() => setContentsSearch('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 mt-4 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              <span className="inline-flex items-center gap-1.5">
-                <BookOpen size={13} className="text-primary" />
-                {subjectsHierarchy.length} Subjects
-              </span>
-              <span>•</span>
-              <span className="inline-flex items-center gap-1.5">
-                <ListTree size={13} className="text-primary" />
-                {totalTopicsCount} Topics
-              </span>
-              <span>•</span>
-              <span className="inline-flex items-center gap-1.5">
-                <FileText size={13} className="text-primary" />
-                {questions.length} Solved Questions
-              </span>
-            </div>
-          </div>
-
-          {/* Table Header: Name of the Subject vs Page No. (as in Image 1) */}
-          <div className="border-b border-slate-300 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-6 sm:px-12 py-3 flex items-center justify-between font-serif font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
-            <span>Name of the Subject & Topic</span>
-            <span className="text-right">Questions • Page No.</span>
-          </div>
-
-          {/* Book Content List */}
-          <div className="p-6 sm:p-12 space-y-10">
-            {filteredSubjectsHierarchy.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <BookOpen size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
-                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  No subjects or topics match "{contentsSearch}"
-                </p>
-                <button
-                  onClick={() => setContentsSearch('')}
-                  className="text-xs text-primary font-bold hover:underline"
-                >
-                  Clear search query
-                </button>
+            {/* Left Side: Heading "CONTENTS" and brief descriptor */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5 text-primary">
+                <BookOpen size={18} />
+                <h1 className="text-xl sm:text-2xl font-serif font-black tracking-widest text-text-primary-light dark:text-text-primary-dark uppercase">
+                  CONTENTS
+                </h1>
               </div>
-            ) : (
-              filteredSubjectsHierarchy.map((subject, sIdx) => {
-                const romanNumeral = ROMAN_NUMERALS[sIdx % ROMAN_NUMERALS.length] || `${sIdx + 1}.`
+              <span className="hidden sm:inline-block w-px h-4 bg-slate-300 dark:bg-slate-700" />
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 hidden sm:inline">
+                GATE CS & IT Previous Years' Questions (2007 – 2026)
+              </span>
+            </div>
 
-                return (
-                  <div key={subject.subjectName} className="space-y-3">
-                    {/* Subject Header Row (e.g. "I. Discrete Mathematics ........... 01 - 262") */}
-                    <div className="flex items-baseline justify-between border-b border-slate-200 dark:border-slate-800/80 pb-1.5">
-                      <div className="flex items-baseline gap-2 font-serif font-black text-base sm:text-lg text-text-primary-light dark:text-text-primary-dark tracking-wide">
-                        <span className="text-primary font-bold">{romanNumeral}.</span>
-                        <span>{subject.subjectName}</span>
-                      </div>
-                      
-                      <div className="flex items-baseline gap-2 font-serif font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 shrink-0">
-                        <span className="text-[11px] font-sans px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold">
-                          {subject.totalQuestions} Qs
-                        </span>
-                        <span className="font-mono">{subject.pageLabel}</span>
-                      </div>
-                    </div>
+            {/* Right Side / Horizontal Spread: Metadata Badges + Search Input */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              {/* Metadata Badges */}
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="text-primary font-bold">{subjectsHierarchy.length}</span> Subjects
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="text-primary font-bold">{totalTopicsCount}</span> Topics
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <span className="text-primary font-bold">{questions.length}</span> Solved Qs
+                </span>
+              </div>
 
-                    {/* Topics Sub-List under Subject */}
-                    <div className="space-y-1 pl-4 sm:pl-7">
-                      {subject.topics.map((topic, tIdx) => (
-                        <button
-                          key={topic.topicName}
-                          onClick={() => handleSelectTopic(subject.subjectName, topic.topicName)}
-                          title={`Open Chapter: ${topic.topicName}`}
-                          data-testid="topic-item"
-                          className="w-full text-left py-1.5 px-2 rounded-lg group flex items-baseline justify-between hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors cursor-pointer"
-                        >
-                          {/* Topic Name */}
-                          <div className="flex items-baseline gap-2 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors shrink-0 max-w-[65%] sm:max-w-[70%]">
-                            <span className="text-slate-400 font-mono text-[11px] w-5 text-right shrink-0">
-                              {tIdx + 1}.
-                            </span>
-                            <span className="group-hover:underline underline-offset-4 decoration-primary/40 truncate">
-                              {topic.topicName}
-                            </span>
-                          </div>
-
-                          {/* Dotted Leader Line (connecting title to page range as in Image 1) */}
-                          <span className="flex-1 mx-2 sm:mx-3 border-b border-dotted border-slate-300 dark:border-slate-700/80 group-hover:border-primary/40" />
-
-                          {/* Questions count and Page Number */}
-                          <div className="flex items-baseline gap-2 text-xs font-mono text-slate-500 dark:text-slate-400 group-hover:text-primary shrink-0">
-                            <span className="text-[10px] text-slate-400 group-hover:text-primary/70 font-sans">
-                              {topic.questionCount} {topic.questionCount === 1 ? 'question' : 'questions'}
-                            </span>
-                            <span className="text-slate-600 dark:text-slate-300 font-bold">
-                              {topic.pageLabel}
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })
-            )}
+              {/* Compact Search Box */}
+              <div className="relative w-full sm:w-56 md:w-64">
+                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+                  <Search size={13} />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Filter topic or subject..."
+                  value={contentsSearch}
+                  onChange={(e) => setContentsSearch(e.target.value)}
+                  className="w-full h-8 pl-7 pr-6 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md focus:outline-none focus:border-primary text-text-primary-light dark:text-text-primary-dark shadow-xs"
+                />
+                {contentsSearch && (
+                  <button
+                    onClick={() => setContentsSearch('')}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Book Content Spread: Divided into 2 Parts (Left Page & Right Page) */}
+          {filteredSubjectsHierarchy.length === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <BookOpen size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                No subjects or topics match "{contentsSearch}"
+              </p>
+              <button
+                onClick={() => setContentsSearch('')}
+                className="text-xs text-primary font-bold hover:underline"
+              >
+                Clear search query
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x-2 divide-slate-200 dark:divide-slate-800">
+              
+              {/* LEFT SIDE (PAGE 1) */}
+              <div className="flex flex-col">
+                {/* Left Column Header Row */}
+                <div className="border-b border-slate-300 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-serif font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <span>Name of the Subject & Topic</span>
+                  <span className="text-right">Questions • Page</span>
+                </div>
+
+                {/* Left Column Content */}
+                <div className="p-4 sm:p-6 space-y-6 flex-1">
+                  {leftSubjects.map((subject, idx) => renderSubjectBlock(subject, idx))}
+                </div>
+              </div>
+
+              {/* RIGHT SIDE (PAGE 2) */}
+              <div className="flex flex-col border-t lg:border-t-0 border-slate-200 dark:border-slate-800">
+                {/* Right Column Header Row */}
+                <div className="border-b border-slate-300 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/60 px-4 sm:px-6 py-2 flex items-center justify-between font-serif font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  <span>Name of the Subject & Topic</span>
+                  <span className="text-right">Questions • Page</span>
+                </div>
+
+                {/* Right Column Content */}
+                <div className="p-4 sm:p-6 space-y-6 flex-1">
+                  {rightSubjects.length > 0 ? (
+                    rightSubjects.map((subject, idx) => renderSubjectBlock(subject, leftSubjects.length + idx))
+                  ) : (
+                    <div className="text-center py-10 text-xs text-slate-400 font-serif">
+                      — End of Subjects —
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
 
           {/* Book Bottom Ornamental Footer */}
-          <div className="border-t-4 border-double border-slate-300 dark:border-slate-800 py-4 px-6 text-center text-xs text-slate-400 font-serif">
+          <div className="border-t-2 border-slate-300 dark:border-slate-800 py-3 px-6 text-center text-xs text-slate-400 font-serif bg-slate-50/50 dark:bg-slate-900/30">
             <span>— End of Contents —</span>
           </div>
         </div>
