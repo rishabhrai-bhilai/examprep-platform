@@ -87,14 +87,15 @@ export const useAuthStore = create((set, get) => ({
   },
 
   // Sign up step 1: send the details; the server emails a 6-digit code.
-  // `website` is a honeypot field that real users never fill in.
-  startSignup: async (name, email, password, website = '') => {
+  // `website` is a honeypot field that real users never fill in; `turnstileToken`
+  // comes from the Cloudflare check.
+  startSignup: async (name, email, password, website = '', turnstileToken = null) => {
     set({ loading: true, error: null })
     try {
       if (!name || !email || !password) {
         throw new Error('Please fill in all fields.')
       }
-      const data = await postJson('/api/auth/signup/start', { name, email, password, website })
+      const data = await postJson('/api/auth/signup/start', { name, email, password, website, turnstileToken })
       set({ loading: false })
       return { success: true, message: data.message }
     } catch (err) {
@@ -123,7 +124,7 @@ export const useAuthStore = create((set, get) => ({
     get().closeAuthPrompt()
   },
 
-  // Public sign-in options: { googleClientId, devGoogleLogin, emailEnabled }
+  // Public sign-in options: { googleClientId, devGoogleLogin, emailEnabled, turnstileSiteKey }
   authConfig: null,
   fetchAuthConfig: async () => {
     if (get().authConfig) return get().authConfig
@@ -229,13 +230,13 @@ export const useAuthStore = create((set, get) => ({
   },
 
   // Emails a reset code (the reply is the same whether or not the account exists)
-  forgotPassword: async (email) => {
+  forgotPassword: async (email, turnstileToken = null) => {
     set({ loading: true, error: null })
     try {
       if (!email) {
         throw new Error('Please enter your email.')
       }
-      const data = await postJson('/api/auth/password/forgot', { email })
+      const data = await postJson('/api/auth/password/forgot', { email, turnstileToken })
       set({ loading: false })
       return { success: true, message: data.message }
     } catch (err) {

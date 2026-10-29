@@ -28,6 +28,7 @@ import {
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
 import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './services/discussions.js'
 import { sendOtpMail, canSendEmail } from './services/mailer.js'
+import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
 // Load environment variables
 dotenv.config()
@@ -91,15 +92,16 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com", "https://accounts.google.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://lh3.googleusercontent.com"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       connectSrc: [
         "'self'", 
         "https://accounts.google.com",
         "https://apis.google.com",
+        "https://challenges.cloudflare.com",
         "https://examprep-platform.onrender.com", 
         "https://*.onrender.com", 
         "http://localhost:*", 
@@ -240,9 +242,25 @@ app.get('/api/auth/config', (req, res) => {
   res.status(200).json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
     devGoogleLogin: !process.env.GOOGLE_CLIENT_ID && NODE_ENV !== 'production',
-    emailEnabled: canSendEmail()
+    emailEnabled: canSendEmail(),
+    turnstileSiteKey: turnstileSiteKey()
   })
 })
+
+// Where links in emails point. Never taken from the request's Host header, so a
+// forged request can't make the reset email link to someone else's site.
+const appUrl = () => {
+  const url = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || (NODE_ENV === 'production' ? '' : corsOrigin)
+  return url ? url.replace(/\/+$/, '') : null
+}
+
+// Reset emails also carry a link that opens the reset form with the code filled in.
+// The code is in the #fragment, so it never reaches server logs.
+const resetLink = (email, code) => {
+  const base = appUrl()
+  if (!base) return null
+  return `${base}/forgot-password#${new URLSearchParams({ email, code })}`
+}
 
 // Sends a code, or explains why it couldn't
 async function sendCode(res, purpose, email, data) {
@@ -252,7 +270,8 @@ async function sendCode(res, purpose, email, data) {
     return false
   }
   try {
-    await sendOtpMail(email, issued.code, purpose, OTP_MINUTES)
+    const link = purpose === 'reset' ? resetLink(email, issued.code) : null
+    await sendOtpMail(email, issued.code, purpose, OTP_MINUTES, link)
     return true
   } catch (err) {
     console.error(`Failed to send ${purpose} code:`, err.message)
@@ -263,7 +282,7 @@ async function sendCode(res, purpose, email, data) {
 
 // 1. Sign Up step 1: check the details and email a verification code.
 // The account is only created once the code is confirmed.
-app.post('/api/auth/signup/start', emailLimiter, async (req, res) => {
+app.post('/api/auth/signup/start', emailLimiter, requireHuman, async (req, res) => {
   try {
     const { name, password, website } = req.body
     const email = normalizeEmail(req.body.email)
@@ -420,7 +439,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
 
 // 5. Forgot password: email a reset code. The reply is the same whether or not
 // the account exists, so this can't be used to find out who has signed up.
-app.post('/api/auth/password/forgot', emailLimiter, async (req, res) => {
+app.post('/api/auth/password/forgot', emailLimiter, requireHuman, async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email)
     if (!EMAIL_RE.test(email)) {
