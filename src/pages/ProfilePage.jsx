@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight, Hash, Phone, Target, AlertCircle, KeyRound } from 'lucide-react'
+import { User, Mail, Award, Flame, CheckCircle, ShieldAlert, Sparkles, RefreshCw, Clock, BookOpen, Calendar, Cloud, Lock, ArrowRight, Cake, Phone, Target, AlertCircle, KeyRound } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import AvatarPicker from '../components/AvatarPicker'
 import { practiceSummary, formatDuration } from '../utils/practiceStats'
+import { ageFromDob, dobInputRange, dobProblem } from '../../shared/profile.js'
 
 const PHONE_RE = /^\+?[0-9][0-9\s-]{6,15}$/
 
@@ -14,14 +15,14 @@ const getTargetYearOptions = () => {
   return [year + 1, year + 2, year + 3]
 }
 
-const validateProfileFields = ({ name, age, phone }) => {
+const validateProfileFields = ({ name, dob, phone }) => {
   const trimmedName = (name || '').trim()
   if (!trimmedName) return 'Please enter your name.'
   if (trimmedName.length > 60) return 'Name must be 60 characters or fewer.'
-  const ageStr = String(age ?? '').trim()
-  if (ageStr !== '') {
-    const ageNum = Number(ageStr)
-    if (!Number.isInteger(ageNum) || ageNum < 10 || ageNum > 100) return 'Age must be a whole number between 10 and 100.'
+  const dobStr = String(dob ?? '').trim()
+  if (dobStr !== '') {
+    const dobError = dobProblem(dobStr)
+    if (dobError) return dobError
   }
   const phoneStr = (phone || '').trim()
   if (phoneStr && !PHONE_RE.test(phoneStr)) return 'Please enter a valid phone number (digits, spaces or dashes, optional leading +).'
@@ -35,7 +36,7 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.name || 'Aspirant')
   const [email, setEmail] = useState(user?.email || 'aspirant@examprep.com')
-  const [age, setAge] = useState(user?.age ? String(user.age) : '')
+  const [dob, setDob] = useState(user?.dob || '')
   const [phone, setPhone] = useState(user?.phone || '')
   const [targetYear, setTargetYear] = useState(user?.targetYear ? String(user.targetYear) : '')
   const [isSaved, setIsSaved] = useState(false)
@@ -47,7 +48,7 @@ export default function ProfilePage() {
     if (user) {
       setName(user.name || 'Aspirant')
       setEmail(user.email || 'aspirant@examprep.com')
-      setAge(user.age ? String(user.age) : '')
+      setDob(user.dob || '')
       setPhone(user.phone || '')
       setTargetYear(user.targetYear ? String(user.targetYear) : '')
     }
@@ -56,7 +57,7 @@ export default function ProfilePage() {
   const handleSave = async (e) => {
     e.preventDefault()
     setIsSaved(false)
-    const validationError = validateProfileFields({ name, age, phone })
+    const validationError = validateProfileFields({ name, dob, phone })
     if (validationError) {
       setSaveError(validationError)
       return
@@ -70,7 +71,7 @@ export default function ProfilePage() {
       phone: phone.trim(),
       targetYear: targetYear ? Number(targetYear) : null
     }
-    if (String(age).trim() !== '') updates.age = Number(age)
+    if (String(dob).trim() !== '') updates.dob = dob
 
     try {
       const result = await updateProfile(updates)
@@ -160,7 +161,7 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen">
+    <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark">
 
       {/* Page Title & Cloud Sync Badge */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -228,23 +229,26 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label htmlFor="profile-age" className="text-xs font-semibold text-slate-500 uppercase">Age</label>
+                  <label htmlFor="profile-dob" className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                      <Hash size={16} />
+                      <Cake size={16} />
                     </span>
                     <input
-                      id="profile-age"
-                      type="number"
-                      min={10}
-                      max={100}
-                      step={1}
-                      inputMode="numeric"
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
+                      id="profile-dob"
+                      type="date"
+                      {...dobInputRange()}
+                      value={dob}
+                      onChange={(e) => setDob(e.target.value)}
                       className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark"
                     />
                   </div>
+                  {dob && !dobProblem(dob) ? (
+                    <p className="text-[11px] text-slate-400">Age {ageFromDob(dob)}. Updates by itself on your birthday.</p>
+                  ) : !dob && user?.age ? (
+                    // Accounts from before date of birth only have a fixed age
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">Add your date of birth so your age ({user.age}) stays up to date.</p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-1.5">

@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit'
 // Database and Auth Services
 import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey } from '../shared/practice.js'
+import { dobProblem } from '../shared/profile.js'
 import {
   hashPassword,
   verifyPassword,
@@ -493,7 +494,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 const MAX_AVATAR_DATA_URL = 300 * 1024
 app.put('/api/auth/profile', requireAuth, (req, res) => {
   try {
-    const { name, age, phone, targetYear, avatar, completeProfile } = req.body
+    const { name, dob, phone, targetYear, avatar, completeProfile } = req.body
     const updates = {}
 
     if (name !== undefined) {
@@ -501,10 +502,12 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
       if (!trimmed || trimmed.length > 60) return res.status(400).json({ error: 'Name must be 1 to 60 characters.' })
       updates.name = trimmed
     }
-    if (age !== undefined && age !== null && age !== '') {
-      const n = Number(age)
-      if (!Number.isInteger(n) || n < 10 || n > 100) return res.status(400).json({ error: 'Please enter a valid age (10 to 100).' })
-      updates.age = n
+    // Date of birth replaces the old fixed age, which went stale every year
+    if (dob !== undefined && dob !== null && dob !== '') {
+      const problem = dobProblem(dob)
+      if (problem) return res.status(400).json({ error: problem })
+      updates.dob = dob
+      updates.age = undefined
     }
     if (phone !== undefined) {
       const cleaned = typeof phone === 'string' ? phone.trim() : ''
@@ -528,8 +531,8 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
     if (completeProfile) {
       const current = userDb.findById(req.user.id)
       const finalName = updates.name ?? current?.name
-      const finalAge = updates.age ?? current?.age
-      if (!finalName || !finalAge) return res.status(400).json({ error: 'Name and age are required.' })
+      const finalDob = updates.dob ?? current?.dob
+      if (!finalName || !finalDob) return res.status(400).json({ error: 'Name and date of birth are required.' })
       updates.profileCompleted = true
     }
 
