@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import QuestionIdBadge from '../components/QuestionIdBadge'
 import { 
   MessageSquare, Search, BookOpen, Clock, Calendar, Award, ThumbsUp, ThumbsDown, 
   CornerDownRight, Send, Check, Bookmark, Play, X, HelpCircle, Layers, Brain, Target, Zap, BarChart2, Settings2, Sparkles,
@@ -719,6 +720,7 @@ export default function DiscussionPage() {
                             PYQ {q.year}{q.set ? ` • Set ${q.set}` : ''}
                           </span>
                         )}
+                        <QuestionIdBadge id={q.id} />
                         <span className="text-[9px] font-extrabold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded uppercase border border-amber-500/10">
                           {q.marks} Marks
                         </span>
@@ -815,6 +817,7 @@ export default function DiscussionPage() {
                     GATE {selectedQuestion.year}{selectedQuestion.set ? ` • Set ${selectedQuestion.set}` : ''}
                   </span>
                 )}
+                <QuestionIdBadge id={selectedQuestion.id} className="shrink-0" />
               </div>
 
               {/* Horizontal break line */}

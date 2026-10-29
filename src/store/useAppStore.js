@@ -3,6 +3,7 @@ import initialQuestions from '../data/questions.json'
 import { dummyDiscussions } from '../utils/dummyData'
 import { useAuthStore } from './useAuthStore'
 import { addAttempt, mergePractice, sanitizePractice } from '../../shared/practice.js'
+import { timeAgo } from '../utils/practiceStats'
 
 const getInitialTheme = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -48,29 +49,12 @@ const getInitialBookmarkFolders = () => {
 
 const getInitialDiscussions = () => {
   try {
-    const normalizedDummy = {}
-    Object.keys(dummyDiscussions).forEach((qId) => {
-      normalizedDummy[qId] = (dummyDiscussions[qId] || []).map((sol) => ({
-        ...sol,
-        upvotes: sol.upvotes !== undefined ? sol.upvotes : (sol.likes || 0),
-        downvotes: sol.downvotes || 0,
-        createdAt: sol.createdAt || '2 hours ago',
-        replies: (sol.replies || []).map((rep) => ({
-          ...rep,
-          createdAt: rep.createdAt || '1 hour ago'
-        }))
-      }))
-    })
-
     const stored = localStorage.getItem('discussions')
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      return { ...normalizedDummy, ...parsed }
-    }
-    return normalizedDummy
+    if (stored) return { ...getDummyDiscussions(), ...JSON.parse(stored) }
   } catch (e) {
-    return { ...dummyDiscussions }
+    // fall through to the examples
   }
+  return getDummyDiscussions()
 }
 
 const getInitialSolutionVotes = () => {
@@ -97,6 +81,49 @@ const savePracticeLocally = (practice) => {
     localStorage.setItem(PRACTICE_KEY, JSON.stringify(practice))
   } catch (e) {
     console.warn('Could not persist practice attempts', e)
+  }
+}
+
+// Example posts shipped with the app (never stored on the server)
+const getDummyDiscussions = () => {
+  const normalized = {}
+  Object.keys(dummyDiscussions).forEach((qId) => {
+    normalized[qId] = (dummyDiscussions[qId] || []).map((sol) => ({
+      ...sol,
+      upvotes: sol.upvotes !== undefined ? sol.upvotes : (sol.likes || 0),
+      downvotes: sol.downvotes || 0,
+      createdAt: sol.createdAt || '2 hours ago',
+      replies: (sol.replies || []).map((rep) => ({ ...rep, createdAt: rep.createdAt || '1 hour ago' }))
+    }))
+  })
+  return normalized
+}
+
+// Server posts carry a timestamp; the UI shows createdAt
+const withCreatedAt = (post) => ({
+  ...post,
+  createdAt: post.timestamp ? timeAgo(post.timestamp) : (post.createdAt || 'Recent'),
+  replies: (post.replies || []).map(withCreatedAt)
+})
+
+const discussionRequest = async (method, path, body) => {
+  const token = localStorage.getItem('auth_token')
+  if (!token) throw new Error('Please log in first.')
+  const res = await fetch(`/api/discussions/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: body ? JSON.stringify(body) : undefined
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.')
+  return data
+}
+
+const saveDiscussionsLocally = (discussions) => {
+  try {
+    localStorage.setItem('discussions', JSON.stringify(discussions))
+  } catch (e) {
+    console.warn('Could not persist discussions to localStorage', e)
   }
 }
 
@@ -568,6 +595,29 @@ export const useAppStore = create((set, get) => ({
   },
 
   // --- DISCUSSIONS (GATED FOR LOGGED-IN USERS) ---
+  // The server holds everyone's posts; localStorage is only an offline copy
+  fetchDiscussions: async () => {
+    try {
+      const res = await fetch('/api/discussions')
+      if (!res.ok) return
+      const serverPosts = await res.json()
+      const merged = getDummyDiscussions()
+      Object.entries(serverPosts || {}).forEach(([qId, list]) => {
+        merged[qId] = [...(merged[qId] || []), ...list.map(withCreatedAt)]
+      })
+      set({ discussions: merged })
+      saveDiscussionsLocally(merged)
+    } catch (e) {
+      console.warn('Could not load discussions:', e.message)
+    }
+  },
+
+  // Undo an optimistic post the server refused
+  _dropUnsavedPost: (questionId, postId, message) => {
+    get().deleteComment(questionId, postId, { local: true })
+    if (message) alert(message)
+  },
+
   addSolution: (questionId, { content, author, avatar, authorEmail, authorId }) => {
     const { isAuthenticated, openAuthPrompt, user } = useAuthStore.getState()
     if (!isAuthenticated) {
@@ -613,6 +663,8 @@ export const useAppStore = create((set, get) => ({
     } catch (e) {
       console.warn('Could not persist discussions to localStorage', e)
     }
+    discussionRequest('POST', `${qId}/posts`, { id: newSolution.id, content: newSolution.content })
+      .catch((err) => get()._dropUnsavedPost(qId, newSolution.id, `Your solution was not posted: ${err.message}`))
     return newSolution
   },
 
@@ -672,6 +724,14 @@ export const useAppStore = create((set, get) => ({
     }
 
     const nextMyCommentIds = Array.from(new Set([...(get().myCommentIds || []), newReply.id]))
+    const sendReply = () => {
+      discussionRequest('POST', `${qId}/posts`, {
+        id: newReply.id,
+        content: newReply.content,
+        parentId: tId,
+        replyToAuthor: newReply.replyToAuthor
+      }).catch((err) => get()._dropUnsavedPost(qId, newReply.id, `Your reply was not posted: ${err.message}`))
+    }
 
     const targetIdx = qList.findIndex(item => String(item.id) === tId)
     if (targetIdx !== -1) {
@@ -686,6 +746,7 @@ export const useAppStore = create((set, get) => ({
       } catch (e) {
         console.warn('Could not persist discussions to localStorage', e)
       }
+      sendReply()
       return newReply
     }
 
@@ -711,12 +772,13 @@ export const useAppStore = create((set, get) => ({
       } catch (e) {
         console.warn('Could not persist discussions to localStorage', e)
       }
+      sendReply()
     }
 
     return newReply
   },
 
-  deleteComment: (questionId, commentId) => {
+  deleteComment: (questionId, commentId, { local = false } = {}) => {
     if (!questionId || !commentId) return false
     const qId = String(questionId)
     const cId = String(commentId)
@@ -775,6 +837,16 @@ export const useAppStore = create((set, get) => ({
       localStorage.setItem('discussion_my_comment_ids', JSON.stringify(currentMyCommentIds))
     } catch (e) {
       console.warn('Could not persist after deleting comment', e)
+    }
+
+    // Example posts aren't on the server; for everything else the server
+    // checks that this user wrote it
+    if (!local && modified && localStorage.getItem('auth_token')) {
+      discussionRequest('DELETE', `${qId}/posts/${encodeURIComponent(cId)}`)
+        .catch((err) => {
+          if (!/not found/i.test(err.message)) alert(`Could not delete the comment: ${err.message}`)
+          get().fetchDiscussions()
+        })
     }
 
     return modified
@@ -853,6 +925,18 @@ export const useAppStore = create((set, get) => ({
     } catch (e) {
       console.warn('Could not persist votes to localStorage', e)
     }
+
+    discussionRequest('PUT', `${qId}/posts/${encodeURIComponent(sId)}/vote`, { vote: nextVote })
+      .then(({ upvotes, downvotes }) => {
+        const latest = { ...get().discussions }
+        const idx = (latest[qId] || []).findIndex(item => String(item.id) === sId)
+        if (idx === -1) return
+        latest[qId] = [...latest[qId]]
+        latest[qId][idx] = { ...latest[qId][idx], upvotes, downvotes }
+        set({ discussions: latest })
+        saveDiscussionsLocally(latest)
+      })
+      .catch(() => {}) // example posts aren't on the server; the local count stays
   },
 }))
 

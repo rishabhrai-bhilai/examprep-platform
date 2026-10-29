@@ -31,20 +31,21 @@ import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
 
 function App() {
-  const { theme, fetchQuestions, syncUserData } = useAppStore()
+  const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
   const { checkAuth } = useAuthStore()
 
   // Verify auth session on mount & fetch cloud data
   useEffect(() => {
     const initializeApp = async () => {
       fetchQuestions()
+      fetchDiscussions()
       const user = await checkAuth()
       if (user) {
         await syncUserData()
       }
     }
     initializeApp()
-  }, [fetchQuestions, checkAuth, syncUserData])
+  }, [fetchQuestions, fetchDiscussions, checkAuth, syncUserData])
 
   // Apply dark mode theme class to html node on mount and changes
   useEffect(() => {

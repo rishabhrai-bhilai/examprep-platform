@@ -26,10 +26,12 @@ import {
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
+import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './services/discussions.js'
 import { sendOtpMail, canSendEmail } from './services/mailer.js'
+import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
-// Load environment variables
-dotenv.config()
+// Load environment variables from server/.env, whichever folder the server is started from
+dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -90,15 +92,16 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com", "https://accounts.google.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://lh3.googleusercontent.com"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       connectSrc: [
         "'self'", 
         "https://accounts.google.com",
         "https://apis.google.com",
+        "https://challenges.cloudflare.com",
         "https://examprep-platform.onrender.com", 
         "https://*.onrender.com", 
         "http://localhost:*", 
@@ -173,6 +176,7 @@ const authLimiter = limiter(15 * 60 * 1000, 20, 'Too many sign-in attempts. Plea
 // Anything that sends an email
 const emailLimiter = limiter(60 * 60 * 1000, 8, 'Too many code requests. Please try again in an hour.')
 const reportLimiter = limiter(60 * 60 * 1000, 10, 'You have sent a lot of reports. Please try again in an hour.', userOrIpKey)
+const postLimiter = limiter(10 * 60 * 1000, 30, 'You are posting very fast. Please wait a few minutes.', userOrIpKey)
 
 // Parse JSON request bodies
 app.use(express.json({ limit: '10mb' }))
@@ -238,9 +242,25 @@ app.get('/api/auth/config', (req, res) => {
   res.status(200).json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
     devGoogleLogin: !process.env.GOOGLE_CLIENT_ID && NODE_ENV !== 'production',
-    emailEnabled: canSendEmail()
+    emailEnabled: canSendEmail(),
+    turnstileSiteKey: turnstileSiteKey()
   })
 })
+
+// Where links in emails point. Never taken from the request's Host header, so a
+// forged request can't make the reset email link to someone else's site.
+const appUrl = () => {
+  const url = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || (NODE_ENV === 'production' ? '' : corsOrigin)
+  return url ? url.replace(/\/+$/, '') : null
+}
+
+// Reset emails also carry a link that opens the reset form with the code filled in.
+// The code is in the #fragment, so it never reaches server logs.
+const resetLink = (email, code) => {
+  const base = appUrl()
+  if (!base) return null
+  return `${base}/forgot-password#${new URLSearchParams({ email, code })}`
+}
 
 // Sends a code, or explains why it couldn't
 async function sendCode(res, purpose, email, data) {
@@ -250,7 +270,8 @@ async function sendCode(res, purpose, email, data) {
     return false
   }
   try {
-    await sendOtpMail(email, issued.code, purpose, OTP_MINUTES)
+    const link = purpose === 'reset' ? resetLink(email, issued.code) : null
+    await sendOtpMail(email, issued.code, purpose, OTP_MINUTES, link)
     return true
   } catch (err) {
     console.error(`Failed to send ${purpose} code:`, err.message)
@@ -261,7 +282,7 @@ async function sendCode(res, purpose, email, data) {
 
 // 1. Sign Up step 1: check the details and email a verification code.
 // The account is only created once the code is confirmed.
-app.post('/api/auth/signup/start', emailLimiter, async (req, res) => {
+app.post('/api/auth/signup/start', emailLimiter, requireHuman, async (req, res) => {
   try {
     const { name, password, website } = req.body
     const email = normalizeEmail(req.body.email)
@@ -418,7 +439,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
 
 // 5. Forgot password: email a reset code. The reply is the same whether or not
 // the account exists, so this can't be used to find out who has signed up.
-app.post('/api/auth/password/forgot', emailLimiter, async (req, res) => {
+app.post('/api/auth/password/forgot', emailLimiter, requireHuman, async (req, res) => {
   try {
     const email = normalizeEmail(req.body.email)
     if (!EMAIL_RE.test(email)) {
@@ -686,22 +707,67 @@ app.put('/api/sync/attempts', requireAuth, (req, res) => {
 // 6. Discussion Forum Synchronization & Persistence
 app.get('/api/discussions', (req, res) => {
   try {
-    const discussions = discussionDb.getAll()
-    res.status(200).json(discussions)
+    res.status(200).json(publicDiscussions(discussionDb.getAll()))
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve discussions.' })
   }
 })
 
-app.post('/api/discussions/sync', requireAuth, (req, res) => {
+// Each change touches one post, and the author is always the signed-in user.
+// (There used to be a sync endpoint that replaced every discussion with whatever
+// the browser sent, which let any account rewrite or wipe other people's posts.)
+const knownQuestion = (req, res) => {
+  const qid = Number(req.params.questionId)
+  if (!Number.isInteger(qid) || !questions.some(q => q.id === qid)) {
+    res.status(404).json({ error: 'Question not found.' })
+    return null
+  }
+  return String(qid)
+}
+
+app.post('/api/discussions/:questionId/posts', requireAuth, postLimiter, (req, res) => {
   try {
-    const { discussions } = req.body
-    if (discussions && typeof discussions === 'object') {
-      discussionDb.saveAll(discussions)
-    }
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const author = { ...req.user, avatar: /^https:\/\/\S+$/.test(req.user.avatar || '') ? req.user.avatar : null }
+    const result = addPost(all, qid, author, req.body)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
+    res.status(201).json({ post: publicPost(result.post) })
+  } catch (err) {
+    console.error('Post error:', err)
+    res.status(500).json({ error: 'Failed to save your comment.' })
+  }
+})
+
+app.delete('/api/discussions/:questionId/posts/:postId', requireAuth, (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const result = deletePost(all, qid, req.params.postId, req.user, req.user.isAdmin)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
     res.status(200).json({ success: true })
   } catch (err) {
-    res.status(500).json({ error: 'Failed to persist discussions.' })
+    res.status(500).json({ error: 'Failed to delete the comment.' })
+  }
+})
+
+app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimiter, (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    const all = discussionDb.getAll()
+    const vote = req.body?.vote === undefined ? null : req.body.vote
+    const result = votePost(all, qid, req.params.postId, req.user.id, vote)
+    if (result.error) return res.status(result.status).json({ error: result.error })
+    discussionDb.saveAll(all)
+    const { upvotes, downvotes } = publicPost(result.post)
+    res.status(200).json({ upvotes, downvotes })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to save your vote.' })
   }
 })
 

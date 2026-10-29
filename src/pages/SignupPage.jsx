@@ -4,6 +4,7 @@ import { BookOpen, Lock, Mail, User, AlertCircle, CheckCircle, Eye, EyeOff, KeyR
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
+import TurnstileWidget from '../components/TurnstileWidget'
 
 const RESEND_SECONDS = 60
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
@@ -33,7 +34,10 @@ export default function SignupPage() {
   const [localError, setLocalError] = useState('')
   const [info, setInfo] = useState('')
   const [emailDisabled, setEmailDisabled] = useState(false)
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState(null)
+  const [checking, setChecking] = useState(false)
   const verifyingRef = useRef(false)
+  const humanCheckRef = useRef(null)
 
   useEffect(() => {
     clearError()
@@ -47,7 +51,9 @@ export default function SignupPage() {
   useEffect(() => {
     let active = true
     fetchAuthConfig().then((config) => {
-      if (active && config?.emailEnabled === false) setEmailDisabled(true)
+      if (!active) return
+      if (config?.emailEnabled === false) setEmailDisabled(true)
+      setTurnstileSiteKey(config?.turnstileSiteKey || null)
     })
     return () => { active = false }
   }, [fetchAuthConfig])
@@ -60,6 +66,16 @@ export default function SignupPage() {
     }, 1000)
     return () => clearInterval(id)
   }, [counting])
+
+  // Token from the Cloudflare check (null when it's off); shows an error if it never passed
+  const getHumanToken = async () => {
+    if (!turnstileSiteKey) return { ok: true, token: null }
+    setChecking(true)
+    const token = await humanCheckRef.current?.getToken()
+    setChecking(false)
+    if (!token) setLocalError("We couldn't confirm you're human. Please refresh the page and try again.")
+    return { ok: !!token, token }
+  }
 
   const goToStep = (next) => {
     clearError()
@@ -83,7 +99,9 @@ export default function SignupPage() {
       return
     }
 
-    const result = await startSignup(trimmedName, email.trim(), password, website)
+    const human = await getHumanToken()
+    if (!human.ok) return
+    const result = await startSignup(trimmedName, email.trim(), password, website, human.token)
     if (result.success) {
       setCode('')
       goToStep('verify')
@@ -116,11 +134,13 @@ export default function SignupPage() {
   }
 
   const handleResend = async () => {
-    if (cooldown > 0 || loading) return
+    if (cooldown > 0 || loading || checking) return
     setLocalError('')
     setInfo('')
     clearError()
-    const result = await startSignup(name.trim(), email.trim(), password, website)
+    const human = await getHumanToken()
+    if (!human.ok) return
+    const result = await startSignup(name.trim(), email.trim(), password, website, human.token)
     if (result.success) {
       setCode('')
       setInfo('A new code has been sent to your email.')
@@ -283,10 +303,10 @@ export default function SignupPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || emailDisabled}
+                  disabled={loading || checking || emailDisabled}
                   className={submitClass}
                 >
-                  {loading ? 'Sending code...' : 'Create Account'}
+                  {checking ? 'Checking...' : loading ? 'Sending code...' : 'Create Account'}
                 </button>
               </fieldset>
             </form>
@@ -326,7 +346,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={cooldown > 0 || loading}
+                disabled={cooldown > 0 || loading || checking}
                 className={linkButtonClass}
               >
                 {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
@@ -341,6 +361,9 @@ export default function SignupPage() {
             </div>
           </form>
         )}
+
+        {/* Stays mounted across both steps so "Resend code" gets a fresh token too */}
+        <TurnstileWidget ref={humanCheckRef} siteKey={emailDisabled ? null : turnstileSiteKey} />
 
         <div className="text-center pt-4 border-t border-slate-100 dark:border-slate-800/40 text-xs text-slate-500">
           Already have an account?{' '}

@@ -1,11 +1,43 @@
 import nodemailer from 'nodemailer'
 
-// Gmail SMTP by default (SMTP_USER = the Gmail address, SMTP_PASS = a Google
-// "app password"). Any other SMTP provider works by also setting SMTP_HOST/SMTP_PORT.
-const isConfigured = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS)
+// Two ways to send:
+// - BREVO_API_KEY: Brevo's HTTPS API. Use this on Render's free tier, which blocks
+//   outbound SMTP (ports 25, 465 and 587). The sender (MAIL_FROM) must be a
+//   sender verified in Brevo; a plain Gmail address works.
+// - SMTP_USER + SMTP_PASS: Gmail SMTP by default (SMTP_PASS = a Google "app
+//   password"). Any other SMTP provider works by also setting SMTP_HOST/SMTP_PORT.
+const useBrevo = () => !!process.env.BREVO_API_KEY
+const useSmtp = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS)
+const isConfigured = () => (useBrevo() && !!sender()) || useSmtp()
 
-// Without SMTP in development, codes are printed to the server console instead.
+// Without email in development, codes are printed to the server console instead.
 export const canSendEmail = () => isConfigured() || process.env.NODE_ENV !== 'production'
+
+// MAIL_FROM is "Name <address>" or just an address; falls back to SMTP_USER
+function sender() {
+  const from = (process.env.MAIL_FROM || '').trim()
+  const named = from.match(/^(.*?)\s*<([^>]+@[^>]+)>$/)
+  if (named) return { name: named[1].trim() || 'ExamPrep', email: named[2].trim() }
+  if (from.includes('@')) return { name: 'ExamPrep', email: from }
+  return process.env.SMTP_USER ? { name: 'ExamPrep', email: process.env.SMTP_USER } : null
+}
+
+async function sendWithBrevo({ to, subject, text, html }) {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': process.env.BREVO_API_KEY,
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify({ sender: sender(), to: [{ email: to }], subject, textContent: text, htmlContent: html }),
+    signal: AbortSignal.timeout(10000)
+  })
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => '')).slice(0, 300)
+    throw new Error(`Brevo replied ${res.status}: ${detail}`)
+  }
+}
 
 let transporter = null
 function getTransporter() {
@@ -15,7 +47,11 @@ function getTransporter() {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port,
       secure: port === 465,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      // Fail fast instead of hanging when the host blocks SMTP
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
     })
   }
   return transporter
@@ -24,18 +60,17 @@ function getTransporter() {
 export async function sendMail({ to, subject, text, html }) {
   if (!isConfigured()) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('Email is not configured on the server (SMTP_USER / SMTP_PASS).')
+      throw new Error('Email is not configured on the server (BREVO_API_KEY + MAIL_FROM, or SMTP_USER / SMTP_PASS).')
     }
     console.log(`\n[mail:dev] To: ${to}\n[mail:dev] Subject: ${subject}\n${text}\n`)
     return { delivered: false }
   }
-  await getTransporter().sendMail({
-    from: process.env.MAIL_FROM || `ExamPrep <${process.env.SMTP_USER}>`,
-    to,
-    subject,
-    text,
-    html
-  })
+  if (useBrevo()) {
+    await sendWithBrevo({ to, subject, text, html })
+  } else {
+    const { name, email } = sender()
+    await getTransporter().sendMail({ from: `${name} <${email}>`, to, subject, text, html })
+  }
   return { delivered: true }
 }
 
@@ -44,15 +79,23 @@ const PURPOSE_TEXT = {
   reset: { subject: 'Reset your ExamPrep password', line: 'Use this code to reset your ExamPrep password:' }
 }
 
-export function sendOtpMail(to, code, purpose, minutes) {
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
+
+// `link` (optional) opens the site's form with the code already filled in
+export function sendOtpMail(to, code, purpose, minutes, link = null) {
   const { subject, line } = PURPOSE_TEXT[purpose]
-  const text = `${line}\n\n${code}\n\nThe code expires in ${minutes} minutes. If you didn't request it, you can ignore this email.`
+  const footer = `The code expires in ${minutes} minutes. If you didn't request it, you can ignore this email.`
+  const text = [line, '', code, '', ...(link ? ['Or open this link to set a new password:', link, ''] : []), footer].join('\n')
+  const button = link
+    ? `<p style="margin:0 0 20px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:8px">Set a new password</a></p>`
+    : ''
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;color:#0f172a">
       <h2 style="margin:0 0 12px">Exam<span style="color:#4f46e5">Prep</span></h2>
       <p>${line}</p>
       <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:20px 0">${code}</p>
-      <p style="color:#64748b;font-size:13px">The code expires in ${minutes} minutes. If you didn't request it, you can ignore this email.</p>
+      ${button}
+      <p style="color:#64748b;font-size:13px">${footer}</p>
     </div>`
   return sendMail({ to, subject: `${subject}: ${code}`, text, html })
 }

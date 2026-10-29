@@ -245,7 +245,7 @@ function renderInline(text, keyPrefix = 'inline') {
 
   // Math spans skip escaped dollars (\$, e.g. the parser end-marker), both as
   // delimiters and inside the maths.
-  const tokenRegex = /(<br\s*\/?>|(?<!\\)\$\$(?:[^$\\]|\\[\s\S])+\$\$|(?<!\\)\$(?:[^$\\]|\\[\s\S])+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|(?:\*\*[^*\n]+\*\*)|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
+  const tokenRegex = /(<br\s*\/?>|(?:\\_){2,}|_{4,}|(?<!\\)\$\$(?:[^$\\]|\\[\s\S])+\$\$|(?<!\\)\$(?:[^$\\]|\\[\s\S])+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|(?:\*\*[^*\n]+\*\*)|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
 
   const chunks = text.split(tokenRegex)
   return chunks.map((chunk, idx) => {
@@ -265,6 +265,18 @@ function renderInline(text, keyPrefix = 'inline') {
           />
         )
       }
+    }
+
+    // Fill-in blank: \_\_\_ (escaped markdown) or ____
+    if (/^(?:(?:\\_){2,}|_{4,})$/.test(chunk)) {
+      return (
+        <span
+          key={key}
+          role="img"
+          aria-label="blank"
+          className="inline-block w-20 sm:w-24 mx-1 border-b-2 border-current align-baseline opacity-70"
+        />
+      )
     }
 
     // Line break: <br> or <br/>

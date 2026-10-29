@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen, Mail, Lock, AlertCircle, CheckCircle, ArrowLeft, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
+import TurnstileWidget from '../components/TurnstileWidget'
 
 const RESEND_SECONDS = 60
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
@@ -14,7 +15,7 @@ const linkButtonClass = 'text-primary font-semibold hover:underline disabled:opa
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
-  const { forgotPassword, resetPassword, error, loading, clearError } = useAuthStore()
+  const { forgotPassword, resetPassword, fetchAuthConfig, error, loading, clearError } = useAuthStore()
   const { syncUserData } = useAppStore()
 
   const [step, setStep] = useState('email')
@@ -26,11 +27,49 @@ export default function ForgotPasswordPage() {
   const [cooldown, setCooldown] = useState(0)
   const [successMsg, setSuccessMsg] = useState('')
   const [localError, setLocalError] = useState('')
+  const [emailDisabled, setEmailDisabled] = useState(false)
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState(null)
+  const [checking, setChecking] = useState(false)
   const resettingRef = useRef(false)
+  const humanCheckRef = useRef(null)
 
   useEffect(() => {
     clearError()
   }, [clearError])
+
+  useEffect(() => {
+    let active = true
+    fetchAuthConfig().then((config) => {
+      if (!active) return
+      if (config?.emailEnabled === false) setEmailDisabled(true)
+      setTurnstileSiteKey(config?.turnstileSiteKey || null)
+    })
+    return () => { active = false }
+  }, [fetchAuthConfig])
+
+  // The link in the reset email opens /forgot-password#email=...&code=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.slice(1))
+    const linkEmail = params.get('email')
+    const linkCode = params.get('code')
+    if (!linkEmail || !/^\d{6}$/.test(linkCode || '')) return
+    setEmail(linkEmail)
+    setCode(linkCode)
+    setStep('reset')
+    setSuccessMsg('Choose a new password for your account.')
+    // Keep the code out of the address bar and browser history
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [])
+
+  // Token from the Cloudflare check (null when it's off); shows an error if it never passed
+  const getHumanToken = async () => {
+    if (!turnstileSiteKey) return { ok: true, token: null }
+    setChecking(true)
+    const token = await humanCheckRef.current?.getToken()
+    setChecking(false)
+    if (!token) setLocalError("We couldn't confirm you're human. Please refresh the page and try again.")
+    return { ok: !!token, token }
+  }
 
   const counting = cooldown > 0
   useEffect(() => {
@@ -54,7 +93,9 @@ export default function ForgotPasswordPage() {
     setSuccessMsg('')
     clearError()
 
-    const result = await forgotPassword(email.trim())
+    const human = await getHumanToken()
+    if (!human.ok) return
+    const result = await forgotPassword(email.trim(), human.token)
     if (result.success) {
       setCode('')
       setPassword('')
@@ -97,11 +138,13 @@ export default function ForgotPasswordPage() {
   }
 
   const handleResend = async () => {
-    if (cooldown > 0 || loading) return
+    if (cooldown > 0 || loading || checking) return
     setLocalError('')
     setSuccessMsg('')
     clearError()
-    const result = await forgotPassword(email.trim())
+    const human = await getHumanToken()
+    if (!human.ok) return
+    const result = await forgotPassword(email.trim(), human.token)
     if (result.success) {
       setCode('')
       setSuccessMsg('A new code has been sent to your email.')
@@ -154,6 +197,13 @@ export default function ForgotPasswordPage() {
           </div>
         )}
 
+        {emailDisabled && (
+          <div className="p-3 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-btn flex items-start gap-2 text-xs">
+            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+            <span>Password reset emails are temporarily unavailable. If you signed up with Google, you can still sign in with Google.</span>
+          </div>
+        )}
+
         {/* Form */}
         {step === 'email' ? (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -178,10 +228,10 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || checking || emailDisabled}
               className={submitClass}
             >
-              {loading ? 'Sending code...' : 'Send Reset Code'}
+              {checking ? 'Checking...' : loading ? 'Sending code...' : 'Send Reset Code'}
             </button>
           </form>
         ) : (
@@ -273,7 +323,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={cooldown > 0 || loading}
+                disabled={cooldown > 0 || loading || checking}
                 className={linkButtonClass}
               >
                 {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend code'}
@@ -288,6 +338,9 @@ export default function ForgotPasswordPage() {
             </div>
           </form>
         )}
+
+        {/* Stays mounted across both steps so "Resend code" gets a fresh token too */}
+        <TurnstileWidget ref={humanCheckRef} siteKey={emailDisabled ? null : turnstileSiteKey} />
 
         <div className="text-center pt-2">
           <Link to="/login" className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-primary transition-colors font-medium">
