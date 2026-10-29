@@ -243,9 +243,13 @@ export function requireAuth(req, res, next) {
 }
 
 // Admins (comma-separated ADMIN_EMAILS) can see and update every issue report.
+// ADMIN_EMAILS: comma-separated developer emails (they also get every new report)
+export function adminEmails() {
+  return (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+}
+
 export function isAdminEmail(email) {
-  const admins = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-  return !!email && admins.includes(email.toLowerCase())
+  return !!email && adminEmails().includes(email.toLowerCase())
 }
 
 export function requireAdmin(req, res, next) {

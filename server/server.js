@@ -22,13 +22,14 @@ import {
   requireAuth,
   requireAdmin,
   isAdminEmail,
+  adminEmails,
   loginLockedFor,
   recordFailedLogin,
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
 import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './services/discussions.js'
-import { sendOtpMail, canSendEmail } from './services/mailer.js'
+import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
@@ -574,6 +575,16 @@ app.post('/api/reports', requireAuth, reportLimiter, (req, res) => {
       message: text
     })
     res.status(201).json({ message: 'Thanks! Your report has been sent.', report })
+
+    // Email the developers after replying; a failed email doesn't lose the report
+    const admins = adminEmails()
+    if (admins.length) {
+      const base = appUrl()
+      sendReportMail(admins, report, {
+        question: questionId !== null ? questions.find(q => q.id === questionId) : null,
+        link: base ? `${base}/report` : null
+      }).catch(err => console.error('Could not email the report:', err.message))
+    }
   } catch (err) {
     console.error('Report error:', err)
     res.status(500).json({ error: 'Failed to send the report.' })
