@@ -21,6 +21,7 @@ import NotesPage from './pages/NotesPage'
 import ProfilePage from './pages/ProfilePage'
 import DiscussionPage from './pages/DiscussionPage'
 import ReportPage from './pages/ReportPage'
+import BookletPage from './pages/BookletPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -71,6 +72,7 @@ function App() {
           <Route path="/pyq" element={<PYQPage />} />
           <Route path="/pyq-mock" element={<PYQMockTestsPage />} />
           <Route path="/mock-tests" element={<MockTestsPage />} />
+          <Route path="/booklet" element={<BookletPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/discussion" element={<DiscussionPage />} />

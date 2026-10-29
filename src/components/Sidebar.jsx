@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function Sidebar() {
@@ -23,7 +23,8 @@ export default function Sidebar() {
   const [hoveredTooltip, setHoveredTooltip] = useState(null)
 
   const isDiscussion = location.pathname === '/discussion'
-  const isPracticingOrDiscussion = isPracticeActive || isDiscussion
+  const isBooklet = location.pathname.startsWith('/booklet')
+  const isPracticingOrDiscussion = isPracticeActive || isDiscussion || isBooklet
 
   // Reset manual toggle when navigation or practice mode switches
   React.useEffect(() => {
@@ -69,6 +70,7 @@ export default function Sidebar() {
     { name: 'Practice PYQs', path: '/pyq', icon: FileText },
     { name: 'PYQ Mock Tests', path: '/pyq-mock', icon: Clock },
     { name: 'Mock Tests', path: '/mock-tests', icon: BookOpen },
+    { name: 'PYQ Booklet', path: '/booklet', icon: BookText },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark, badge: bookmarksCount },
     { name: 'Scratchpad Notes', path: '/notes', icon: NotebookPen, badge: notesCount },
     { name: 'Discussion Forum', path: '/discussion', icon: MessageSquare },
