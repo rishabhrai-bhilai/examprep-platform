@@ -30,8 +30,8 @@ import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './
 import { sendOtpMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
-// Load environment variables
-dotenv.config()
+// Load environment variables from server/.env, whichever folder the server is started from
+dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
 
 const app = express()
 const PORT = process.env.PORT || 5000
