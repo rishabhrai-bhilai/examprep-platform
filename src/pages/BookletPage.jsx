@@ -539,7 +539,7 @@ export default function BookletPage() {
   // VIEW 2: TWO-AREA SPLIT SCREEN (Questions on Left, Discussion/Solution on Right)
   // ---------------------------------------------------------------------------------------
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] pb-16">
+    <div className="relative min-h-full pb-16">
       
       {/* 1. TOP BOOKLET HEADER & BREADCRUMBS */}
       <div className="sticky top-0 z-30 bg-card-light/95 dark:bg-card-dark/95 backdrop-blur-md border-b border-border-light dark:border-border-dark px-4 py-2.5 flex items-center justify-between gap-3 shadow-xs">
