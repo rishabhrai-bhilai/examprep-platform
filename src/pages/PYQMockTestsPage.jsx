@@ -870,39 +870,88 @@ export default function PYQMockTestsPage() {
 
         {/* 2. Year-wise List */}
         {subView === 'year' && (
-          <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Year Mock</h2>
-                <p className="text-sm text-slate-500 mt-1 font-medium">Select an exam year to generate a complete mock test.</p>
+          <div className="p-4 sm:p-6 md:p-8 lg:p-10 w-full max-w-[1520px] mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-border-light/60 dark:border-border-dark/60">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Calendar size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Practice Year Mock</h2>
+                      <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {yearPapers.length} Papers Available
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                      Select an exam year to launch a full-length timed mock examination with real exam simulation.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <button 
-                onClick={() => setSubView('hub')} 
-                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all shrink-0"
-              >
-                <ArrowLeft size={14} />
-                <span>Back to Options</span>
-              </button>
+              
+              <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                <button 
+                  onClick={() => setSubView('hub')} 
+                  className="h-10 px-4.5 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary/40 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all shrink-0 active:scale-95"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back to Options</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
               {yearPapers.map(paper => {
                 const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
-                const label = hasMultipleSets ? `${paper.year} Set ${paper.set} Exam Paper` : `${paper.year} Exam Paper`
                 return (
                   <div
                     key={paper.key}
                     onClick={() => handleStartYearMock(paper.year, paper.set)}
-                    className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center group min-h-[82px]"
+                    className="group relative p-4.5 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 overflow-hidden"
                   >
-                    <div>
-                      <span className="font-bold text-sm text-slate-855 dark:text-slate-100 block group-hover:text-primary transition-colors">
-                        {label}
-                      </span>
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-indigo-400 to-violet-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-base sm:text-lg font-extrabold text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors tracking-tight">
+                              GATE {paper.year}
+                            </span>
+                            {hasMultipleSets ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                                Set {paper.set}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                Official Mock
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                            {hasMultipleSets ? `Set ${paper.set} Full Mock Test` : 'Complete Exam Mock Test'}
+                          </p>
+                        </div>
+                        
+                        <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors flex items-center justify-center shrink-0">
+                          <FileText size={15} />
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded shrink-0">
-                      {paper.count} Questions
-                    </span>
+
+                    <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-350 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span>{paper.count} Questions</span>
+                      </span>
+
+                      <div className="flex items-center gap-1 text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform">
+                        <span>Start Mock</span>
+                        <ArrowRight size={13} />
+                      </div>
+                    </div>
                   </div>
                 )
               })}

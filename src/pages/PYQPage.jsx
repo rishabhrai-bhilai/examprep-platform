@@ -4,7 +4,7 @@ import {
   ThumbsUp, ThumbsDown, MessageSquare, Bookmark, Play, ChevronUp, ChevronDown, 
   ChevronLeft, ChevronRight,
   Check, X, AlertCircle, Calendar, BookOpen, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight,
-  Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain, Search, Filter, Grid, Flag
+  Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain, Search, Filter, Grid, Flag, FileText
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
@@ -179,6 +179,8 @@ export default function PYQPage() {
   const [limitQuestionsCount, setLimitQuestionsCount] = useState(15)
   const [maxAvailableQuestions, setMaxAvailableQuestions] = useState(0)
   const [randomPracticePending, setRandomPracticePending] = useState(false)
+  const [yearSearchQuery, setYearSearchQuery] = useState('')
+  const [yearEraFilter, setYearEraFilter] = useState('all')
 
   const scrollContainerRef = useRef(null)
 
@@ -243,6 +245,42 @@ export default function PYQPage() {
       return a.set - b.set
     })
   }, [questions])
+
+  const eraCounts = useMemo(() => {
+    let count2020s = 0
+    let count2010s = 0
+    let countPre2010 = 0
+    yearPapers.forEach(p => {
+      const yr = parseInt(p.year, 10)
+      if (yr >= 2020) count2020s++
+      else if (yr >= 2010) count2010s++
+      else countPre2010++
+    })
+    return {
+      all: yearPapers.length,
+      '2020s': count2020s,
+      '2010s': count2010s,
+      pre2010: countPre2010
+    }
+  }, [yearPapers])
+
+  const filteredYearPapers = useMemo(() => {
+    return yearPapers.filter(paper => {
+      const yrNum = parseInt(paper.year, 10)
+      if (yearEraFilter === '2020s' && (isNaN(yrNum) || yrNum < 2020)) return false
+      if (yearEraFilter === '2010s' && (isNaN(yrNum) || yrNum < 2010 || yrNum > 2019)) return false
+      if (yearEraFilter === 'pre2010' && (isNaN(yrNum) || yrNum >= 2010)) return false
+
+      if (yearSearchQuery.trim()) {
+        const query = yearSearchQuery.toLowerCase().trim()
+        const matchesYear = String(paper.year).toLowerCase().includes(query)
+        const matchesSet = `set ${paper.set}`.toLowerCase().includes(query) || `set${paper.set}`.toLowerCase().includes(query)
+        const matchesCombined = `gate ${paper.year}`.toLowerCase().includes(query)
+        if (!matchesYear && !matchesSet && !matchesCombined) return false
+      }
+      return true
+    })
+  }, [yearPapers, yearEraFilter, yearSearchQuery])
   
   // Get all unique subjects with counts
   const subjectsMap = questions.reduce((acc, q) => {
@@ -697,17 +735,36 @@ export default function PYQPage() {
 
       {/* 2. Year-wise List */}
       {view === 'year' && (
-        <div className="flex-1 min-h-0 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-4xl mx-auto space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Year Wise</h2>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Select a year to load its complete set of questions.</p>
+        <div className="flex-1 min-h-0 p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto no-scrollbar w-full max-w-[1520px] mx-auto space-y-6">
+          {/* Header section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-border-light/60 dark:border-border-dark/60">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">Practice Year Wise</h2>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {yearPapers.length} Papers Available
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Official GATE Computer Science question papers with complete solutions & verified answers.
+                  </p>
+                </div>
+              </div>
             </div>
             
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
               <button 
-                onClick={() => setView('hub')} 
-                className="h-10 px-4.5 border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all"
+                onClick={() => {
+                  setView('hub')
+                  setYearSearchQuery('')
+                  setYearEraFilter('all')
+                }} 
+                className="h-10 px-4.5 border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 hover:border-primary/40 font-extrabold text-xs rounded-btn flex items-center gap-2 shadow-sm transition-all active:scale-95"
               >
                 <ArrowLeft size={14} />
                 <span>Back to Categories</span>
@@ -715,33 +772,138 @@ export default function PYQPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {yearPapers.map(paper => {
-              const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
-              const title = hasMultipleSets ? `GATE ${paper.year} • Set ${paper.set}` : `GATE ${paper.year}`
-              return (
-                <div
-                  key={paper.key}
-                  onClick={() => startReelsSession(
-                    q => String(q.year) === String(paper.year) && parseSet(q.set) === parseSet(paper.set),
-                    title,
-                    `year=${paper.year}&set=${paper.set}`
-                  )}
-                  className="p-5 rounded-btn border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex justify-between items-center group min-h-[82px]"
+          {/* Filter & Search Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto no-scrollbar shrink-0">
+              {[
+                { id: 'all', label: 'All Papers', count: eraCounts.all },
+                { id: '2020s', label: '2020 – 2026', count: eraCounts['2020s'] },
+                { id: '2010s', label: '2010 – 2019', count: eraCounts['2010s'] },
+                { id: 'pre2010', label: 'Pre-2010', count: eraCounts.pre2010 },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setYearEraFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    yearEraFilter === tab.id
+                      ? 'bg-card-light dark:bg-card-dark text-primary shadow-xs font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
                 >
-                  <div>
-                    <span className="font-bold text-sm text-slate-850 dark:text-slate-100 block group-hover:text-primary transition-colors">
-                      {paper.year} {hasMultipleSets ? `Set ${paper.set}` : 'Exam Paper'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Official Paper</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-primary bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded shrink-0">
-                    {paper.count} Questions
+                  <span>{tab.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    yearEraFilter === tab.id
+                      ? 'bg-primary/10 text-primary font-bold'
+                      : 'bg-slate-200 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {tab.count}
                   </span>
-                </div>
-              )
-            })}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={yearSearchQuery}
+                onChange={(e) => setYearSearchQuery(e.target.value)}
+                placeholder="Search year or set (e.g. 2024, Set 2)..."
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              {yearSearchQuery && (
+                <button
+                  onClick={() => setYearSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded-md"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Cards Grid */}
+          {filteredYearPapers.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-card-light dark:bg-card-dark rounded-2xl border border-dashed border-border-light dark:border-border-dark">
+              <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                <Search size={20} />
+              </div>
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">No question papers found</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                No exam papers match "{yearSearchQuery}". Try clearing your search query or selecting a different era tab.
+              </p>
+              <button
+                onClick={() => {
+                  setYearSearchQuery('')
+                  setYearEraFilter('all')
+                }}
+                className="mt-4 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold rounded-xl transition-colors"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
+              {filteredYearPapers.map(paper => {
+                const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
+                const title = hasMultipleSets ? `GATE ${paper.year} • Set ${paper.set}` : `GATE ${paper.year}`
+                return (
+                  <div
+                    key={paper.key}
+                    onClick={() => startReelsSession(
+                      q => String(q.year) === String(paper.year) && parseSet(q.set) === parseSet(paper.set),
+                      title,
+                      `year=${paper.year}&set=${paper.set}`
+                    )}
+                    className="group relative p-4.5 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 overflow-hidden"
+                  >
+                    {/* Top gradient highlight on hover */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-indigo-400 to-violet-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-base sm:text-lg font-extrabold text-slate-850 dark:text-slate-100 group-hover:text-primary transition-colors tracking-tight">
+                              GATE {paper.year}
+                            </span>
+                            {hasMultipleSets ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                                Set {paper.set}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                Official Paper
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                            {hasMultipleSets ? `Set ${paper.set} Examination` : 'Complete Exam Paper'}
+                          </p>
+                        </div>
+                        
+                        <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800/80 text-slate-400 dark:text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors flex items-center justify-center shrink-0">
+                          <FileText size={15} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span>{paper.count} Questions</span>
+                      </span>
+
+                      <div className="flex items-center gap-1 text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform">
+                        <span>Solve Now</span>
+                        <ArrowRight size={13} />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
