@@ -42,11 +42,57 @@
 
 @layer base {
   html, body {
-    @apply font-sans m-0 p-0 overflow-x-hidden scroll-smooth;
+    @apply font-sans m-0 p-0 overflow-x-clip scroll-smooth;
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* The page's own background and scheme: the browser's window scrollbar (landing,
+     sign-in pages) is drawn on it, and was white with light-mode styling in dark mode */
+  html {
+    background-color: var(--color-bg-light);
+    color-scheme: light;
+  }
+  html.dark {
+    background-color: var(--color-bg-dark);
+    color-scheme: dark;
+  }
+}
+
+/* Scrollbars everywhere: thin, no track, a faint thumb that darkens while the
+   pointer is over that scroll area (scrollbar-* for Chrome/Firefox, ::-webkit-* for Safari) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.3) transparent;
+}
+*:hover {
+  scrollbar-color: rgb(148 163 184 / 0.6) transparent;
+}
+.dark,
+.dark * {
+  scrollbar-color: rgb(100 116 139 / 0.3) transparent;
+}
+.dark:hover,
+.dark *:hover {
+  scrollbar-color: rgb(100 116 139 / 0.65) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgb(148 163 184 / 0.35);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(148 163 184 / 0.65);
 }
 
 /* Custom Scrollbar Styles */

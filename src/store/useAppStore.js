@@ -84,6 +84,39 @@ const savePracticeLocally = (practice) => {
   }
 }
 
+// The browser keeps one person's study data (bookmarks, notes, mock history,
+// practice, votes) at a time. DATA_OWNER_KEY says whose: a user id, or 'guest'
+// for data made while signed out. Signing out wipes it, and signing in only
+// merges it into the account when it is that account's or a guest's.
+const DATA_OWNER_KEY = 'data_owner'
+const GUEST = 'guest'
+const USER_DATA_KEYS = ['bookmarks', 'bookmarkFolders', 'questionNotes', 'gate_mock_history', 'gate_pyq_mock_history',
+  PRACTICE_KEY, 'votes', 'solutionVotes', 'discussion_my_comment_ids']
+const VIDEO_NOTE_PREFIX = 'note_question_'
+
+// A browser that has never signed in holds guest data. One that is signed in but
+// has no owner yet is from before this existed and may hold anyone's, so it is dropped.
+if (!localStorage.getItem(DATA_OWNER_KEY) && !localStorage.getItem('auth_token')) {
+  localStorage.setItem(DATA_OWNER_KEY, GUEST)
+}
+
+const clearUserDataLocally = () => {
+  USER_DATA_KEYS.forEach((key) => localStorage.removeItem(key))
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith(VIDEO_NOTE_PREFIX))
+    .forEach((key) => localStorage.removeItem(key))
+}
+
+const emptyUserData = () => ({
+  bookmarks: [],
+  bookmarkFolders: { General: [] },
+  questionNotes: {},
+  practice: { attempts: {}, days: {} },
+  votes: {},
+  solutionVotes: {},
+  myCommentIds: []
+})
+
 // Example posts shipped with the app (never stored on the server)
 const getDummyDiscussions = () => {
   const normalized = {}
@@ -329,6 +362,16 @@ export const useAppStore = create((set, get) => ({
       })
       if (!res.ok) return
       const serverData = await res.json()
+
+      // Data left by another account must not leak into this one
+      const userId = useAuthStore.getState().user?.id
+      const owner = localStorage.getItem(DATA_OWNER_KEY)
+      if (!userId) return
+      if (owner !== userId && owner !== GUEST) {
+        clearUserDataLocally()
+        set(emptyUserData())
+      }
+      localStorage.setItem(DATA_OWNER_KEY, userId)
 
       // 1. Merge Bookmarks
       const localFolders = get().bookmarkFolders || { "General": [] }
@@ -940,15 +983,16 @@ export const useAppStore = create((set, get) => ({
   },
 }))
 
-// Signing out sends any unsent answers to that account, then forgets them here,
-// so the next person on this browser starts from their own numbers
+// Signing out sends any unsent answers to that account, then forgets all of that
+// account's data here, so the next person on this browser starts from their own
 useAuthStore.subscribe((state, prev) => {
   if (prev.isAuthenticated && !state.isAuthenticated) {
     if (attemptsSyncTimer && prev.token) {
       attemptsSyncToken = prev.token
       syncAttemptsToServer(useAppStore.getState().practice, { immediate: true })
     }
-    localStorage.removeItem(PRACTICE_KEY)
-    useAppStore.setState({ practice: { attempts: {}, days: {} } })
+    clearUserDataLocally()
+    localStorage.setItem(DATA_OWNER_KEY, GUEST)
+    useAppStore.setState(emptyUserData())
   }
 })

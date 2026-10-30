@@ -18,6 +18,7 @@ import QuestionIdBadge from '../components/QuestionIdBadge'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
+import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 
 export default function PYQPage() {
   const {
@@ -182,8 +183,6 @@ export default function PYQPage() {
   const [yearEraFilter, setYearEraFilter] = useState('all')
 
   const scrollContainerRef = useRef(null)
-  const touchStartRef = useRef(0)
-  const wheelAccumulatorRef = useRef(0)
 
   const safeIndex = (activeQuestionIndex >= 0 && activeQuestionIndex < activeQuestions.length) ? activeQuestionIndex : 0
   const currentQuestion = activeQuestions[safeIndex] || null
@@ -412,16 +411,10 @@ export default function PYQPage() {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowDown') {
         const el = scrollContainerRef.current
-        if (el) {
-          const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
-          if (isAtBottom) goToNextQuestion()
-        }
+        if (el && isAtBottom(el)) goToNextQuestion()
       } else if (e.key === 'ArrowUp') {
         const el = scrollContainerRef.current
-        if (el) {
-          const isAtTop = el.scrollTop === 0
-          if (isAtTop) goToPrevQuestion()
-        }
+        if (el && isAtTop(el)) goToPrevQuestion()
       }
     }
 
@@ -429,61 +422,8 @@ export default function PYQPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeQuestionIndex, cooldown, view, activeQuestions])
 
-  // Mouse wheel scroll boundary logic
-  const handleWheel = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) {
-      wheelAccumulatorRef.current = 0
-      return
-    }
-
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
-    const isAtTop = el.scrollTop <= 2
-
-    // If we are at the bottom and scrolling down
-    if (e.deltaY > 0 && isAtBottom) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += e.deltaY
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToNextQuestion()
-      }
-    } 
-    // If we are at the top and scrolling up
-    else if (e.deltaY < 0 && isAtTop) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += Math.abs(e.deltaY)
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToPrevQuestion()
-      }
-    } 
-    // Reset accumulator when scrolling inside boundaries
-    else {
-      wheelAccumulatorRef.current = 0
-    }
-  }
-
-  // Touch Swiping logic
-  const handleTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientY
-  }
-
-  const handleTouchEnd = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) return
-
-    const touchEnd = e.changedTouches[0].clientY
-    const deltaY = touchStartRef.current - touchEnd
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
-    const isAtTop = el.scrollTop === 0
-
-    if (deltaY > 60 && isAtBottom) {
-      goToNextQuestion()
-    } else if (deltaY < -60 && isAtTop) {
-      goToPrevQuestion()
-    }
-  }
+  const { onWheel: handleWheel, onTouchStart: handleTouchStart, onTouchEnd: handleTouchEnd } =
+    useReelGestures(scrollContainerRef, { onNext: goToNextQuestion, onPrev: goToPrevQuestion, disabled: cooldown })
 
   // Start a reels session with specific filter
   const startReelsSession = (filterFunc, filterName, queryParams = '', limit = null) => {
@@ -676,7 +616,7 @@ export default function PYQPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-bg-light dark:bg-bg-dark relative flex flex-col md:flex-row transition-colors duration-200">
+    <div className="h-full bg-bg-light dark:bg-bg-dark relative flex flex-col md:flex-row transition-colors duration-200">
       {fetching && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-md text-white">
           <div className="flex flex-col items-center space-y-4">
@@ -694,7 +634,7 @@ export default function PYQPage() {
       
       {/* 1. Practice Hub Selection View */}
       {view === 'hub' && (
-        <div className="flex-1 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-5xl mx-auto space-y-8">
+        <div className="flex-1 min-h-0 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-5xl mx-auto space-y-8">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice PYQs</h1>
             <p className="text-sm text-slate-500 mt-1">Select your preferred study workflow to begin practicing.</p>
@@ -795,7 +735,7 @@ export default function PYQPage() {
 
       {/* 2. Year-wise List */}
       {view === 'year' && (
-        <div className="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto no-scrollbar w-full max-w-[1520px] mx-auto space-y-6">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto no-scrollbar w-full max-w-[1520px] mx-auto space-y-6">
           {/* Header section */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-border-light/60 dark:border-border-dark/60">
             <div className="space-y-1">
@@ -969,7 +909,7 @@ export default function PYQPage() {
 
       {/* 3. Subject-wise List */}
       {view === 'subject' && (
-        <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark min-h-screen">
+        <div className="flex-1 min-h-0 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Subject Wise</h2>
@@ -1049,7 +989,7 @@ export default function PYQPage() {
 
       {/* 4. Topic-wise List */}
       {view === 'topic' && (
-        <div className="flex-1 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark min-h-screen">
+        <div className="flex-1 min-h-0 p-4 md:p-8 max-w-6xl mx-auto space-y-6 overflow-y-auto no-scrollbar bg-bg-light dark:bg-bg-dark">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Practice Topic Wise</h2>
@@ -1228,7 +1168,7 @@ export default function PYQPage() {
 
       {/* 5. Custom Mock Builder Wizard */}
       {view === 'wizard' && (
-        <div className="flex-1 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-4xl mx-auto space-y-6">
+        <div className="flex-1 min-h-0 p-6 md:p-10 overflow-y-auto no-scrollbar max-w-4xl mx-auto space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-light dark:border-border-dark">
             <div>
               <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Set Own Mock Paper</h2>
@@ -1626,7 +1566,7 @@ export default function PYQPage() {
                     onWheel={handleWheel}
                     onTouchStart={handleTouchStart}
                     onTouchEnd={handleTouchEnd}
-                    className="flex-1 overflow-y-auto p-4 sm:p-7 pr-14 md:pr-6 custom-scrollbar space-y-4 sm:space-y-6"
+                    className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-7 pr-14 md:pr-6 custom-scrollbar space-y-4 sm:space-y-6"
                   >
                     {/* Header tags */}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
@@ -2193,7 +2133,7 @@ export default function PYQPage() {
       {/* Question Limit Selector Modal */}
       <AnimatePresence>
         {showQuestionLimitModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex justify-center p-4 overflow-y-auto">
             {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
@@ -2209,7 +2149,7 @@ export default function PYQPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
               transition={{ type: 'spring', duration: 0.4 }}
-              className="relative w-full max-w-md bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft-lg p-6 space-y-6 z-10"
+              className="relative my-auto w-full max-w-md bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card shadow-soft-lg p-6 space-y-6 z-10"
             >
               {/* Header */}
               <div className="space-y-1.5">

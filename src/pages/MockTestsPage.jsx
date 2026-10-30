@@ -9,6 +9,7 @@ import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import { getTags } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
+import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
@@ -124,8 +125,6 @@ export default function MockTestsPage() {
   const [direction, setDirection] = useState('next')
   const [cooldown, setCooldown] = useState(false)
   const scrollContainerRef = useRef(null)
-  const touchStartRef = useRef(0)
-  const wheelAccumulatorRef = useRef(0)
 
   const variants = {
     initial: (dir) => ({
@@ -171,54 +170,8 @@ export default function MockTestsPage() {
     }
   }
 
-  const handleTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientY
-  }
-
-  const handleTouchEnd = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) return
-
-    const touchEnd = e.changedTouches[0].clientY
-    const deltaY = touchStartRef.current - touchEnd
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 2
-    const isAtTop = el.scrollTop === 0
-
-    if (deltaY > 60 && isAtBottom) {
-      goToNextQuestion()
-    } else if (deltaY < -60 && isAtTop) {
-      goToPrevQuestion()
-    }
-  }
-
-  const handleWheel = (e) => {
-    const el = scrollContainerRef.current
-    if (!el || cooldown) {
-      wheelAccumulatorRef.current = 0
-      return
-    }
-
-    const isAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 4
-    const isAtTop = el.scrollTop <= 2
-
-    if (e.deltaY > 0 && isAtBottom) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += e.deltaY
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToNextQuestion()
-      }
-    } else if (e.deltaY < 0 && isAtTop) {
-      e.preventDefault()
-      wheelAccumulatorRef.current += Math.abs(e.deltaY)
-      if (wheelAccumulatorRef.current >= 350) {
-        wheelAccumulatorRef.current = 0
-        goToPrevQuestion()
-      }
-    } else {
-      wheelAccumulatorRef.current = 0
-    }
-  }
+  const { onWheel: handleWheel, onTouchStart: handleTouchStart, onTouchEnd: handleTouchEnd } =
+    useReelGestures(scrollContainerRef, { onNext: goToNextQuestion, onPrev: goToPrevQuestion, disabled: cooldown })
 
   // Keyboard navigation
   useEffect(() => {
@@ -227,12 +180,12 @@ export default function MockTestsPage() {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowDown') {
         const el = scrollContainerRef.current
-        if (el && el.scrollHeight - el.scrollTop <= el.clientHeight + 2) {
+        if (el && isAtBottom(el)) {
           goToNextQuestion()
         }
       } else if (e.key === 'ArrowUp') {
         const el = scrollContainerRef.current
-        if (el && el.scrollTop === 0) {
+        if (el && isAtTop(el)) {
           goToPrevQuestion()
         }
       }
@@ -478,7 +431,7 @@ export default function MockTestsPage() {
   // 1. Tests Selection List View
   if (view === 'list') {
     return (
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark min-h-screen">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
         <div>
           <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">Mock Tests</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -591,7 +544,7 @@ export default function MockTestsPage() {
                     onWheel={handleWheel}
                     onTouchStart={handleTouchStart}
                     onTouchEnd={handleTouchEnd}
-                    className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
+                    className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 md:p-8 space-y-4 custom-scrollbar"
                   >
                     {/* Question Header */}
                     <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-100 dark:border-slate-800/40 pb-3">
@@ -932,7 +885,7 @@ export default function MockTestsPage() {
     }
 
     return (
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark min-h-screen print:bg-white print:p-0 print:text-black">
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark print:bg-white print:p-0 print:text-black">
         {/* Print Only Title */}
         <div className="hidden print:block text-center space-y-2 pb-6 border-b border-slate-200">
           <h1 className="text-2xl font-bold">GATE CSE Mock Test Report</h1>

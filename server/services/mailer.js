@@ -22,7 +22,8 @@ function sender() {
   return process.env.SMTP_USER ? { name: 'ExamPrep', email: process.env.SMTP_USER } : null
 }
 
-async function sendWithBrevo({ to, subject, text, html }) {
+// `to` is one address or a list; `replyTo` is optional
+async function sendWithBrevo({ to, subject, text, html, replyTo }) {
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -30,7 +31,14 @@ async function sendWithBrevo({ to, subject, text, html }) {
       'Content-Type': 'application/json',
       Accept: 'application/json'
     },
-    body: JSON.stringify({ sender: sender(), to: [{ email: to }], subject, textContent: text, htmlContent: html }),
+    body: JSON.stringify({
+      sender: sender(),
+      to: [].concat(to).map(email => ({ email })),
+      ...(replyTo ? { replyTo: { email: replyTo } } : {}),
+      subject,
+      textContent: text,
+      htmlContent: html
+    }),
     signal: AbortSignal.timeout(10000)
   })
   if (!res.ok) {
@@ -57,7 +65,7 @@ function getTransporter() {
   return transporter
 }
 
-export async function sendMail({ to, subject, text, html }) {
+export async function sendMail({ to, subject, text, html, replyTo }) {
   if (!isConfigured()) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Email is not configured on the server (BREVO_API_KEY + MAIL_FROM, or SMTP_USER / SMTP_PASS).')
@@ -66,10 +74,10 @@ export async function sendMail({ to, subject, text, html }) {
     return { delivered: false }
   }
   if (useBrevo()) {
-    await sendWithBrevo({ to, subject, text, html })
+    await sendWithBrevo({ to, subject, text, html, replyTo })
   } else {
     const { name, email } = sender()
-    await getTransporter().sendMail({ from: `${name} <${email}>`, to, subject, text, html })
+    await getTransporter().sendMail({ from: `${name} <${email}>`, to: [].concat(to).join(', '), subject, text, html, replyTo })
   }
   return { delivered: true }
 }
@@ -98,4 +106,47 @@ export function sendOtpMail(to, code, purpose, minutes, link = null) {
       <p style="color:#64748b;font-size:13px">${footer}</p>
     </div>`
   return sendMail({ to, subject: `${subject}: ${code}`, text, html })
+}
+
+const REPORT_LABELS = { question: 'Wrong question / answer', bug: 'Bug', suggestion: 'Suggestion', other: 'Other' }
+
+// Tells the developers about a new issue report. Replying goes to the reporter.
+// `question` (optional) is the reported question; `link` opens the reports page.
+export function sendReportMail(to, report, { question = null, link = null } = {}) {
+  const label = REPORT_LABELS[report.category] || report.category
+  const reporter = `${report.userName || 'A user'} <${report.userEmail}>`
+  const questionLine = question
+    ? `Question ${question.id} (GATE ${question.year}${question.set ? ` set ${question.set}` : ''}, ${question.subject})`
+    : null
+  const excerpt = question?.question ? String(question.question).replace(/\s+/g, ' ').slice(0, 300) : ''
+
+  const text = [
+    `New report: ${label}`,
+    `From: ${reporter}`,
+    ...(questionLine ? [questionLine, excerpt ? `"${excerpt}"` : ''] : []),
+    ...(report.page ? [`Page: ${report.page}`] : []),
+    '',
+    report.message,
+    '',
+    ...(link ? [`All reports: ${link}`] : []),
+    'Reply to this email to answer the reporter.'
+  ].join('\n')
+
+  const row = (name, value) => `<tr><td style="padding:4px 12px 4px 0;color:#64748b;vertical-align:top">${name}</td><td style="padding:4px 0">${value}</td></tr>`
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 4px">Exam<span style="color:#4f46e5">Prep</span> report</h2>
+      <p style="margin:0 0 16px;color:#64748b">${escapeHtml(label)}</p>
+      <table style="font-size:14px;border-collapse:collapse;margin-bottom:16px">
+        ${row('From', escapeHtml(reporter))}
+        ${questionLine ? row('Question', escapeHtml(questionLine)) : ''}
+        ${report.page ? row('Page', escapeHtml(report.page)) : ''}
+      </table>
+      ${excerpt ? `<p style="font-size:13px;color:#475569;border-left:3px solid #cbd5e1;padding-left:10px">${escapeHtml(excerpt)}</p>` : ''}
+      <p style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">${escapeHtml(report.message)}</p>
+      ${link ? `<p><a href="${escapeHtml(link)}" style="color:#4f46e5;font-weight:bold">Open all reports</a></p>` : ''}
+      <p style="color:#64748b;font-size:12px">Reply to this email to answer the reporter.</p>
+    </div>`
+
+  return sendMail({ to, subject: `[ExamPrep report] ${label}${question ? ` · Q${question.id}` : ''}`, text, html, replyTo: report.userEmail })
 }

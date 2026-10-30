@@ -294,7 +294,7 @@ export default function DiscussionDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] w-screen h-screen flex flex-col bg-black/50 md:bg-slate-50 md:dark:bg-slate-950 overflow-hidden font-sans">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-black/50 md:bg-slate-50 md:dark:bg-slate-950 overflow-hidden font-sans">
       
       <div className="flex flex-1 relative min-h-0 w-full h-full">
         
@@ -528,7 +528,7 @@ export default function DiscussionDrawer({
 
         {/* --- RIGHT PANEL: DISCUSSION WORKSPACE (YouTube style Bottom Sheet on Mobile) --- */}
         <div 
-          className="fixed bottom-0 left-0 right-0 h-[72vh] md:h-full md:relative md:flex-1 flex flex-col overflow-hidden bg-card-light dark:bg-card-dark md:bg-slate-100 md:dark:bg-slate-950 rounded-t-2xl md:rounded-none shadow-2xl md:shadow-none border-t border-border-light dark:border-border-dark md:border-t-0 z-50 animate-slide-up"
+          className="fixed bottom-0 left-0 right-0 h-[72dvh] md:h-full md:relative md:flex-1 flex flex-col overflow-hidden bg-card-light dark:bg-card-dark md:bg-slate-100 md:dark:bg-slate-950 rounded-t-2xl md:rounded-none shadow-2xl md:shadow-none border-t border-border-light dark:border-border-dark md:border-t-0 z-50 animate-slide-up"
         >
           {/* YouTube Bottom Sheet Drag Handle */}
           <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2.5 shrink-0 md:hidden" />

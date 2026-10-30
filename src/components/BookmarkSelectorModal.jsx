@@ -28,8 +28,8 @@ export default function BookmarkSelectorModal() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex items-center justify-center p-4 font-sans animate-fade-in">
-      <div className="w-full max-w-sm rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-6 shadow-xl space-y-5 animate-scale-up">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex justify-center p-4 overflow-y-auto font-sans animate-fade-in">
+      <div className="my-auto w-full max-w-sm rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark p-6 shadow-xl space-y-5 animate-scale-up">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-1">

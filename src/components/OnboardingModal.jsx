@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, Hash, Phone, Target, Loader2, AlertCircle, ArrowRight } from 'lucide-react'
+import { User, Cake, Phone, Target, Loader2, AlertCircle, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
+import { ageFromDob, dobInputRange, dobProblem } from '../../shared/profile.js'
 
 const PHONE_RE = /^\+?[0-9][0-9\s-]{6,15}$/
 
@@ -10,16 +11,16 @@ const getTargetYearOptions = () => {
   return [year + 1, year + 2, year + 3]
 }
 
-const validateProfileFields = ({ name, age, phone, targetYear }, { requireAge = true } = {}) => {
+const validateProfileFields = ({ name, dob, phone, targetYear }, { requireDob = true } = {}) => {
   const trimmedName = (name || '').trim()
   if (!trimmedName) return 'Please enter your name.'
   if (trimmedName.length > 60) return 'Name must be 60 characters or fewer.'
-  const ageStr = String(age ?? '').trim()
-  if (ageStr === '') {
-    if (requireAge) return 'Please enter your age.'
+  const dobStr = String(dob ?? '').trim()
+  if (dobStr === '') {
+    if (requireDob) return 'Please enter your date of birth.'
   } else {
-    const ageNum = Number(ageStr)
-    if (!Number.isInteger(ageNum) || ageNum < 10 || ageNum > 100) return 'Age must be a whole number between 10 and 100.'
+    const dobError = dobProblem(dobStr)
+    if (dobError) return dobError
   }
   const phoneStr = (phone || '').trim()
   if (phoneStr && !PHONE_RE.test(phoneStr)) return 'Please enter a valid phone number (digits, spaces or dashes, optional leading +).'
@@ -36,7 +37,7 @@ export default function OnboardingModal() {
   const { user, isAuthenticated, updateProfile, logout } = useAuthStore()
 
   const [name, setName] = useState(user?.name || '')
-  const [age, setAge] = useState(user?.age ? String(user.age) : '')
+  const [dob, setDob] = useState(user?.dob || '')
   const [phone, setPhone] = useState(user?.phone || '')
   const [targetYear, setTargetYear] = useState(user?.targetYear ? String(user.targetYear) : '')
   const [error, setError] = useState('')
@@ -48,7 +49,7 @@ export default function OnboardingModal() {
   useEffect(() => {
     if (user) {
       setName(user.name || '')
-      setAge(user.age ? String(user.age) : '')
+      setDob(user.dob || '')
       setPhone(user.phone || '')
       setTargetYear(user.targetYear ? String(user.targetYear) : '')
       setError('')
@@ -62,7 +63,7 @@ export default function OnboardingModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const validationError = validateProfileFields({ name, age, phone, targetYear })
+    const validationError = validateProfileFields({ name, dob, phone, targetYear })
     if (validationError) {
       setError(validationError)
       return
@@ -72,7 +73,7 @@ export default function OnboardingModal() {
     try {
       const result = await updateProfile({
         name: name.trim(),
-        age: Number(age),
+        dob,
         phone: phone.trim(),
         targetYear: targetYear ? Number(targetYear) : null,
         completeProfile: true
@@ -89,7 +90,7 @@ export default function OnboardingModal() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <div className="fixed inset-0 z-[1000] flex justify-center p-4 sm:p-6 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
         {/* Backdrop (not dismissable) */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -103,7 +104,7 @@ export default function OnboardingModal() {
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.94, opacity: 0, y: 15 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-md bg-card-light dark:bg-card-dark rounded-2xl shadow-2xl border border-border-light dark:border-border-dark p-6 sm:p-7 space-y-6 z-10 overflow-hidden"
+          className="relative my-auto w-full max-w-md bg-card-light dark:bg-card-dark rounded-2xl shadow-2xl border border-border-light dark:border-border-dark p-6 sm:p-7 space-y-6 z-10 overflow-hidden"
         >
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/15 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -139,24 +140,24 @@ export default function OnboardingModal() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="onboarding-age" className="text-xs font-semibold text-slate-500 uppercase">Age</label>
+              <label htmlFor="onboarding-dob" className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                  <Hash size={16} />
+                  <Cake size={16} />
                 </span>
                 <input
-                  id="onboarding-age"
-                  type="number"
+                  id="onboarding-dob"
+                  type="date"
                   required
-                  min={10}
-                  max={100}
-                  step={1}
-                  inputMode="numeric"
-                  value={age}
-                  onChange={(e) => setAge(e.target.value)}
+                  {...dobInputRange()}
+                  value={dob}
+                  onChange={(e) => setDob(e.target.value)}
                   className={inputClass}
                 />
               </div>
+              {dob && ageFromDob(dob) !== null && !dobProblem(dob) && (
+                <p className="text-[11px] text-slate-400">You are {ageFromDob(dob)}. This updates by itself on your birthday.</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
