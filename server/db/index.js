@@ -18,7 +18,8 @@ const FILES = {
   testRecords: path.join(DATA_DIR, 'test_records.json'),
   discussions: path.join(DATA_DIR, 'discussions.json'),
   reports: path.join(DATA_DIR, 'reports.json'),
-  attempts: path.join(DATA_DIR, 'attempts.json')
+  attempts: path.join(DATA_DIR, 'attempts.json'),
+  mockAttempts: path.join(DATA_DIR, 'mock_attempts.json')
 }
 
 // Safely read JSON file with default fallback
@@ -243,3 +244,23 @@ export const discussionDb = {
     return discussions
   }
 }
+
+// --- MOCK TEST ATTEMPTS ---
+// Every counted attempt, scored by the server: [{ id, userId, testId, attemptNo,
+// submittedAt, timeTaken, score, maxScore, correct, incorrect, unanswered, subjects }].
+// attemptNo 1 is the one used for global comparison.
+export const mockAttemptDb = {
+  getAll: () => readJson(FILES.mockAttempts, []),
+  getByUser: (userId) => readJson(FILES.mockAttempts, []).filter(a => a.userId === userId),
+  // First attempts of everyone at one test
+  getFirstAttempts: (testId) => readJson(FILES.mockAttempts, []).filter(a => a.testId === testId && a.attemptNo === 1),
+  create: (attempt) => {
+    const all = readJson(FILES.mockAttempts, [])
+    const attemptNo = all.filter(a => a.userId === attempt.userId && a.testId === attempt.testId).length + 1
+    const saved = { id: `ma-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...attempt, attemptNo }
+    all.push(saved)
+    writeJsonAtomic(FILES.mockAttempts, all)
+    return saved
+  }
+}
+

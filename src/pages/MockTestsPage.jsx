@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X } from 'lucide-react'
+import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X, Users } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
@@ -10,6 +10,9 @@ import AnswerProvenance from '../components/AnswerProvenance'
 import { getTags } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
+import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
+import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
+import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
@@ -44,6 +47,9 @@ export default function MockTestsPage() {
   // Report State variables
   const [reportData, setReportData] = useState(null)
   const [activeReportTab, setActiveReportTab] = useState('overview')
+  // Global comparison for the attempt in the report:
+  // { status: 'guest' | 'loading' | 'ready' | 'error' | 'uncounted', comparison?, message? }
+  const [comparisonState, setComparisonState] = useState({ status: 'loading' })
   const [questionFilter, setQuestionFilter] = useState('all')
 
   // Initialize questions inside a test
@@ -367,14 +373,20 @@ export default function MockTestsPage() {
     // Estimate rank: rank decreases exponentially as score increases
     const estimatedRank = Math.max(1, Math.round(50000 * Math.pow(0.93, Math.max(0, scaledScore - 15))))
 
+    // Under a minute isn't a real attempt: show the result but save nothing
+    const counted = isValidAttempt(timeTaken)
+
     // Save to local storage history
     const existingHistory = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
     const testNum = existingHistory.length + 1
+    const attemptNo = existingHistory.filter(h => h.testId === activeTest.id).length + 1
 
     const data = {
       testId: activeTest.id,
       testTitle: activeTest.title,
       displayName: `Mock Test ${testNum}`,
+      attemptNo,
+      counted,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       timestamp: Date.now(),
@@ -402,6 +414,15 @@ export default function MockTestsPage() {
       timeSpentMap: timeSpent // save raw time per question
     }
 
+    setReportData(data)
+    setActiveReportTab('overview')
+    setView('report')
+
+    if (!counted) {
+      setComparisonState({ status: 'uncounted' })
+      return
+    }
+
     // Every answered question also counts toward the user's practice record
     recordAttempts(testQuestions
       .filter(q => {
@@ -410,13 +431,30 @@ export default function MockTestsPage() {
       })
       .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
-    setReportData(data)
-
     const updatedHistory = [data, ...existingHistory]
     localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
     syncTestRecordsToServer()
 
-    setView('report')
+    // Signed in: the server scores it too, numbers the attempt and compares the first one
+    if (isSignedIn()) {
+      setComparisonState({ status: 'loading' })
+      submitMockAttempt(activeTest.id, answers, timeTaken)
+        .then((result) => {
+          if (!result.counted) return setComparisonState({ status: 'uncounted' })
+          const serverNo = result.attempt.attemptNo
+          if (serverNo !== attemptNo) {
+            const fixed = { ...data, attemptNo: serverNo }
+            setReportData(fixed)
+            const history = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
+            localStorage.setItem('gate_mock_history', JSON.stringify(history.map(h => h.timestamp === data.timestamp ? fixed : h)))
+            syncTestRecordsToServer()
+          }
+          setComparisonState({ status: 'ready', comparison: result.comparison })
+        })
+        .catch(err => setComparisonState({ status: 'error', message: err.message }))
+    } else {
+      setComparisonState({ status: 'guest' })
+    }
     
     // Trigger confetti celebration!
     confetti({
@@ -903,7 +941,10 @@ export default function MockTestsPage() {
             <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark mt-1">
               {activeTest.title} Analysis
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">Attempted on: {reportData.date}</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Attempted on: {reportData.date}
+              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">Attempt #{reportData.attemptNo}</span>}
+            </p>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -925,12 +966,25 @@ export default function MockTestsPage() {
           </div>
         </div>
 
+        {reportData.counted === false && (
+          <div className="p-3 rounded-btn border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2 no-print">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt isn't counted: it isn't saved and doesn't affect your analytics or rank. You can take the test again.</span>
+          </div>
+        )}
+        {reportData.counted !== false && reportData.attemptNo > 1 && (
+          <p className="text-[11px] text-slate-500 no-print">
+            This is attempt #{reportData.attemptNo} of this test. It's in your history, but only your first attempt counts for rank and percentile.
+          </p>
+        )}
+
         {/* Tab Controls (no-print) */}
         <div className="flex overflow-x-auto border-b border-border-light dark:border-border-dark no-print scrollbar-none gap-2">
           {[
             { id: 'overview', label: 'Overview', icon: TrendingUp },
             { id: 'subjects', label: 'Subjects & Topics', icon: Target },
             { id: 'time', label: 'Time Management', icon: Clock },
+            { id: 'compare', label: 'Global Comparison', icon: Users },
             { id: 'questions', label: 'Solutions Review', icon: BookOpen }
           ].map(tab => {
             const Icon = tab.icon
@@ -1437,6 +1491,16 @@ export default function MockTestsPage() {
         )}
 
         {/* --- TAB 4: SOLUTIONS & ERROR TAGGING --- */}
+        {activeReportTab === 'compare' && (
+          <div className="no-print">
+            {comparisonState.status === 'guest' && <LoginToCompare />}
+            {comparisonState.status === 'loading' && <p className="text-sm text-slate-500 py-8 text-center">Comparing with other students...</p>}
+            {comparisonState.status === 'error' && <p className="text-sm text-error py-8 text-center">Could not load the comparison: {comparisonState.message}</p>}
+            {comparisonState.status === 'uncounted' && <p className="text-sm text-slate-500 py-8 text-center">This attempt isn't counted, so there's no comparison for it.</p>}
+            {comparisonState.status === 'ready' && comparisonState.comparison && <GlobalComparison comparison={comparisonState.comparison} />}
+          </div>
+        )}
+
         {activeReportTab === 'questions' && (
           <div className="space-y-6">
             

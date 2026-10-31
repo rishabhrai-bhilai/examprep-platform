@@ -4,6 +4,7 @@ import { Flame, CheckCircle, Clock, BookOpen, ChevronRight, Play, Bookmark, Lock
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
+import { DiscussionStatsCard, AnalyticsLinkCard } from '../components/EngagementCards'
 import { dayKey } from '../../shared/practice.js'
 import { practiceSummary, subjectProgress, topicProgress, weakestTopics, recentActivity, formatDuration, timeAgo } from '../utils/practiceStats'
 
@@ -263,6 +264,8 @@ export default function DashboardPage() {
 
         {/* Right Col: Recent Activity & Saved Bookmarks */}
         <div className="space-y-6">
+          <AnalyticsLinkCard />
+          <DiscussionStatsCard />
           
           {/* Recent Activity */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
