@@ -4,7 +4,7 @@ import {
   BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, 
   ChevronUp, ChevronDown, Play, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, 
   Target, BarChart2, Zap, AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, 
-  Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter
+  Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter, Lock
 } from 'lucide-react'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
@@ -15,6 +15,9 @@ import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
+import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
+import { isSignedIn } from '../utils/engagementApi'
+import { Link } from 'react-router-dom'
 
 export default function PYQMockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
@@ -672,11 +675,17 @@ export default function PYQMockTestsPage() {
     // Save to local storage under gate_pyq_mock_history
     const existing = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
     const testNum = existing.length + 1
+    // Under a minute isn't a real attempt: show the result but save nothing.
+    // Repeats of the same paper are numbered (attempt 1, 2, ...)
+    const counted = isValidAttempt(timeTaken)
+    const attemptNo = existing.filter(h => h.testTitle === activeTestTitle).length + 1
 
     const data = {
       testId: `pyq-mock-${Date.now()}`,
       testTitle: activeTestTitle,
       displayName: `PYQ Mock Test ${testNum}`,
+      attemptNo,
+      counted,
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       timestamp: Date.now(),
@@ -703,6 +712,12 @@ export default function PYQMockTestsPage() {
       errorTags: {},
       timeSpentMap: timeSpent,
       modeInfo: activeTestModeInfo
+    }
+
+    if (!counted) {
+      setReportData(data)
+      setView('report')
+      return
     }
 
     // Every answered question also counts toward the user's practice record
@@ -2172,7 +2187,10 @@ export default function PYQMockTestsPage() {
             <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark mt-1">
               {reportData.displayName} Analysis
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5">Attempted on: {reportData.date} | Mode: {reportData.testTitle}</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Attempted on: {reportData.date} | Mode: {reportData.testTitle}
+              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">Attempt #{reportData.attemptNo}</span>}
+            </p>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -2196,6 +2214,23 @@ export default function PYQMockTestsPage() {
             </button>
           </div>
         </div>
+
+        {reportData.counted === false && (
+          <div className="p-3 rounded-btn border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2 no-print">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt isn't counted: it isn't saved and doesn't affect your analytics. You can take the test again.</span>
+          </div>
+        )}
+        {reportData.counted !== false && !isSignedIn() && (
+          <div className="p-4 rounded-card border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center gap-3 no-print">
+            <Lock size={18} className="text-primary shrink-0" />
+            <div className="flex-1 text-xs text-slate-600 dark:text-slate-300">
+              <p className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Keep this result and track your progress</p>
+              <p>Log in to save your PYQ test history to your account and see your personal analytics across all your tests. This result is added to your account when you log in.</p>
+            </div>
+            <Link to="/login" state={{ from: '/analytics' }} className="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-btn text-center shrink-0">Log in</Link>
+          </div>
+        )}
 
         {/* Tab Controls (no-print) */}
         <div className="flex overflow-x-auto border-b border-border-light dark:border-border-dark no-print scrollbar-none gap-2">

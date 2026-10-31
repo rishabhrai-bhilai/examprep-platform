@@ -113,3 +113,21 @@ export const votePost = (all, questionId, postId, userId, vote) => {
   else delete post.voters[userId]
   return { post }
 }
+
+// One user's part in the discussions: what they posted, the upvotes those posts got,
+// and replies other people made to them. postTimes feeds the activity streak.
+export const userDiscussionStats = (all, userId) => {
+  const stats = { solutionsPosted: 0, repliesPosted: 0, upvotesReceived: 0, repliesReceived: 0, postTimes: [] }
+  Object.values(all || {}).forEach(list => walk(list, (post, parent) => {
+    if (post.authorId === userId) {
+      if (parent) stats.repliesPosted++
+      else stats.solutionsPosted++
+      stats.upvotesReceived += Object.values(post.voters || {}).filter(v => v === 'up').length
+      if (post.timestamp) stats.postTimes.push(post.timestamp)
+    } else if (parent && parent.authorId === userId) {
+      stats.repliesReceived++
+    }
+    return false
+  }))
+  return stats
+}

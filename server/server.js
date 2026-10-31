@@ -10,9 +10,11 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey } from '../shared/practice.js'
 import { dobProblem } from '../shared/profile.js'
+import { findMockTest } from '../shared/mockTests.js'
+import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import {
   hashPassword,
   verifyPassword,
@@ -28,7 +30,7 @@ import {
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
-import { publicDiscussions, publicPost, addPost, deletePost, votePost } from './services/discussions.js'
+import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscussionStats } from './services/discussions.js'
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
@@ -783,6 +785,76 @@ app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimi
   } catch (err) {
     res.status(500).json({ error: 'Failed to save your vote.' })
   }
+})
+
+// 7. Discussion statistics for the dashboard
+app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
+  const { postTimes, ...stats } = userDiscussionStats(discussionDb.getAll(), req.user.id)
+  res.status(200).json(stats)
+})
+
+// 8. Mock tests. The server scores every attempt itself from the answers, so ranks
+// can't be faked from the browser. Only a user's first counted attempt at a test is
+// compared with others; later attempts are their own history (attempt 2, 3, ...).
+// Attempts under a minute aren't counted or saved, so the test can be retaken.
+const publicAttempt = ({ userId, ...attempt }) => attempt
+
+const comparisonFor = (testId, userId) => {
+  const first = mockAttemptDb.getFirstAttempts(testId)
+  const mine = first.find(a => a.userId === userId)
+  return mine ? compareAttempt(mine, first) : null
+}
+
+app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res) => {
+  try {
+    const test = findMockTest(req.params.testId)
+    if (!test) return res.status(404).json({ error: 'Test not found.' })
+
+    const timeTaken = Math.round(Number(req.body?.timeTaken))
+    if (!Number.isFinite(timeTaken) || timeTaken < 0 || timeTaken > test.durationMinutes * 60 + 120) {
+      return res.status(400).json({ error: 'Invalid test duration.' })
+    }
+    if (!isValidAttempt(timeTaken)) {
+      return res.status(200).json({ counted: false, reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.` })
+    }
+
+    const testQuestions = test.questions.map(id => questions.find(q => q.id === id)).filter(Boolean)
+    const answers = {}
+    const raw = req.body?.answers && typeof req.body.answers === 'object' ? req.body.answers : {}
+    testQuestions.forEach(q => { if (raw[q.id] !== undefined) answers[q.id] = raw[q.id] })
+
+    const result = scoreAnswers(testQuestions, answers)
+    const attempt = mockAttemptDb.create({
+      userId: req.user.id,
+      testId: test.id,
+      submittedAt: Date.now(),
+      timeTaken,
+      score: result.score,
+      maxScore: result.maxScore,
+      correct: result.correct,
+      incorrect: result.incorrect,
+      unanswered: result.unanswered,
+      subjects: result.subjects
+    })
+    res.status(201).json({
+      counted: true,
+      attempt: publicAttempt(attempt),
+      comparison: comparisonFor(test.id, req.user.id)
+    })
+  } catch (err) {
+    console.error('Mock attempt error:', err)
+    res.status(500).json({ error: 'Failed to save the attempt.' })
+  }
+})
+
+app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
+  const attempts = mockAttemptDb.getByUser(req.user.id).sort((a, b) => a.submittedAt - b.submittedAt).map(publicAttempt)
+  res.status(200).json(attempts)
+})
+
+app.get('/api/mock-tests/:testId/comparison', requireAuth, (req, res) => {
+  if (!findMockTest(req.params.testId)) return res.status(404).json({ error: 'Test not found.' })
+  res.status(200).json({ comparison: comparisonFor(req.params.testId, req.user.id) })
 })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---
