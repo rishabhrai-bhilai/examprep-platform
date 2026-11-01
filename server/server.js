@@ -10,11 +10,13 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb } from './db/index.js'
-import { mergePractice, sanitizePractice, practiceSummary, dayKey } from '../shared/practice.js'
-import { dobProblem } from '../shared/profile.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb } from './db/index.js'
+import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest } from '../shared/mockTests.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
+import { BADGES, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
+import { isAnswerCorrect } from '../shared/answers.js'
+import { dobProblem } from '../shared/profile.js'
 import {
   hashPassword,
   verifyPassword,
@@ -67,14 +69,59 @@ const isValidTimeZone = (tz) => {
   }
 }
 
-// solvedQuestions and streak on the user record are derived from their practice
-// attempts. The streak lapses with time, so this runs whenever the user is read.
+// Everything on the user record that is derived from their activity: solved count,
+// streaks and badges. Streaks lapse with time, so this runs whenever the user is read.
+//
+// The study streak counts days with meaningful activity (answering questions, which
+// includes tests, the Problem of the Day, or posting in discussions); signing in
+// alone never counts. Days are the user's own calendar days (their saved time zone).
+// Badges are awarded once and kept even if a streak later breaks.
+const userTimeZone = (userId) => attemptDb.getUserAttempts(userId).timeZone || null
+
+const activityStats = (user) => {
+  const saved = attemptDb.getUserAttempts(user.id)
+  const timeZone = saved.timeZone || null
+  const today = dayKey(Date.now(), timeZone)
+  const practice = practiceSummary(saved, today)
+  const potdDays = potdDb.getUserDays(user.id)
+  const discussion = userDiscussionStats(discussionDb.getAll(), user.id)
+
+  // Streak helpers count a day when it has attempts > 0
+  const active = { attempts: 1 }
+  const potdActive = Object.fromEntries(Object.keys(potdDays).map(day => [day, active]))
+  const activeDays = { ...(saved.days || {}), ...potdActive }
+  discussion.postTimes.forEach(t => { activeDays[dayKey(t, timeZone)] = active })
+
+  return {
+    today,
+    solved: practice.solved,
+    streak: currentStreak(activeDays, today),
+    longestStreak: longestStreak(activeDays),
+    potdStreak: currentStreak(potdActive, today),
+    longestPotdStreak: longestStreak(potdActive),
+    contributions: discussion.solutionsPosted + discussion.repliesPosted,
+    bookmarks: (bookmarkDb.getUserBookmarks(user.id).bookmarks || []).length,
+    discussion
+  }
+}
+
 const refreshPracticeStats = (user) => {
   if (!user) return user
-  const saved = attemptDb.getUserAttempts(user.id)
-  const summary = practiceSummary(saved, dayKey(Date.now(), saved.timeZone))
-  if (user.solvedQuestions === summary.solved && user.streak === summary.streak) return user
-  return userDb.update(user.id, { solvedQuestions: summary.solved, streak: summary.streak }) || user
+  const stats = activityStats(user)
+  const badges = { ...(user.badges || {}) }
+  BADGES.forEach(b => {
+    if (!badges[b.id] && b.check(stats)) badges[b.id] = Date.now()
+  })
+  const updates = {
+    solvedQuestions: stats.solved,
+    streak: stats.streak,
+    longestStreak: stats.longestStreak,
+    potdStreak: stats.potdStreak,
+    longestPotdStreak: stats.longestPotdStreak,
+    badges
+  }
+  const changed = Object.entries(updates).some(([k, v]) => JSON.stringify(user[k]) !== JSON.stringify(v))
+  return changed ? (userDb.update(user.id, updates) || user) : user
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -750,7 +797,8 @@ app.post('/api/discussions/:questionId/posts', requireAuth, postLimiter, (req, r
     const result = addPost(all, qid, author, req.body)
     if (result.error) return res.status(result.status).json({ error: result.error })
     discussionDb.saveAll(all)
-    res.status(201).json({ post: publicPost(result.post) })
+    const user = refreshPracticeStats(userDb.findById(req.user.id))
+    res.status(201).json({ post: publicPost(result.post), user: sanitizeUser(user) })
   } catch (err) {
     console.error('Post error:', err)
     res.status(500).json({ error: 'Failed to save your comment.' })
@@ -786,6 +834,13 @@ app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimi
     res.status(500).json({ error: 'Failed to save your vote.' })
   }
 })
+
+// Optional sign-in: who is asking, if anyone
+const optionalUser = (req) => {
+  const header = req.headers.authorization
+  const payload = header?.startsWith('Bearer ') ? verifyToken(header.slice(7)) : null
+  return payload?.userId ? userDb.findById(payload.userId) : null
+}
 
 // 7. Discussion statistics for the dashboard
 app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
@@ -855,6 +910,60 @@ app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
 app.get('/api/mock-tests/:testId/comparison', requireAuth, (req, res) => {
   if (!findMockTest(req.params.testId)) return res.status(404).json({ error: 'Test not found.' })
   res.status(200).json({ comparison: comparisonFor(req.params.testId, req.user.id) })
+})
+
+// 9. Problem of the Day: the same question for everyone on a given date, picked
+// from the date itself. The day's first attempt counts toward the streak, right or
+// wrong, so a hard question never breaks it.
+const potdIds = potdCandidates(questions)
+
+app.get('/api/potd', (req, res) => {
+  const user = refreshPracticeStats(optionalUser(req))
+  const queryZone = isValidTimeZone(req.query.timeZone) ? req.query.timeZone : null
+  const timeZone = (user && userTimeZone(user.id)) || queryZone
+  const date = dayKey(Date.now(), timeZone)
+  const questionId = problemOfTheDay(date, potdIds)
+  const today = user ? potdDb.getUserDays(user.id)[date] || null : null
+  res.status(200).json({
+    date,
+    questionId,
+    attempted: !!today,
+    correct: today ? today.correct : null,
+    potdStreak: user ? user.potdStreak || 0 : 0
+  })
+})
+
+app.post('/api/potd/attempt', requireAuth, postLimiter, (req, res) => {
+  try {
+    const userId = req.user.id
+    // The first time zone we hear about becomes the user's, so their days line up
+    const saved = attemptDb.getUserAttempts(userId)
+    if (!saved.timeZone && isValidTimeZone(req.body?.timeZone)) {
+      attemptDb.saveUserAttempts(userId, { ...sanitizePractice(saved), timeZone: req.body.timeZone })
+    }
+    const date = dayKey(Date.now(), userTimeZone(userId))
+    const questionId = problemOfTheDay(date, potdIds)
+    if (Number(req.body?.questionId) !== questionId) {
+      return res.status(409).json({ error: "That isn't today's problem any more. Refresh to get the new one." })
+    }
+    const q = questions.find(x => x.id === questionId)
+    const correct = isAnswerCorrect(q, req.body?.answer)
+    const { entry } = potdDb.record(userId, date, { questionId, correct, at: Date.now() })
+    const user = refreshPracticeStats(userDb.findById(userId))
+    res.status(200).json({ date, questionId, attempted: true, correct: entry.correct, potdStreak: user.potdStreak, user: sanitizeUser(user) })
+  } catch (err) {
+    console.error('POTD error:', err)
+    res.status(500).json({ error: "Failed to save today's problem." })
+  }
+})
+
+// 10. Badges: the app shows a pop-up for each earned badge until it's marked seen
+app.post('/api/badges/seen', requireAuth, (req, res) => {
+  const user = userDb.findById(req.user.id)
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter(id => user.badges?.[id]) : []
+  const badgesSeen = Array.from(new Set([...(user.badgesSeen || []), ...ids]))
+  const updated = userDb.update(user.id, { badgesSeen })
+  res.status(200).json({ user: sanitizeUser(updated) })
 })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---

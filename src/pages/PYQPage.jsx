@@ -15,6 +15,7 @@ import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import QuestionIdBadge from '../components/QuestionIdBadge'
+import { isSignedIn, submitProblemOfTheDay } from '../utils/engagementApi'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
@@ -206,9 +207,17 @@ export default function PYQPage() {
     )
   }
 
+  // Set when this session was opened from the Problem of the Day card
+  const potdQuestionIdRef = useRef(null)
+
   const recordCurrentAnswer = (answer) => {
     const timeSpentSec = Math.round((Date.now() - questionShownAtRef.current) / 1000)
     recordAttempt(currentQuestion.id, isAnswerCorrect(currentQuestion, answer), timeSpentSec)
+    // The day's first answer counts toward the Problem of the Day streak, right or wrong
+    if (potdQuestionIdRef.current === currentQuestion.id && isSignedIn()) {
+      potdQuestionIdRef.current = null
+      submitProblemOfTheDay(currentQuestion.id, answer).catch(err => console.warn('Problem of the Day:', err.message))
+    }
   }
 
   // --- STATS COMPILING ---
@@ -385,6 +394,7 @@ export default function PYQPage() {
   useEffect(() => {
     if (location.state?.startReels && location.state?.questionId) {
       const questionId = location.state.questionId
+      potdQuestionIdRef.current = location.state.potd ? questionId : null
       
       let practiceSubset = questions
       if (location.state?.bookmarkFolderQuestions) {

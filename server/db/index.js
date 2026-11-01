@@ -19,7 +19,8 @@ const FILES = {
   discussions: path.join(DATA_DIR, 'discussions.json'),
   reports: path.join(DATA_DIR, 'reports.json'),
   attempts: path.join(DATA_DIR, 'attempts.json'),
-  mockAttempts: path.join(DATA_DIR, 'mock_attempts.json')
+  mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
+  potd: path.join(DATA_DIR, 'potd.json')
 }
 
 // Safely read JSON file with default fallback
@@ -264,3 +265,17 @@ export const mockAttemptDb = {
   }
 }
 
+// --- PROBLEM OF THE DAY ---
+// { [userId]: { [dateKey]: { questionId, correct, at } } }; one entry per day
+export const potdDb = {
+  getUserDays: (userId) => readJson(FILES.potd, {})[userId] || {},
+  // Records the day's first attempt; later attempts the same day change nothing
+  record: (userId, dateKey, entry) => {
+    const all = readJson(FILES.potd, {})
+    const days = all[userId] || (all[userId] = {})
+    if (days[dateKey]) return { entry: days[dateKey], isNew: false }
+    days[dateKey] = entry
+    writeJsonAtomic(FILES.potd, all)
+    return { entry, isNew: true }
+  }
+}

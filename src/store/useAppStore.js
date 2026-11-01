@@ -149,6 +149,11 @@ const discussionRequest = async (method, path, body) => {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.')
+  // Posting can earn a badge, so the reply carries the updated user
+  if (data.user) {
+    localStorage.setItem('user', JSON.stringify(data.user))
+    useAuthStore.setState({ user: data.user })
+  }
   return data
 }
 

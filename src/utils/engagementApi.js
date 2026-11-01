@@ -1,5 +1,15 @@
-// Calls for mock test attempts and discussion stats.
+import { useAuthStore } from '../store/useAuthStore'
+
+// Calls for mock test attempts, the Problem of the Day, badges and discussion stats.
 // Each returns the parsed reply or throws with the server's message.
+
+const userTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  } catch {
+    return null
+  }
+}
 
 async function request(method, path, body) {
   const token = localStorage.getItem('auth_token')
@@ -10,6 +20,11 @@ async function request(method, path, body) {
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.')
+  // Replies that change streaks or badges carry the updated user
+  if (data.user && useAuthStore.getState().isAuthenticated) {
+    localStorage.setItem('user', JSON.stringify(data.user))
+    useAuthStore.setState({ user: data.user })
+  }
   return data
 }
 
@@ -23,5 +38,16 @@ export const fetchMyMockAttempts = () => request('GET', 'mock-tests/attempts/me'
 
 export const fetchMockComparison = (testId) =>
   request('GET', `mock-tests/${encodeURIComponent(testId)}/comparison`).then(d => d.comparison)
+
+// { date, questionId, attempted, correct, potdStreak }
+export const fetchProblemOfTheDay = () => {
+  const tz = userTimeZone()
+  return request('GET', `potd${tz ? `?timeZone=${encodeURIComponent(tz)}` : ''}`)
+}
+
+export const submitProblemOfTheDay = (questionId, answer) =>
+  request('POST', 'potd/attempt', { questionId, answer, timeZone: userTimeZone() })
+
+export const markBadgesSeen = (ids) => request('POST', 'badges/seen', { ids })
 
 export const fetchDiscussionStats = () => request('GET', 'discussions/stats/me')
