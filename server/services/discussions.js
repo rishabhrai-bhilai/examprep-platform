@@ -5,6 +5,11 @@
 // only the author (or an admin) can delete a post.
 
 export const MAX_POST_LENGTH = 5000
+// Drawings and pasted pictures are embedded as data URLs; they don't count toward
+// the text limit but have their own cap
+const MAX_POST_BYTES = 1.5 * 1024 * 1024
+const EMBEDDED_IMAGE_RE = /\]\(data:([^;)]*);base64,[A-Za-z0-9+/=]+\)/g
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 const POST_ID_RE = /^(sol|rep)-[a-z0-9-]{6,60}$/
 
 const walk = (list, fn, parent = null) => {
@@ -53,7 +58,11 @@ export const publicPost = toPublic
 export const addPost = (all, questionId, user, body) => {
   const content = typeof body?.content === 'string' ? body.content.trim() : ''
   if (!content) return { error: 'Please write something first.', status: 400 }
-  if (content.length > MAX_POST_LENGTH) return { error: `Please keep it under ${MAX_POST_LENGTH} characters.`, status: 400 }
+  const embedded = [...content.matchAll(EMBEDDED_IMAGE_RE)]
+  if (embedded.some(m => !ALLOWED_IMAGE_TYPES.includes(m[1]))) return { error: 'Only PNG, JPEG, WebP or GIF pictures can be attached.', status: 400 }
+  const textOnly = content.replace(EMBEDDED_IMAGE_RE, '](image)')
+  if (textOnly.length > MAX_POST_LENGTH) return { error: `Please keep the text under ${MAX_POST_LENGTH} characters.`, status: 400 }
+  if (content.length > MAX_POST_BYTES) return { error: 'Your drawings and pictures are too large. Please remove some and try again.', status: 400 }
 
   const list = all[questionId] || (all[questionId] = [])
   const parentId = body?.parentId !== undefined && body?.parentId !== null ? String(body.parentId) : null

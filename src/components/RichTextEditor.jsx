@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { parseInk, buildInkToken, renderInkOverlay } from '../utils/ink'
 import { 
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered, Link, 
   Table, Eye, Edit2, RotateCcw, RotateCw, Sparkles, Send, X, 
@@ -132,6 +133,15 @@ export async function compositeLayersToDataUrl(width, height, strokes = [], imag
 function parseInitialContent(raw = '') {
   if (!raw || typeof raw !== 'string') return { text: '', images: [] }
 
+  const ink = parseInk(raw)
+  if (ink) {
+    const rest = parseInitialContent(ink.text)
+    return {
+      text: ink.text,
+      images: [{ id: `ink-${Date.now()}`, src: ink.src, x: 0, y: 0, width: ink.width, isInk: true }, ...rest.images]
+    }
+  }
+
   const imageRegex = /!\[([^\]]*)\]\(((?:data:image\/[^;]+;base64,[A-Za-z0-9+/=]+|\S+?))\)/g
   const images = []
   let cleanText = raw
@@ -198,6 +208,8 @@ export default function RichTextEditor({
   // Layer 3: Pen Drawing Layer ("Draw" Mode)
   const [isDrawingMode, setIsDrawingMode] = useState(false)
   const [strokes, setStrokes] = useState([])
+  // The writing area grows with the text and scrolls as one page with the ink on it
+  const [contentHeight, setContentHeight] = useState(0)
   const [currentStroke, setCurrentStroke] = useState([])
   const [penColor, setPenColor] = useState('#6366f1')
   const [penSize, setPenSize] = useState(3)
@@ -269,15 +281,28 @@ export default function RichTextEditor({
     }
   }, [autoFocus])
 
+  // Grow the textarea to fit its text (at least the visible area), so text, ink and
+  // placed images scroll together instead of the text scrolling under fixed ink
+  useLayoutEffect(() => {
+    const ta = textareaRef.current
+    const container = containerRef.current
+    if (!ta || !container) return
+    ta.style.height = 'auto'
+    const inkBottom = images.reduce((m, img) => Math.max(m, (img.y || 0) + (img.height || 0)), 0)
+    const strokeBottom = strokes.reduce((m, st) => Math.max(m, ...(st.points || []).map(pt => pt.y + 20)), 0)
+    const next = Math.max(container.clientHeight, ta.scrollHeight, inkBottom, strokeBottom)
+    ta.style.height = `${next}px`
+    setContentHeight(next)
+  }, [textContent, images, strokes, activeHeight, isFullscreen, isExpanded, activeTab])
+
   // Resize and redraw drawing canvas
   useEffect(() => {
     const canvas = drawingCanvasRef.current
     const container = containerRef.current
     if (!canvas || !container) return
 
-    const rect = container.getBoundingClientRect()
-    canvas.width = rect.width || 800
-    canvas.height = rect.height || 500
+    canvas.width = container.clientWidth || 800
+    canvas.height = contentHeight || container.clientHeight || 500
 
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -323,7 +348,7 @@ export default function RichTextEditor({
       ctx.stroke()
       ctx.restore()
     }
-  }, [strokes, currentStroke, isEraser, penColor, penSize, activeHeight, isFullscreen, isExpanded])
+  }, [strokes, currentStroke, isEraser, penColor, penSize, activeHeight, isFullscreen, isExpanded, contentHeight])
 
   // Synchronize and composite all layers into single markdown string
   const syncLayers = useCallback(async (text, currentImages, currentStrokes) => {
@@ -346,14 +371,22 @@ export default function RichTextEditor({
         finalMd = finalMd ? `${finalMd}\n\n${imgTags}` : imgTags
       }
     } else if (currentStrokes.length > 0 || currentImages.length > 0) {
-      // Pen strokes exist (or strokes + images combined)
+      // Ink (with any placed images) becomes one transparent layer the width of the
+      // writing area, anchored at its top left, plus the text layout it was drawn on,
+      // so it's shown over the same words later (see utils/ink.js)
       const container = containerRef.current
-      const w = container?.clientWidth || 800
-      const h = container?.clientHeight || 500
-      const compositeResult = await compositeLayersToDataUrl(w, h, currentStrokes, currentImages)
-      if (compositeResult && compositeResult.dataUrl) {
-        const wOpt = compositeResult.width ? `|w:${compositeResult.width}` : ''
-        finalMd = finalMd ? `${finalMd}\n\n![${wOpt}](${compositeResult.dataUrl})` : `![${wOpt}](${compositeResult.dataUrl})`
+      const ta = textareaRef.current
+      const width = container?.clientWidth || 800
+      const overlay = await renderInkOverlay(width, currentStrokes, currentImages)
+      if (overlay) {
+        const style = ta ? window.getComputedStyle(ta) : null
+        const fontSize = style ? parseFloat(style.fontSize) : 14
+        const lineHeight = style ? (parseFloat(style.lineHeight) || fontSize * 1.625) : 22.75
+        const padding = style ? parseFloat(style.paddingTop) : 16
+        // Leading blank lines matter for where the ink sits, so only the end is trimmed
+        const body = (text || '').replace(/\s+$/, '')
+        const token = buildInkToken({ src: overlay.src, width, fontSize, lineHeight, padding })
+        finalMd = body ? `${body}\n\n${token}` : token
       }
     }
 
@@ -1411,7 +1444,7 @@ export default function RichTextEditor({
                 setSelectedImageId(null)
               }
             }}
-            className={`flex-1 relative flex flex-col h-full overflow-hidden bg-card-light dark:bg-card-dark ${
+            className={`flex-1 relative flex flex-col h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-card-light dark:bg-card-dark ${
               activeTab === 'split' ? 'border-r border-border-light dark:border-border-dark' : ''
             }`}
           >
@@ -1423,7 +1456,7 @@ export default function RichTextEditor({
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder={placeholder}
-              className={`w-full flex-1 p-4 bg-transparent resize-none focus:outline-none text-slate-800 dark:text-slate-100 font-sans leading-relaxed custom-scrollbar placeholder:text-slate-400 dark:placeholder:text-slate-600 z-0 ${
+              className={`w-full shrink-0 p-4 bg-transparent resize-none overflow-hidden focus:outline-none text-slate-800 dark:text-slate-100 font-sans leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600 z-0 ${
                 mode === 'full' ? 'text-sm md:text-base' : 'text-xs md:text-sm'
               }`}
             />
@@ -1438,15 +1471,21 @@ export default function RichTextEditor({
               onTouchStart={handleDrawingStart}
               onTouchMove={handleDrawingMove}
               onTouchEnd={handleDrawingEnd}
-              className={`absolute inset-0 w-full h-full ${
+              style={{ height: contentHeight || '100%' }}
+              className={`absolute top-0 left-0 w-full ${
                 isDrawingMode 
                   ? 'pointer-events-auto cursor-crosshair z-20' 
                   : 'pointer-events-none z-10'
               }`}
             />
 
+            {/* Ink saved earlier, fixed where it was drawn */}
+            {images.filter(img => img.isInk).map(img => (
+              <img key={img.id} src={img.src} alt="" draggable={false} className="absolute top-0 left-0 pointer-events-none select-none z-[5]" style={{ width: img.width }} />
+            ))}
+
             {/* LAYER 3: FREEFORM FLOATING IMAGES (DRAGGABLE ANYWHERE) */}
-            {images.map((img) => {
+            {images.filter(img => !img.isInk).map((img) => {
               const isSelected = selectedImageId === img.id
               return (
                 <div
