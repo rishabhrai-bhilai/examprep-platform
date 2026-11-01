@@ -10,7 +10,7 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, initStorage, flushStorage } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
@@ -1001,16 +1001,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Something went wrong on the server!' })
 })
 
-// Start server
-const server = app.listen(PORT, '0.0.0.0', () => {
+// Start serving once the data is loaded (from MongoDB when MONGODB_URI is set).
+// If the database can't be reached, stop instead of running on an empty disk.
+let server = null
+try {
+  await initStorage()
+} catch (err) {
+  console.error('Could not connect to MongoDB:', err.message)
+  process.exit(1)
+}
+server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running in ${NODE_ENV} mode on port ${PORT}`)
 })
 
 // Graceful Shutdown
 const gracefulShutdown = () => {
   console.log('Received kill signal, shutting down gracefully...')
-  server.close(() => {
+  server.close(async () => {
     console.log('Closed remaining connections.')
+    await flushStorage()
     process.exit(0)
   })
   setTimeout(() => {
