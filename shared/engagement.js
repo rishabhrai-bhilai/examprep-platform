@@ -1,8 +1,10 @@
 // Problem of the Day and badges, shared by the app and the server.
 
 // --- Problem of the Day ---
-// Everyone gets the same question on the same date (their own local date). The pick
-// is a hash of the date, so it needs no storage and is the same in app and server.
+// Everyone gets the same question on the same date (their own local date). The
+// candidates are put in a fixed shuffled order and each day takes the next one, so no
+// question repeats until every one has been used; then a new shuffled round starts.
+// It's worked out from the date alone, so it needs no storage and the app and server agree.
 
 const hash = (str) => {
   let h = 2166136261
@@ -20,8 +22,52 @@ export const potdCandidates = (questions) =>
     .map((q) => q.id)
     .sort((a, b) => a - b)
 
-export const problemOfTheDay = (dateKey, candidateIds) =>
-  candidateIds.length ? candidateIds[hash(`potd:${dateKey}`) % candidateIds.length] : null
+// Day 0 of the schedule; any fixed date works
+const POTD_START = Date.UTC(2026, 0, 1)
+const DAY_MS = 24 * 60 * 60 * 1000
+
+const dayNumber = (dateKey) => {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  return Math.round((Date.UTC(y, m - 1, d) - POTD_START) / DAY_MS)
+}
+
+// Repeatable pseudo-random numbers from a seed (mulberry32)
+const seededRandom = (seed) => () => {
+  seed = (seed + 0x6D2B79F5) | 0
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+}
+
+// The candidates in this round's order (Fisher-Yates with a seed per round)
+const roundCache = new Map()
+const roundOrder = (round, candidateIds) => {
+  const key = `${round}:${candidateIds.length}:${candidateIds[0]}:${candidateIds[candidateIds.length - 1]}`
+  if (!roundCache.has(key)) {
+    const order = [...candidateIds]
+    const random = seededRandom(hash(`potd-round:${round}`))
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1))
+      ;[order[i], order[j]] = [order[j], order[i]]
+    }
+    if (roundCache.size > 8) roundCache.clear()
+    roundCache.set(key, order)
+  }
+  return roundCache.get(key)
+}
+
+export const problemOfTheDay = (dateKey, candidateIds) => {
+  const n = candidateIds.length
+  if (!n) return null
+  const day = dayNumber(dateKey)
+  const round = Math.floor(day / n)
+  const position = ((day % n) + n) % n
+  const order = roundOrder(round, candidateIds)
+  // A new round mustn't open with the question that closed the last one
+  if (n > 1 && position === 0 && order[0] === roundOrder(round - 1, candidateIds)[n - 1]) return order[1]
+  if (n > 1 && position === 1 && order[0] === roundOrder(round - 1, candidateIds)[n - 1]) return order[0]
+  return order[position]
+}
 
 // --- Badges ---
 // Earned once and kept, even if a streak later breaks. `check` gets the user's stats:
