@@ -6,7 +6,7 @@ import {
   Check, X, AlertCircle, Calendar, BookOpen, Layers, Shuffle, Settings2, ArrowLeft, ArrowRight,
   Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain, Search, Filter, Grid, Flag, FileText
 } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/useAppStore'
 import { useReportStore } from '../store/useReportStore'
 import DiscussionDrawer from '../components/DiscussionDrawer'
@@ -209,6 +209,10 @@ export default function PYQPage() {
 
   // Set when this session was opened from the Problem of the Day card
   const potdQuestionIdRef = useRef(null)
+  // A Problem of the Day session is one question opened from the dashboard: no
+  // question grid, and leaving goes back to the dashboard
+  const [isPotdSession, setIsPotdSession] = useState(false)
+  const navigate = useNavigate()
 
   const recordCurrentAnswer = (answer) => {
     const timeSpentSec = Math.round((Date.now() - questionShownAtRef.current) / 1000)
@@ -395,6 +399,7 @@ export default function PYQPage() {
     if (location.state?.startReels && location.state?.questionId) {
       const questionId = location.state.questionId
       potdQuestionIdRef.current = location.state.potd ? questionId : null
+      setIsPotdSession(!!location.state.potd)
       
       let practiceSubset = questions
       if (location.state?.bookmarkFolderQuestions) {
@@ -437,6 +442,7 @@ export default function PYQPage() {
 
   // Start a reels session with specific filter
   const startReelsSession = (filterFunc, filterName, queryParams = '', limit = null) => {
+    setIsPotdSession(false)
     setFetching(true)
     try {
       let sourceQuestions = questions && questions.length > 0 ? questions : []
@@ -1763,7 +1769,7 @@ export default function PYQPage() {
                               </div>
                               <div className="p-3 rounded border border-success bg-emerald-500/5 text-success">
                                 <span className="text-[10px] block font-bold text-slate-400 uppercase mb-1">Correct Key:</span>
-                                <span>{formatAnswer(currentQuestion)}</span>
+                                <QuestionText inline text={formatAnswer(currentQuestion)} />
                               </div>
                             </div>
                           </div>
@@ -1811,14 +1817,14 @@ export default function PYQPage() {
             {!activeDiscussionQuestionId && (
               <div className="absolute right-2 md:right-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 sm:gap-3.5 z-20">
                 
-                {/* Back to practice menu */}
+                {/* Back to practice menu (or the dashboard, for the Problem of the Day) */}
                 <button
-                  onClick={() => setView('hub')}
+                  onClick={() => (isPotdSession ? navigate('/dashboard') : setView('hub'))}
                   className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-primary hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
                 >
                   <ArrowLeft size={16} className="sm:size-[18px]" />
                   <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Exit Practice
+                    {isPotdSession ? 'Back to Dashboard' : 'Exit Practice'}
                   </span>
                 </button>
 
@@ -1942,7 +1948,7 @@ export default function PYQPage() {
           </div> {/* Closes Main Question Viewport */}
 
           {/* Right Panel: Question Navigator Grid Wrapper (Desktop Only) */}
-          <div className={`hidden md:flex relative flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+          <div className={`${isPotdSession ? 'hidden' : 'hidden md:flex'} relative flex-col shrink-0 border-t md:border-t-0 md:border-l border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
             isNavigatorCollapsed ? 'w-full md:w-0 border-l-0' : 'w-full md:w-64'
           }`}>
             
@@ -2108,7 +2114,7 @@ export default function PYQPage() {
           {/* Single Bottom-Center Floating Question Grid Toggle Button (Icon Only) */}
           <button
             onClick={() => setShowMobilePalette(prev => !prev)}
-            className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full bg-primary hover:bg-primary-hover text-white shadow-2xl flex items-center justify-center border border-white/20 active:scale-95 transition-all md:hidden"
+            className={`${isPotdSession ? 'hidden' : 'flex'} fixed bottom-5 left-1/2 -translate-x-1/2 z-50 h-12 w-12 rounded-full bg-primary hover:bg-primary-hover text-white shadow-2xl items-center justify-center border border-white/20 active:scale-95 transition-all md:hidden`}
             title={showMobilePalette ? 'Close Palette' : 'Question Palette'}
           >
             {showMobilePalette ? <X size={22} /> : <Grid size={22} />}

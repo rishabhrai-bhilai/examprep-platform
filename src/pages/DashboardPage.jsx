@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Flame, CheckCircle, Clock, BookOpen, ChevronRight, Play, Bookmark, Lock, ArrowRight, Target } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
+import { questionPreview } from '../utils/questionPreview'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import { ProblemOfTheDayCard, DiscussionStatsCard, AnalyticsLinkCard } from '../components/EngagementCards'
 import { dayKey } from '../../shared/practice.js'
@@ -102,7 +103,7 @@ export default function DashboardPage() {
     { label: 'Questions Solved', value: solved, sub: hasPractice ? `of ${attempted} attempted` : 'None yet', icon: CheckCircle, tone: 'bg-emerald-500/10 text-emerald-500' },
     { label: 'Accuracy', value: accuracy === null ? '—' : `${accuracy}%`, sub: hasPractice ? 'of all answers' : 'Answer a question to see it', icon: Target, tone: 'bg-amber-500/10 text-amber-500' },
     { label: 'Practice Time', value: formatDuration(practiceSec), sub: hasPractice ? 'on answered questions' : 'Starts with your first answer', icon: Clock, tone: 'bg-blue-500/10 text-blue-500' },
-    { label: 'Saved Bookmarks', value: bookmarkedItems.length, sub: bookmarkedItems.length ? 'questions saved' : 'None yet', icon: Bookmark, tone: 'bg-indigo-500/10 text-indigo-500' }
+    { label: 'Saved Bookmarks', value: bookmarkedItems.length, sub: bookmarkedItems.length ? 'questions saved' : 'None yet', icon: Bookmark, tone: 'bg-indigo-500/10 text-indigo-500', to: '/bookmarks' }
   ]
 
   return (
@@ -144,8 +145,10 @@ export default function DashboardPage() {
 
       {/* Stats Summary Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        {statCards.map(({ label, value, sub, icon: Icon, tone }) => (
-          <div key={label} className="p-5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
+        {statCards.map(({ label, value, sub, icon: Icon, tone, to }) => {
+          const Card = to ? Link : 'div'
+          return (
+          <Card key={label} {...(to ? { to } : {})} className={`p-5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4 ${to ? 'hover:border-primary/40 transition-colors' : ''}`}>
             <div className={`h-12 w-12 rounded-btn flex items-center justify-center shrink-0 ${tone}`}>
               <Icon size={24} />
             </div>
@@ -154,8 +157,9 @@ export default function DashboardPage() {
               <p className="text-2xl font-extrabold mt-0.5">{value}</p>
               <p className="text-[10px] text-slate-400 truncate">{sub}</p>
             </div>
-          </div>
-        ))}
+          </Card>
+          )
+        })}
       </div>
 
       {/* Progress & Activities Split */}
@@ -320,7 +324,7 @@ export default function DashboardPage() {
                     to="/pyq"
                     className="p-2.5 block rounded-btn bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-text-primary-light dark:text-text-primary-dark font-medium truncate"
                   >
-                    {item.question}
+                    {questionPreview(item.question)}
                   </Link>
                 ))
               )}

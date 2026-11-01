@@ -13,6 +13,7 @@ import rateLimit from 'express-rate-limit'
 import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest } from '../shared/mockTests.js'
+import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import { BADGES, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
 import { isAnswerCorrect } from '../shared/answers.js'
@@ -848,11 +849,22 @@ app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
   res.status(200).json(stats)
 })
 
-// 8. Mock tests. The server scores every attempt itself from the answers, so ranks
+// 8. Mock tests and full year PYQ papers. The server scores every attempt itself from the answers, so ranks
 // can't be faked from the browser. Only a user's first counted attempt at a test is
 // compared with others; later attempts are their own history (attempt 2, 3, ...).
 // Attempts under a minute aren't counted or saved, so the test can be retaken.
 const publicAttempt = ({ userId, ...attempt }) => attempt
+
+// A comparable test: a mock test, or a full year PYQ paper (pyq-2025-s1)
+const resolveTest = (id) => {
+  const mock = findMockTest(id)
+  if (mock) return { id: mock.id, durationMinutes: mock.durationMinutes, questions: mock.questions }
+  if (isPyqPaperId(id)) {
+    const paper = pyqPaperQuestions(questions, id)
+    if (paper.length) return { id, durationMinutes: pyqPaperMinutes(paper.length), questions: paper.map(q => q.id) }
+  }
+  return null
+}
 
 const comparisonFor = (testId, userId) => {
   const first = mockAttemptDb.getFirstAttempts(testId)
@@ -862,7 +874,7 @@ const comparisonFor = (testId, userId) => {
 
 app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res) => {
   try {
-    const test = findMockTest(req.params.testId)
+    const test = resolveTest(req.params.testId)
     if (!test) return res.status(404).json({ error: 'Test not found.' })
 
     const timeTaken = Math.round(Number(req.body?.timeTaken))
@@ -908,7 +920,7 @@ app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
 })
 
 app.get('/api/mock-tests/:testId/comparison', requireAuth, (req, res) => {
-  if (!findMockTest(req.params.testId)) return res.status(404).json({ error: 'Test not found.' })
+  if (!resolveTest(req.params.testId)) return res.status(404).json({ error: 'Test not found.' })
   res.status(200).json({ comparison: comparisonFor(req.params.testId, req.user.id) })
 })
 

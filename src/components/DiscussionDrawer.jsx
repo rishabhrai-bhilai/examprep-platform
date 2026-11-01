@@ -494,7 +494,7 @@ export default function DiscussionDrawer({
                        </div>
                        <div className="p-2.5 rounded border border-success bg-emerald-500/5 text-success">
                          <span className="text-[9px] block font-bold text-slate-40 mt-0.5 uppercase mb-0.5">Correct Key:</span>
-                         <span>{formatAnswer(currentQuestion)}</span>
+                         <QuestionText inline text={formatAnswer(currentQuestion)} />
                        </div>
                       </div>
                   </div>

@@ -14,6 +14,13 @@ import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js
 import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 
+// The list page groups tests by kind (see shared/mockTests.js)
+const MOCK_SECTIONS = [
+  { title: 'Full-Length Mocks', description: '65 questions, 3 hours, 100 marks: the real GATE CS pattern, built from previous papers.', match: t => t.id.startsWith('full-') },
+  { title: 'Sectional Mocks', description: '15 questions in 45 minutes on one subject.', match: t => t.id.startsWith('sectional-') },
+  { title: 'Quick Tests', description: 'Short tests to warm up.', match: t => !t.id.startsWith('full-') && !t.id.startsWith('sectional-') }
+]
+
 export default function MockTestsPage() {
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report'
   const [activeTest, setActiveTest] = useState(null)
@@ -477,43 +484,55 @@ export default function MockTestsPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {dummyMockTests.map((test) => (
-            <div
-              key={test.id}
-              className="p-5 flex flex-col justify-between rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:shadow-md hover:border-slate-300 dark:hover:border-slate-800 transition-all space-y-4"
-            >
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
-                  {test.subject}
-                </span>
-                <h3 className="font-bold text-base text-text-primary-light dark:text-text-primary-dark">{test.title}</h3>
-                
-                <div className="flex items-center gap-4 text-xs text-slate-500 mt-3 pt-1">
-                  <span className="flex items-center gap-1.5">
-                    <HelpCircle size={14} />
-                    <span>{test.totalQuestions} Questions</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock size={14} />
-                    <span>{test.durationMinutes} Minutes</span>
-                  </span>
-                </div>
+        {MOCK_SECTIONS.map(section => {
+          const tests = dummyMockTests.filter(section.match)
+          if (!tests.length) return null
+          return (
+            <section key={section.title} className="space-y-3">
+              <div>
+                <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">{section.title}</h2>
+                <p className="text-xs text-slate-500">{section.description}</p>
               </div>
-
-              <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800/40">
-                <span className="text-xs text-slate-400 font-semibold uppercase">Difficulty: {test.difficulty}</span>
-                
-                <button
-                  onClick={() => startTest(test)}
-                  className="px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-btn transition-all active:scale-95 shadow-sm"
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {tests.map((test) => (
+                <div
+                  key={test.id}
+                  className="p-5 flex flex-col justify-between rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:shadow-md hover:border-slate-300 dark:hover:border-slate-800 transition-all space-y-4"
                 >
-                  Attempt Test
-                </button>
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
+                      {test.subject}
+                    </span>
+                    <h3 className="font-bold text-base text-text-primary-light dark:text-text-primary-dark">{test.title}</h3>
+                    
+                    <div className="flex items-center gap-4 text-xs text-slate-500 mt-3 pt-1">
+                      <span className="flex items-center gap-1.5">
+                        <HelpCircle size={14} />
+                        <span>{test.totalQuestions} Questions</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock size={14} />
+                        <span>{test.durationMinutes} Minutes</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800/40">
+                    <span className="text-xs text-slate-400 font-semibold uppercase">Difficulty: {test.difficulty}</span>
+                    
+                    <button
+                      onClick={() => startTest(test)}
+                      className="px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-btn transition-all active:scale-95 shadow-sm"
+                    >
+                      Attempt Test
+                    </button>
+                  </div>
+                </div>
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
+            </section>
+          )
+        })}
       </div>
     )
   }
@@ -1636,7 +1655,7 @@ export default function MockTestsPage() {
                         <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/15 text-success">
                           <span className="text-slate-400 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Correct Answer Key:</span>
                           <span>
-                            {formatAnswer(q)}
+                            <QuestionText inline text={formatAnswer(q)} />
                           </span>
                         </div>
                       </div>

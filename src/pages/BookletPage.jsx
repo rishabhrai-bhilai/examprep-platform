@@ -15,6 +15,7 @@ import QuestionText from '../components/QuestionText'
 import QuestionImage from '../components/QuestionImage'
 import FormattedContent from '../components/FormattedContent'
 import AnswerProvenance from '../components/AnswerProvenance'
+import { formatAnswer } from '../utils/answers'
 
 // Roman numerals for booklet subjects
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV']
@@ -1014,18 +1015,9 @@ export default function BookletPage() {
                       </span>
                     </div>
 
-                    <div className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-300">
-                      {activeQuestion.type === 'MCQ' || activeQuestion.type === 'MSQ' ? (
-                        typeof activeQuestion.answer === 'number' ? (
-                          <span>Option ({String.fromCharCode(65 + activeQuestion.answer)}) : {activeQuestion.options?.[activeQuestion.answer] || ''}</span>
-                        ) : Array.isArray(activeQuestion.answer) ? (
-                          <span>Options: {activeQuestion.answer.map(idx => String.fromCharCode(65 + Number(idx))).join(', ')}</span>
-                        ) : (
-                          <span>Option {String(activeQuestion.answer)}</span>
-                        )
-                      ) : (
-                        <span>Answer: {String(activeQuestion.answer)}</span>
-                      )}
+                    {/* Same answer text as the practice pages, with math rendered */}
+                    <div className="font-bold text-sm text-emerald-800 dark:text-emerald-300">
+                      <QuestionText inline text={formatAnswer(activeQuestion)} />
                     </div>
 
                     <AnswerProvenance question={activeQuestion} />
@@ -1040,7 +1032,7 @@ export default function BookletPage() {
 
                     {activeQuestion.explanation ? (
                       <div className="text-xs text-text-primary-light dark:text-text-primary-dark leading-relaxed bg-slate-50/70 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800/70">
-                        <FormattedContent content={activeQuestion.explanation} />
+                        <QuestionText text={activeQuestion.explanation} />
                       </div>
                     ) : (
                       <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl text-center text-xs text-slate-400">

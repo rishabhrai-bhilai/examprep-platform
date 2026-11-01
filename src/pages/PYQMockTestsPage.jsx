@@ -4,7 +4,7 @@ import {
   BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, 
   ChevronUp, ChevronDown, Play, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, 
   Target, BarChart2, Zap, AlertTriangle, FileText, Brain, Calendar, Layers, Shuffle, 
-  Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter, Lock
+  Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter, Lock, Users
 } from 'lucide-react'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
@@ -16,7 +16,9 @@ import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
 import { formatAnswer, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
-import { isSignedIn } from '../utils/engagementApi'
+import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
+import { pyqPaperId } from '../../shared/pyqPapers.js'
+import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import { Link } from 'react-router-dom'
 
 export default function PYQMockTestsPage() {
@@ -57,6 +59,8 @@ export default function PYQMockTestsPage() {
   const [activeTestQuestions, setActiveTestQuestions] = useState([])
   const [activeTestTitle, setActiveTestTitle] = useState('')
   const [activeTestModeInfo, setActiveTestModeInfo] = useState('')
+  // Set for full year papers, the only PYQ tests compared with other students
+  const [activePaperId, setActivePaperId] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState({}) // { questionId: selectedIndex (MCQ) or [indices] (MSQ) or string (NAT) }
   const [flags, setFlags] = useState({}) // { questionId: boolean }
@@ -80,6 +84,8 @@ export default function PYQMockTestsPage() {
   // Report State variables
   const [reportData, setReportData] = useState(null)
   const [activeReportTab, setActiveReportTab] = useState('overview')
+  // { status: 'guest' | 'loading' | 'ready' | 'error' | 'uncounted' | 'not-year', comparison?, message? }
+  const [comparisonState, setComparisonState] = useState({ status: 'loading' })
   const [questionFilter, setQuestionFilter] = useState('all')
 
   // Subject Configurations for Styling
@@ -309,6 +315,7 @@ export default function PYQMockTestsPage() {
     setActiveTestQuestions(shuffled)
     setActiveTestTitle(title)
     setActiveTestModeInfo(modeInfo)
+    setActivePaperId(null)
     setAnswers({})
     setFlags({})
     setTimeSpent({})
@@ -372,6 +379,7 @@ export default function PYQMockTestsPage() {
     const title = set ? `PYQ Mock: GATE ${year} Set ${set}` : `PYQ Year Mock Test (${year})`
     const modeInfo = set ? `Exam year ${year} • Set ${set}` : `Exam year ${year}`
     startMockTestSession(filtered, title, modeInfo)
+    setActivePaperId(pyqPaperId(year, set))
   }
 
   // wizardConfig.topics holds topicKey(subject, topic) strings
@@ -711,10 +719,13 @@ export default function PYQMockTestsPage() {
       difficultyStats,
       errorTags: {},
       timeSpentMap: timeSpent,
-      modeInfo: activeTestModeInfo
+      modeInfo: activeTestModeInfo,
+      ...(activePaperId ? { paperId: activePaperId } : {})
     }
 
+    setActiveReportTab('overview')
     if (!counted) {
+      setComparisonState({ status: 'uncounted' })
       setReportData(data)
       setView('report')
       return
@@ -733,6 +744,18 @@ export default function PYQMockTestsPage() {
     const updatedHistory = [data, ...existing]
     localStorage.setItem('gate_pyq_mock_history', JSON.stringify(updatedHistory))
     syncTestRecordsToServer()
+
+    // Full year papers are scored by the server too and compared with other students
+    if (!activePaperId) {
+      setComparisonState({ status: 'not-year' })
+    } else if (!isSignedIn()) {
+      setComparisonState({ status: 'guest' })
+    } else {
+      setComparisonState({ status: 'loading' })
+      submitMockAttempt(activePaperId, answers, timeTaken)
+        .then(result => setComparisonState(result.counted ? { status: 'ready', comparison: result.comparison } : { status: 'uncounted' }))
+        .catch(err => setComparisonState({ status: 'error', message: err.message }))
+    }
 
     setView('report')
 
@@ -2238,6 +2261,7 @@ export default function PYQMockTestsPage() {
             { id: 'overview', label: 'Overview', icon: TrendingUp },
             { id: 'subjects', label: 'Subjects & Topics', icon: Target },
             { id: 'time', label: 'Time Management', icon: Clock },
+            { id: 'compare', label: 'Global Comparison', icon: Users },
             { id: 'questions', label: 'Solutions Review', icon: BookOpen }
           ].map(tab => {
             const Icon = tab.icon
@@ -2723,6 +2747,17 @@ export default function PYQMockTestsPage() {
         )}
 
         {/* TAB 4: SOLUTIONS & SOLUTIONS REVIEW */}
+        {activeReportTab === 'compare' && (
+          <div className="no-print">
+            {comparisonState.status === 'not-year' && <p className="text-sm text-slate-500 py-8 text-center">Only full year papers are compared with other students. Subject, topic, random and custom papers are different for everyone.</p>}
+            {comparisonState.status === 'guest' && <LoginToCompare />}
+            {comparisonState.status === 'loading' && <p className="text-sm text-slate-500 py-8 text-center">Comparing with other students...</p>}
+            {comparisonState.status === 'error' && <p className="text-sm text-error py-8 text-center">Could not load the comparison: {comparisonState.message}</p>}
+            {comparisonState.status === 'uncounted' && <p className="text-sm text-slate-500 py-8 text-center">This attempt isn't counted, so there's no comparison for it.</p>}
+            {comparisonState.status === 'ready' && comparisonState.comparison && <GlobalComparison comparison={comparisonState.comparison} />}
+          </div>
+        )}
+
         {activeReportTab === 'questions' && (
           <div className="space-y-6 animate-fade-in">
             {totalTaggedErrors > 0 && (
@@ -2859,7 +2894,7 @@ export default function PYQMockTestsPage() {
                         <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/15 text-success">
                           <span className="text-slate-455 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Correct Answer Key:</span>
                           <span>
-                            {formatAnswer(q)}
+                            <QuestionText inline text={formatAnswer(q)} />
                           </span>
                         </div>
                       </div>
