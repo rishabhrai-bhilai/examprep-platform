@@ -4,7 +4,7 @@ import { Flame, CheckCircle, Clock, BookOpen, ChevronRight, Play, Bookmark, Lock
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
-import { DiscussionStatsCard, AnalyticsLinkCard } from '../components/EngagementCards'
+import { ProblemOfTheDayCard, DiscussionStatsCard, AnalyticsLinkCard } from '../components/EngagementCards'
 import { dayKey } from '../../shared/practice.js'
 import { practiceSummary, subjectProgress, topicProgress, weakestTopics, recentActivity, formatDuration, timeAgo } from '../utils/practiceStats'
 
@@ -88,7 +88,10 @@ export default function DashboardPage() {
     )
   }
 
-  const { solved, attempted, accuracy, practiceSec, streak, longestStreak } = summary
+  const { solved, attempted, accuracy, practiceSec } = summary
+  // The server's streak also counts Problem of the Day and discussion days
+  const streak = Math.max(summary.streak, user?.streak || 0)
+  const longestStreak = Math.max(summary.longestStreak, user?.longestStreak || 0)
   const hasPractice = attempted > 0
   const answeredToday = practice.days[dayKey()]?.attempts || 0
 
@@ -129,7 +132,7 @@ export default function DashboardPage() {
               ? 'bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-500'
               : 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500'
           }`}
-          title={longestStreak > 0 ? `Longest streak: ${longestStreak} day${longestStreak === 1 ? '' : 's'}` : 'Days in a row with at least one answered question'}
+          title={longestStreak > 0 ? `Longest streak: ${longestStreak} day${longestStreak === 1 ? '' : 's'}` : 'Days in a row with study activity: answering questions, the Problem of the Day or posting in discussions'}
         >
           <Flame size={20} className={streak > 0 ? 'fill-orange-500' : ''} />
           <div className="text-left">
@@ -264,9 +267,10 @@ export default function DashboardPage() {
 
         {/* Right Col: Recent Activity & Saved Bookmarks */}
         <div className="space-y-6">
+          <ProblemOfTheDayCard />
           <AnalyticsLinkCard />
           <DiscussionStatsCard />
-          
+
           {/* Recent Activity */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
             <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Recent Activity</h3>

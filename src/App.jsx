@@ -31,6 +31,7 @@ import VideoSolutionModal from './components/VideoSolutionModal'
 import AuthPromptModal from './components/AuthPromptModal'
 import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
+import { BadgeUnlockModal } from './components/Badges'
 
 function App() {
   const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
@@ -94,6 +95,7 @@ function App() {
       <AuthPromptModal />
       <OnboardingModal />
       <ReportIssueModal />
+      <BadgeUnlockModal />
     </BrowserRouter>
   )
 }

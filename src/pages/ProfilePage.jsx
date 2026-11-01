@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import AvatarPicker from '../components/AvatarPicker'
+import { BadgeGrid } from '../components/Badges'
 import { practiceSummary, formatDuration } from '../utils/practiceStats'
 import { ageFromDob, dobInputRange, dobProblem } from '../../shared/profile.js'
 
@@ -154,11 +155,6 @@ export default function ProfilePage() {
     )
   }
 
-  const badges = [
-    { name: "First Steps", desc: "Solved 1st question", earned: stats.solved >= 1, icon: Sparkles, color: "text-amber-500 bg-amber-500/10 border-amber-500/20" },
-    { name: "5-day Streak", desc: "Maintained 5 day daily streak", earned: stats.longestStreak >= 5, icon: Flame, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
-    { name: "Saver", desc: "Bookmarked 3+ questions", earned: (bookmarks?.length || 0) >= 3, icon: Award, color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20" },
-  ]
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark">
@@ -333,31 +329,8 @@ export default function ProfilePage() {
           </div>
 
           {/* Badges / Achievements */}
-          <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
-            <div className="flex justify-between items-baseline">
-              <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Badges</h3>
-              <span className="text-[10px] text-slate-400 font-semibold">{badges.filter(b => b.earned).length} of {badges.length} earned</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {badges.map((badge, idx) => {
-                const Icon = badge.icon
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-btn border text-center flex flex-col items-center justify-center space-y-2 ${
-                      badge.earned ? badge.color : 'text-slate-400 bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-70'
-                    }`}
-                  >
-                    {badge.earned ? <Icon size={24} className="mb-1" /> : <Lock size={24} className="mb-1" />}
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{badge.name}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">{badge.earned ? badge.desc : `Locked: ${badge.desc.toLowerCase()}`}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+          <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft">
+            <BadgeGrid />
           </div>
 
         </div>
