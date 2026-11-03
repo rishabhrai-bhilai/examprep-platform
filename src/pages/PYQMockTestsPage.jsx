@@ -13,7 +13,7 @@ import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
-import { formatAnswer, isAnswerCorrect } from '../utils/answers'
+import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
 import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
@@ -2881,13 +2881,7 @@ export default function PYQMockTestsPage() {
                         }`}>
                           <span className="text-slate-450 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Your Response:</span>
                           <span>
-                            {isUnanswered 
-                              ? 'Skipped Question' 
-                              : q.type === 'MCQ' 
-                              ? `Option ${String.fromCharCode(65 + selected)}: ${q.options[selected]}` 
-                              : q.type === 'MSQ' 
-                              ? selected.map(idx => String.fromCharCode(65 + idx)).join(', ') 
-                              : `Value: ${selected}`}
+                            {isUnanswered ? 'Skipped Question' : <QuestionText inline text={formatResponse(q, selected)} />}
                           </span>
                         </div>
                         

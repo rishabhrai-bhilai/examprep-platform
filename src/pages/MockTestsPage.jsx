@@ -8,7 +8,7 @@ import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import { getTags } from '../utils/topics'
-import { formatAnswer, isAnswerCorrect } from '../utils/answers'
+import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
 import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
@@ -1648,7 +1648,7 @@ export default function MockTestsPage() {
                         }`}>
                           <span className="text-slate-400 block font-bold uppercase mb-0.5 text-[9px] tracking-wider">Your Response:</span>
                           <span>
-                            {isUnanswered ? 'Skipped Question' : `Option ${String.fromCharCode(65 + selected)}: ${q.options[selected]}`}
+                            {isUnanswered ? 'Skipped Question' : <QuestionText inline text={formatResponse(q, selected)} />}
                           </span>
                         </div>
                         

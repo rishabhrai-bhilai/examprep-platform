@@ -41,14 +41,31 @@ export const isAnswerCorrect = (q, userAns) => {
 }
 
 // Human-readable correct answer, e.g. "Option B: 42", "A, C", "Value: 0.5 to 0.6"
+// "Option C: text", or just "Option C" when the option is a code block or spans
+// lines (those can't sit inside a one-line answer)
+const optionLine = (q, i) => {
+  const text = q?.options?.[i] ?? ''
+  const label = `Option ${String.fromCharCode(65 + i)}`
+  return /```|\n/.test(String(text)) ? label : `${label}: ${text}`
+}
+
 export const formatAnswer = (q) => {
   if (q?.marksToAll) return 'Marks to all (official key)'
   const letter = i => String.fromCharCode(65 + i)
   const one = (a) => {
     if (q?.type === 'NAT') return `Value: ${a}`
     if (Array.isArray(a)) return a.map(letter).join(', ')
-    return `Option ${letter(a)}: ${q.options?.[a] ?? ''}`
+    return optionLine(q, a)
   }
   const all = acceptedAnswers(q)
   return all.length ? all.map(one).join(' or ') : 'Not available'
+}
+
+// A student's response in the same style as formatAnswer (MCQ: option text, MSQ:
+// letters, NAT: the value they typed)
+export const formatResponse = (q, selected) => {
+  const letter = i => String.fromCharCode(65 + i)
+  if (Array.isArray(selected)) return selected.map(letter).join(', ')
+  if (q?.type === 'NAT') return `Value: ${selected}`
+  return optionLine(q, selected)
 }
