@@ -4,6 +4,7 @@ import {
   Bookmark, Folder, Trash2, Plus, Play, CheckSquare, Square, ArrowLeft, ArrowRight, FolderOpen, Layers, Check
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { questionPreview } from '../utils/questionPreview'
 
 export default function BookmarksPage() {
   const navigate = useNavigate()
@@ -299,7 +300,7 @@ export default function BookmarksPage() {
                       </div>
                       
                       <h3 className="font-semibold text-xs sm:text-sm text-slate-800 dark:text-slate-150 leading-relaxed truncate">
-                        {q.question.replace(/\n/g, ' ')}
+                        {questionPreview(q.question)}
                       </h3>
                     </div>
 

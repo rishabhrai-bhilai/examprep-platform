@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X, Folder, Plus, Check } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { questionPreview } from '../utils/questionPreview'
 
 export default function BookmarkSelectorModal() {
   const { 
@@ -51,7 +52,7 @@ export default function BookmarkSelectorModal() {
             {targetQuestion.subject} • {targetQuestion.topic}
           </span>
           <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2 leading-relaxed">
-            {targetQuestion.question.replace(/\n/g, ' ')}
+            {questionPreview(targetQuestion.question)}
           </p>
         </div>
 

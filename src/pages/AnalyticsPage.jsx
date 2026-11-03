@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { BarChart2, Target, Clock, TrendingUp, CheckCircle2, XCircle, MinusCircle, Award, History, Globe } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
 import { mockTests } from '../../shared/mockTests.js'
+import { isPyqPaperId, pyqPaperTitle } from '../../shared/pyqPapers.js'
 import { fetchMyMockAttempts, fetchMockComparison } from '../utils/engagementApi'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import { formatDuration } from '../utils/practiceStats'
@@ -184,7 +185,8 @@ function PersonalAnalytics({ kind, history }) {
   )
 }
 
-function MockGlobal() {
+// kind 'mock': mock tests; 'pyq': full year PYQ papers (the only comparable PYQ tests)
+function GlobalSection({ kind }) {
   const { isAuthenticated } = useAuthStore()
   const [state, setState] = useState({ status: 'loading' })
   const [selected, setSelected] = useState(null)
@@ -194,7 +196,8 @@ function MockGlobal() {
     let active = true
     fetchMyMockAttempts()
       .then(async (attempts) => {
-        const testIds = [...new Set(attempts.filter(a => a.attemptNo === 1).map(a => a.testId))]
+        const ofKind = (id) => (kind === 'pyq' ? isPyqPaperId(id) : !isPyqPaperId(id))
+        const testIds = [...new Set(attempts.filter(a => a.attemptNo === 1 && ofKind(a.testId)).map(a => a.testId))]
         const comparisons = await Promise.all(testIds.map(id => fetchMockComparison(id).then(c => [id, c])))
         if (!active) return
         const byTest = Object.fromEntries(comparisons.filter(([, c]) => c))
@@ -203,7 +206,7 @@ function MockGlobal() {
       })
       .catch(err => active && setState({ status: 'error', message: err.message }))
     return () => { active = false }
-  }, [isAuthenticated])
+  }, [isAuthenticated, kind])
 
   if (!isAuthenticated) return <LoginToCompare />
   if (state.status === 'loading') return <p className="text-sm text-slate-500 py-6 text-center">Loading your comparison...</p>
@@ -211,11 +214,17 @@ function MockGlobal() {
 
   const testIds = Object.keys(state.byTest)
   if (!testIds.length) {
-    return <p className={`${card} text-sm text-slate-500 text-center py-8`}>Take a mock test while logged in to see how you compare.</p>
+    return (
+      <p className={`${card} text-sm text-slate-500 text-center py-8`}>
+        {kind === 'pyq'
+          ? 'Take a full year paper (PYQ Mock Tests → Year Wise) while logged in to see how you compare.'
+          : 'Take a mock test while logged in to see how you compare.'}
+      </p>
+    )
   }
   const comparisons = Object.values(state.byTest)
   const avgPercentile = round1(comparisons.reduce((sum, c) => sum + c.percentile, 0) / comparisons.length)
-  const title = (id) => mockTests.find(t => t.id === id)?.title || id
+  const title = (id) => (isPyqPaperId(id) ? pyqPaperTitle(id) : mockTests.find(t => t.id === id)?.title || id)
 
   return (
     <div className="space-y-4">
@@ -249,7 +258,7 @@ export default function AnalyticsPage() {
         <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <BarChart2 className="text-primary" size={24} /> Analytics
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Mock tests and PYQ tests are tracked separately.</p>
+        <p className="text-sm text-slate-500 mt-1">Mock tests and PYQ tests are tracked separately. Each tab shows your own progress first, then how you rank against other students.</p>
       </div>
 
       <div className="flex gap-2 border-b border-border-light dark:border-border-dark">
@@ -265,17 +274,25 @@ export default function AnalyticsPage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">Personal analytics</h2>
+        <div>
+          <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">Your performance</h2>
+          <p className="text-xs text-slate-500">
+            All your {tab === 'mock' ? 'mock tests' : 'PYQ tests'} combined: every counted attempt, including retakes. Attempts under a minute aren't included.
+          </p>
+        </div>
         <PersonalAnalytics kind={tab} history={history} />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">Global comparison</h2>
-        {tab === 'mock' ? (
-          <MockGlobal />
-        ) : (
-          <p className={`${card} text-sm text-slate-500 text-center py-8`}>Comparison with other students for PYQ tests is coming later.</p>
-        )}
+        <div>
+          <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">How you compare with other students</h2>
+          <p className="text-xs text-slate-500">
+            {tab === 'mock'
+              ? "One test at a time: your first attempt at each mock test against everyone else's first attempt."
+              : "Full year papers only, one paper at a time: your first attempt against everyone else's. Subject, topic, random and custom papers differ for each student, so they aren't compared."}
+          </p>
+        </div>
+        <GlobalSection key={tab} kind={tab} />
       </section>
     </div>
   )

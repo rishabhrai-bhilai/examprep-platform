@@ -175,7 +175,9 @@ export function formatMathString(str) {
     .replace(/_\{([^}]+)\}/g, (_, inner) => toSubscript(inner))
     // Single-char sub/superscripts
     .replace(/\^([0-9a-zA-Z+T])/g, (_, ch) => SUP_MAP[ch] || `^${ch}`)
-    .replace(/_([0-9a-zA-Z])/g, (_, ch) => SUB_MAP[ch] || `_${ch}`)
+    // Only right after a short variable (x_1, T_n, ab_i), so names like
+    // Catalog_no, L1_hit or FIN_WAIT_1 stay as written
+    .replace(/(?<=(?:^|[^A-Za-z0-9_])[A-Za-z0-9]{1,2})_([0-9a-zA-Z])(?![0-9a-zA-Z])/g, (_, ch) => SUB_MAP[ch] || `_${ch}`)
     // Matrices fallback representation in string
     .replace(/\\begin\{(?:bmatrix|matrix)\}([\s\S]*?)\\end\{(?:bmatrix|matrix)\}/g, (_, inner) => {
       const rows = inner.trim().split(/\\\\|\n/).map(l => l.trim()).filter(Boolean)
@@ -245,7 +247,7 @@ function renderInline(text, keyPrefix = 'inline') {
 
   // Math spans skip escaped dollars (\$, e.g. the parser end-marker), both as
   // delimiters and inside the maths.
-  const tokenRegex = /(<br\s*\/?>|(?:\\_){2,}|_{4,}|(?<!\\)\$\$(?:[^$\\]|\\[\s\S])+\$\$|(?<!\\)\$(?:[^$\\]|\\[\s\S])+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|(?:\*\*[^*\n]+\*\*)|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
+  const tokenRegex = /(<br\s*\/?>|(?:\\_){2,}|_{4,}|(?<!\\)\$\$(?:[^$\\]|\\[\s\S])+\$\$|(?<!\\)\$(?:[^$\\]|\\[\s\S])+\$|\\begin\{(?:bmatrix|pmatrix|vmatrix|matrix)\}[\s\S]*?\\end\{(?:bmatrix|pmatrix|vmatrix|matrix)\}|<u>[\s\S]*?<\/u>|<ins>[\s\S]*?<\/ins>|(?<=^|\s)_[a-zA-Z\s]{2,}_(?=[\s.,!?;:]|$)|\*\*\*(?=\S)[^\n]*?\*\*\*(?!\*)|\*\*(?=\S)[^\n]*?\*\*(?!\*)|(?<![\w*\\)\]])\*(?=[^\s*])[^*\n]*?[^\s*\\]\*(?![\w*(])|<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<em>[\s\S]*?<\/em>|<sup>[\s\S]*?<\/sup>|<sub>[\s\S]*?<\/sub>|`[^`\n]+`|!\[.*?\]\(.*?\))/gi
 
   const chunks = text.split(tokenRegex)
   return chunks.map((chunk, idx) => {
@@ -341,13 +343,31 @@ function renderInline(text, keyPrefix = 'inline') {
       )
     }
 
-    // Bold: **...** or <b>...</b>
-    if ((chunk.startsWith('**') && chunk.endsWith('**')) || (chunk.startsWith('<b>') && chunk.endsWith('</b>'))) {
+    // Bold italic: ***...***
+    if (chunk.length > 6 && chunk.startsWith('***') && chunk.endsWith('***')) {
+      return (
+        <strong key={key} className="font-bold italic text-slate-900 dark:text-slate-100">
+          {renderInline(chunk.slice(3, -3), `${key}-bi`)}
+        </strong>
+      )
+    }
+
+    // Bold: **...** or <b>...</b> (may contain math or *italics*)
+    if ((chunk.length > 4 && chunk.startsWith('**') && chunk.endsWith('**')) || (chunk.startsWith('<b>') && chunk.endsWith('</b>'))) {
       const inner = chunk.startsWith('**') ? chunk.slice(2, -2) : chunk.slice(3, -4)
       return (
         <strong key={key} className="font-bold text-slate-900 dark:text-slate-100">
           {renderInline(inner, `${key}-b`)}
         </strong>
+      )
+    }
+
+    // Italic: *...* (the tokenizer skips stars used for multiplication or Kleene star)
+    if (chunk.length > 2 && chunk.startsWith('*') && chunk.endsWith('*') && !chunk.startsWith('**')) {
+      return (
+        <em key={key} className="italic">
+          {renderInline(chunk.slice(1, -1), `${key}-i`)}
+        </em>
       )
     }
 
@@ -449,7 +469,9 @@ export default function QuestionText({ text, className = '', inline = false }) {
   }
 
   // Split into lines to parse block structures (code blocks, display math, tables, paragraphs)
-  const lines = text.split('\n')
+  // A single backslash at the end of a line is a markdown line break, not text
+  // (a LaTeX \\ row break stays as it is)
+  const lines = text.replace(/(?<!\\)\\(?=\r?\n)/g, '').split('\n')
   const blocks = []
   let lineIdx = 0
 

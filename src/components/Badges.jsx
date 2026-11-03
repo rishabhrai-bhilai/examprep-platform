@@ -176,11 +176,12 @@ export function BadgeUnlockModal() {
           </motion.div>
           <div>
             <h2 id="badge-unlock-title" className="text-xl font-extrabold text-text-primary-light dark:text-text-primary-dark">{badge.name}</h2>
-            <p className="text-sm text-slate-500 mt-1">{badge.description}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{badge.description}</p>
+            <p className="text-[11px] text-slate-400 mt-1">Earned {earnedDate(earnedAt)}{queue.length > 1 ? ` · ${queue.length - 1} more to see` : ''}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={close} className="flex-1 py-2 rounded-btn border border-border-light dark:border-border-dark text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900">
-              {queue.length > 1 ? 'Next' : 'Nice!'}
+            <button onClick={close} className="flex-1 py-2 rounded-btn bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+              {queue.length > 1 ? 'Next badge' : 'Close'}
             </button>
             <button
               onClick={() => shareBadge(badge, user.name || 'ExamPrep student', earnedAt)}

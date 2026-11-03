@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { connectMongo, isMongoEnabled, mongoRead, mongoWrite, flushMongo } from './mongoStore.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -23,8 +24,32 @@ const FILES = {
   potd: path.join(DATA_DIR, 'potd.json')
 }
 
+// How each file is shaped, for MongoDB: a list of records with ids, or an object by key
+const FILE_KINDS = {
+  users: 'array', reports: 'array', mockAttempts: 'array',
+  bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
+}
+const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file]) => [file, name]))
+
+// With MONGODB_URI set, data lives in MongoDB (Render's disk is wiped on every
+// deploy and sleep); otherwise in the JSON files in server/data. Call before serving.
+export async function initStorage() {
+  const uri = process.env.MONGODB_URI
+  if (!uri) {
+    console.log('Storing data in JSON files (set MONGODB_URI to use MongoDB).')
+    return null
+  }
+  return connectMongo(uri, FILE_KINDS)
+}
+
+export const flushStorage = () => (isMongoEnabled() ? flushMongo() : Promise.resolve())
+
 // Safely read JSON file with default fallback
 function readJson(filePath, defaultValue = {}) {
+  if (isMongoEnabled()) {
+    const value = mongoRead(NAME_BY_PATH[filePath])
+    return value === undefined ? defaultValue : value
+  }
   try {
     if (!fs.existsSync(filePath)) {
       writeJsonAtomic(filePath, defaultValue)
@@ -41,6 +66,7 @@ function readJson(filePath, defaultValue = {}) {
 
 // Write JSON atomically via temporary file and rename to prevent corruption
 function writeJsonAtomic(filePath, data) {
+  if (isMongoEnabled()) return mongoWrite(NAME_BY_PATH[filePath], data)
   const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).substr(2, 6)}.tmp`
   try {
     fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8')

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
+import { questionPreview } from '../utils/questionPreview'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
@@ -764,7 +765,7 @@ export default function DiscussionPage() {
 
                     {/* Question text snippet */}
                     <div className="text-sm font-semibold text-slate-800 dark:text-slate-150 leading-relaxed break-words line-clamp-2 pl-0.5">
-                      {q.question.replace(/\n/g, ' ')}
+                      {questionPreview(q.question)}
                     </div>
 
                     {/* Bottom Row: Stats Counters */}

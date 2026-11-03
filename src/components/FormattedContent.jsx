@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import InkNote from './InkNote'
+import { parseInk } from '../utils/ink'
 import { 
   Copy, Check, ZoomIn, ZoomOut, Maximize2, Minimize2, X, 
   Trash2, AlignLeft, AlignCenter, AlignRight, Download 
@@ -438,6 +440,10 @@ function TableRenderer({ lines }) {
 
 export default function FormattedContent({ content, className = '', onImageAction = null }) {
   if (!content) return null
+
+  // Ink drawn in the editor is shown over the text, where it was drawn
+  const ink = parseInk(content)
+  if (ink) return <InkNote {...ink} className={className} />
 
   const rawLines = content.split('\n')
   const blocks = []
