@@ -7,6 +7,7 @@ import { Info } from 'lucide-react'
 export default function AnswerProvenance({ question }) {
   if (!question) return null
   const lines = []
+  if (question.original) lines.push('Original ExamPrep mock question (not from a past paper). The answer key was checked by an independent solve. Found a problem? Use Report an Issue with this question ID.')
   if (question.marksToAll) lines.push('The official GATE key awarded marks to all candidates for this question.')
   if (question.answerSource === 'unofficial') lines.push('No official answer key exists for this paper; this answer was worked out by AI and may be wrong.')
   if (question.answerNote && !question.marksToAll) lines.push(`Official key note: ${question.answerNote}`)
