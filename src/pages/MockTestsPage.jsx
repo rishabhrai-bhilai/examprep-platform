@@ -18,9 +18,9 @@ import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison
 // The list page groups tests by kind (see shared/mockTests.js)
 const MOCK_SECTIONS = [
   { title: 'Original Full-Length Mocks', badge: 'Original', description: 'Fresh questions written for these mocks, never seen in past papers. 65 questions, 3 hours, 100 marks in the GATE CS pattern.', match: t => t.id.startsWith('orig-full-') },
-  { title: 'Original Sectional Mocks', badge: 'Original', description: 'Fresh questions on one subject: 15 questions in 45 minutes.', match: t => t.id.startsWith('orig-sectional-') },
+  { title: 'Original Sectional Mocks', badge: 'Original', description: 'Fresh questions on one subject: 15 questions in 45 minutes, spread across its chapters by how much each chapter weighs.', match: t => t.id.startsWith('orig-sectional-') },
   { title: 'PYQ Full-Length Mocks', badge: 'Past papers', description: 'Built from previous GATE papers: 65 questions, 3 hours, 100 marks in the GATE CS pattern.', match: t => t.id.startsWith('full-') },
-  { title: 'PYQ Sectional Mocks', badge: 'Past papers', description: 'Previous GATE questions on one subject: 15 questions in 45 minutes.', match: t => t.id.startsWith('sectional-') },
+  { title: 'PYQ Sectional Mocks', badge: 'Past papers', description: 'Previous GATE questions on one subject: 15 questions in 45 minutes, spread across its chapters by how much each chapter weighs.', match: t => t.id.startsWith('pyq-sectional-') },
   { title: 'Quick Tests', badge: 'Past papers', description: 'Short tests to warm up.', match: t => t.id.startsWith('test-') }
 ]
 
@@ -493,7 +493,8 @@ export default function MockTestsPage() {
         </div>
 
         {MOCK_SECTIONS.map(section => {
-          const tests = dummyMockTests.filter(section.match)
+          // Retired papers stay defined so past attempts still resolve, but aren't offered
+          const tests = dummyMockTests.filter(t => !t.retired && section.match(t))
           if (!tests.length) return null
           return (
             <section key={section.title} className="space-y-3">
@@ -528,6 +529,11 @@ export default function MockTestsPage() {
                         <span>{test.durationMinutes} Minutes</span>
                       </span>
                     </div>
+                    {test.chapters && (
+                      <p className="text-[11px] text-slate-500 leading-snug" title={test.chapters.map(c => `${c.name}: ${c.count}`).join('\n')}>
+                        {test.chapters.map(c => `${c.name.split(' (')[0]} ${c.count}`).join(' · ')}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800/40">
