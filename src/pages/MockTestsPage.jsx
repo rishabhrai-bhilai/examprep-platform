@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X, Users } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
+import originalQuestions from '../../shared/originalQuestions.json'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
@@ -16,9 +17,11 @@ import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison
 
 // The list page groups tests by kind (see shared/mockTests.js)
 const MOCK_SECTIONS = [
-  { title: 'Full-Length Mocks', description: '65 questions, 3 hours, 100 marks: the real GATE CS pattern, built from previous papers.', match: t => t.id.startsWith('full-') },
-  { title: 'Sectional Mocks', description: '15 questions in 45 minutes on one subject.', match: t => t.id.startsWith('sectional-') },
-  { title: 'Quick Tests', description: 'Short tests to warm up.', match: t => !t.id.startsWith('full-') && !t.id.startsWith('sectional-') }
+  { title: 'Original Full-Length Mocks', badge: 'Original', description: 'Fresh questions written for these mocks, never seen in past papers. 65 questions, 3 hours, 100 marks in the GATE CS pattern.', match: t => t.id.startsWith('orig-full-') },
+  { title: 'Original Sectional Mocks', badge: 'Original', description: 'Fresh questions on one subject: 15 questions in 45 minutes, spread across its chapters by how much each chapter weighs.', match: t => t.id.startsWith('orig-sectional-') },
+  { title: 'PYQ Full-Length Mocks', badge: 'Past papers', description: 'Built from previous GATE papers: 65 questions, 3 hours, 100 marks in the GATE CS pattern.', match: t => t.id.startsWith('full-') },
+  { title: 'PYQ Sectional Mocks', badge: 'Past papers', description: 'Previous GATE questions on one subject: 15 questions in 45 minutes, spread across its chapters by how much each chapter weighs.', match: t => t.id.startsWith('pyq-sectional-') },
+  { title: 'Quick Tests', badge: 'Past papers', description: 'Short tests to warm up.', match: t => t.id.startsWith('test-') }
 ]
 
 export default function MockTestsPage() {
@@ -60,8 +63,11 @@ export default function MockTestsPage() {
   const [questionFilter, setQuestionFilter] = useState('all')
 
   // Initialize questions inside a test
+  // Papers mix past-paper questions and original ones (shared/originalQuestions.json),
+  // in the paper's own order
+  const questionById = useMemo(() => new Map([...questions, ...originalQuestions].map(q => [q.id, q])), [questions])
   const testQuestions = activeTest
-    ? questions.filter((q) => activeTest.questions.includes(q.id))
+    ? activeTest.questions.map(id => questionById.get(id)).filter(Boolean)
     : []
 
   const activeQuestion = testQuestions[currentQuestionIndex]
@@ -430,8 +436,10 @@ export default function MockTestsPage() {
       return
     }
 
-    // Every answered question also counts toward the user's practice record
+    // Every answered past-paper question also counts toward the user's practice
+    // record (original mock questions aren't part of the PYQ bank)
     recordAttempts(testQuestions
+      .filter(q => !q.original)
       .filter(q => {
         const a = answers[q.id]
         return a !== undefined && a !== null && a !== '' && !(Array.isArray(a) && a.length === 0)
@@ -485,7 +493,8 @@ export default function MockTestsPage() {
         </div>
 
         {MOCK_SECTIONS.map(section => {
-          const tests = dummyMockTests.filter(section.match)
+          // Retired papers stay defined so past attempts still resolve, but aren't offered
+          const tests = dummyMockTests.filter(t => !t.retired && section.match(t))
           if (!tests.length) return null
           return (
             <section key={section.title} className="space-y-3">
@@ -500,9 +509,14 @@ export default function MockTestsPage() {
                   className="p-5 flex flex-col justify-between rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:shadow-md hover:border-slate-300 dark:hover:border-slate-800 transition-all space-y-4"
                 >
                   <div className="space-y-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
-                      {test.subject}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-2 py-0.5 bg-primary/10 rounded">
+                        {test.subject}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${section.badge === 'Original' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-slate-500 bg-slate-500/10'}`}>
+                        {section.badge}
+                      </span>
+                    </div>
                     <h3 className="font-bold text-base text-text-primary-light dark:text-text-primary-dark">{test.title}</h3>
                     
                     <div className="flex items-center gap-4 text-xs text-slate-500 mt-3 pt-1">
@@ -515,6 +529,11 @@ export default function MockTestsPage() {
                         <span>{test.durationMinutes} Minutes</span>
                       </span>
                     </div>
+                    {test.chapters && (
+                      <p className="text-[11px] text-slate-500 leading-snug" title={test.chapters.map(c => `${c.name}: ${c.count}`).join('\n')}>
+                        {test.chapters.map(c => `${c.name.split(' (')[0]} ${c.count}`).join(' · ')}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center pt-4 border-t border-slate-100 dark:border-slate-800/40">

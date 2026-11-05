@@ -855,6 +855,10 @@ app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
 // Attempts under a minute aren't counted or saved, so the test can be retaken.
 const publicAttempt = ({ userId, ...attempt }) => attempt
 
+// Questions written for the mock tests (not past papers), scored like any other
+const originalQuestions = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'shared', 'originalQuestions.json'), 'utf8'))
+const originalById = new Map(originalQuestions.map(q => [q.id, q]))
+
 // A comparable test: a mock test, or a full year PYQ paper (pyq-2025-s1)
 const resolveTest = (id) => {
   const mock = findMockTest(id)
@@ -885,7 +889,7 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
       return res.status(200).json({ counted: false, reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.` })
     }
 
-    const testQuestions = test.questions.map(id => questions.find(q => q.id === id)).filter(Boolean)
+    const testQuestions = test.questions.map(id => questions.find(q => q.id === id) || originalById.get(id)).filter(Boolean)
     const answers = {}
     const raw = req.body?.answers && typeof req.body.answers === 'object' ? req.body.answers : {}
     testQuestions.forEach(q => { if (raw[q.id] !== undefined) answers[q.id] = raw[q.id] })
