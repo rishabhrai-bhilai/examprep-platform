@@ -1,7 +1,14 @@
 import TOPIC_LIST from '../data/topics.json'
 
-// [{ subject, topics: [name] }] in syllabus order (built by scripts/build-topics.mjs)
+// [{ subject, topics: [name] }]: each subject's book chapters in book order
+// (built by scripts/tag-chapters.mjs, which also tags questions with them)
 export const TOPICS = TOPIC_LIST
+
+// The finer topic names inside a set of questions ("Cache Memory", "TCP"), so
+// searching a chapter list by a familiar topic still finds its chapter
+export const subtopicText = (questions) => Array.from(new Set(
+  questions.flatMap(q => [q.topic, ...(q.topicTags || []).map(t => t.topic)]).filter(Boolean)
+)).join(' ').toLowerCase()
 
 // A question's topic tags: [{ subject, topic }]. A question can sit under
 // several topics, possibly in other subjects. Falls back to the old single

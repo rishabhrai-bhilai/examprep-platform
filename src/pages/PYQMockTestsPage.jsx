@@ -12,7 +12,7 @@ import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import { compareSubjects } from '../utils/subjects'
-import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
+import { buildTopicsMap, getTags, hasTag, subtopicText, topicKey } from '../utils/topics'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
@@ -260,11 +260,11 @@ export default function PYQMockTestsPage() {
         subjectName: sub,
         questionCount: topicsMap[sub][topic],
         years,
-        searchCorpus: `${topic} ${sub} ${years} ${sampleQuestionKeywords}`.toLowerCase()
+        searchCorpus: `${topic} ${sub} ${years} ${subtopicText(topicQuestions)} ${sampleQuestionKeywords}`.toLowerCase()
       })
     })
     return acc
-  }, []).sort((a, b) => b.questionCount - a.questionCount)
+  }, []) // book order: subjects, then chapters
 
   // Track active question ID for the timer closure
   const activeQuestion = activeTestQuestions[currentQuestionIndex]
@@ -1080,7 +1080,7 @@ export default function PYQMockTestsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Topic Wise Mock</h2>
-                <p className="text-sm text-slate-500 mt-1 font-medium">Select topics to bundle. Sorted by question counts (highest first).</p>
+                <p className="text-sm text-slate-500 mt-1 font-medium">Select topics to bundle. Listed in the book's chapter order.</p>
               </div>
               
               <div className="flex items-center gap-3 shrink-0">

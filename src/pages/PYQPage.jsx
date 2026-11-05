@@ -17,7 +17,7 @@ import AnswerProvenance from '../components/AnswerProvenance'
 import QuestionIdBadge from '../components/QuestionIdBadge'
 import { isSignedIn, submitProblemOfTheDay } from '../utils/engagementApi'
 import { compareSubjects } from '../utils/subjects'
-import { buildTopicsMap, getTags, hasTag, topicKey } from '../utils/topics'
+import { buildTopicsMap, getTags, hasTag, subtopicText, topicKey } from '../utils/topics'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 
@@ -340,15 +340,16 @@ export default function PYQPage() {
           topicName: topic,
           subjectName: sub,
           questionCount: topicsMap[sub][topic],
-          years
+          years,
+          subtopics: subtopicText(topicQuestions)
         })
       })
       return acc
-    }, []).sort((a, b) => b.questionCount - a.questionCount)
+    }, []) // book order: subjects, then chapters
   }, [topicsMap, questions])
 
   const filteredTopicsList = useMemo(() => {
-    return flatTopicsList.filter(({ topicName, subjectName, years }) => {
+    return flatTopicsList.filter(({ topicName, subjectName, years, subtopics }) => {
       // 1. Subject filter dropdown
       if (selectedSubjectFilter !== 'All' && subjectName !== selectedSubjectFilter) {
         return false
@@ -365,6 +366,8 @@ export default function PYQPage() {
         if (subjectName.toLowerCase().includes(token)) return true
         // Direct match on year
         if (years && years.toLowerCase().includes(token)) return true
+        // A finer topic inside the chapter ("cache" finds Memory Organization)
+        if (subtopics.includes(token)) return true
         // Match subject alias
         const aliasList = subjectAliases[token]
         if (aliasList && aliasList.some(alias => subjectName.toLowerCase().includes(alias) || topicName.toLowerCase().includes(alias))) {
