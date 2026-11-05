@@ -26,15 +26,9 @@ const rand = () => {
 }
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
 
-// "Topic" belongs to the chapter's own subject; "Subject: Topic" borrows from another
-const parseTopic = (subject, spec) => {
-  const m = spec.match(/^(.+?): (.+)$/)
-  return m ? { subject: m[1], topic: m[2] } : { subject, topic: spec }
-}
-const inChapter = (subject, chapter) => {
-  const wanted = chapter.topics.map(t => parseTopic(subject, t))
-  return (q) => (q.tags || []).some(tag => wanted.some(w => w.subject === tag.subject && w.topic === tag.topic))
-}
+// Questions carry their book chapters as tags (scripts/tag-chapters.mjs)
+const inChapter = (subject, chapter) =>
+  (q) => (q.tags || []).some(tag => tag.subject === subject && tag.topic === chapter.name)
 
 const slug = (s) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const used = new Set()
