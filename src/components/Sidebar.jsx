@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function Sidebar() {
@@ -32,7 +32,8 @@ export default function Sidebar() {
   }, [location.pathname, isPracticeActive])
 
   // If in practice or discussion mode, default to collapsed (icons only)
-  const isCollapsed = manualOverride !== null ? manualOverride : (isPracticingOrDiscussion || sidebarCollapsed)
+  // All tabs start in collapsed mode by default
+  const isCollapsed = manualOverride !== null ? manualOverride : true
 
   const handleToggle = () => {
     setManualOverride(!isCollapsed)
@@ -72,6 +73,7 @@ export default function Sidebar() {
     { name: 'Mock Tests', path: '/mock-tests', icon: BookOpen },
     { name: 'PYQ Booklet', path: '/booklet', icon: BookText },
     { name: 'Analytics', path: '/analytics', icon: BarChart2 },
+    { name: 'Analytics (Beta)', path: '/analytics-prototype', icon: TrendingUp },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark, badge: bookmarksCount },
     { name: 'Scratchpad Notes', path: '/notes', icon: NotebookPen, badge: notesCount },
     { name: 'Discussion Forum', path: '/discussion', icon: MessageSquare },
@@ -110,7 +112,7 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100dvh-4rem)] flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 ${
+        className={`fixed md:sticky top-16 md:top-16 left-0 z-50 h-[calc(100dvh-4rem)] flex-shrink-0 flex flex-col border-r border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark transition-all duration-300 overflow-visible ${
           isCollapsed ? 'md:w-20' : 'md:w-64'
         } ${
           sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full md:translate-none md:transform-none'
@@ -119,9 +121,9 @@ export default function Sidebar() {
         {/* Toggle Button for collapsing/expanding desktop sidebar */}
         <button
           onClick={handleToggle}
-          className="hidden md:flex absolute top-8 -right-3 h-6 w-6 rounded-full border border-border-light dark:border-border-dark bg-white dark:bg-slate-900/90 backdrop-blur-sm items-center justify-center text-slate-500 hover:text-primary shadow-sm hover:scale-110 transition-all z-[60]"
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"} className="hidden md:flex absolute top-7 -right-3.5 h-7 w-7 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center text-slate-700 dark:text-slate-200 hover:text-primary hover:border-primary shadow-md hover:scale-110 active:scale-95 transition-all z-[70]"
         >
-          {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+          {isCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
         </button>
 
         {/* Mobile Close Button in Sidebar Header */}
@@ -136,7 +138,7 @@ export default function Sidebar() {
         </div>
 
         {/* Sidebar Links */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden no-scrollbar">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.path
@@ -180,35 +182,7 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-border-light dark:border-border-dark">
-          <NavLink
-            to="/settings"
-            onClick={handleLinkClick}
-            onMouseEnter={(e) => handleItemMouseEnter(e, 'Settings')}
-            onMouseLeave={handleItemMouseLeave}
-            title={isCollapsed ? 'Settings' : undefined}
-            className={({ isActive }) =>
-              `group relative flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${
-                isCollapsed ? 'md:justify-center md:px-0' : ''
-              } ${
-                isActive
-                  ? 'text-primary bg-indigo-50 dark:bg-indigo-950/40'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-text-primary-light dark:hover:text-text-primary-dark hover:bg-slate-50 dark:hover:bg-slate-900/60'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Settings size={20} className={isActive ? 'text-primary' : 'text-slate-400 dark:text-slate-500'} />
-                <span className={`transition-opacity duration-300 ${isCollapsed ? 'md:hidden' : 'block'}`}>
-                  Settings
-                </span>
-              </>
-            )}
-          </NavLink>
-        </div>
-      </aside>
+        </aside>
 
       {/* Floating Tooltip for Collapsed Sidebar rendered into document.body */}
       {isCollapsed && hoveredTooltip && typeof document !== 'undefined' && createPortal(

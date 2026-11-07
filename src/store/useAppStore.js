@@ -328,7 +328,7 @@ export const useAppStore = create((set, get) => ({
   activeVideoQuestion: null,
   scratchpadOpenQuestionId: null,
   sidebarOpen: false,
-  sidebarCollapsed: JSON.parse(localStorage.getItem('sidebarCollapsed') || 'false'),
+  sidebarCollapsed: true,
   questions: initialQuestions || [],
   loadingQuestions: false,
   isPracticeActive: false,

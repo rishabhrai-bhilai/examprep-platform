@@ -23,6 +23,7 @@ import DiscussionPage from './pages/DiscussionPage'
 import ReportPage from './pages/ReportPage'
 import BookletPage from './pages/BookletPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import PrototypeAnalyticsPage from './pages/PrototypeAnalyticsPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -76,6 +77,7 @@ function App() {
           <Route path="/mock-tests" element={<MockTestsPage />} />
           <Route path="/booklet" element={<BookletPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/analytics-prototype" element={<PrototypeAnalyticsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/discussion" element={<DiscussionPage />} />

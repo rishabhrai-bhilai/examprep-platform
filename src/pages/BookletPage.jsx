@@ -435,7 +435,10 @@ export default function BookletPage() {
           </div>
 
           {/* Fast Subject Filter Ribbon */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none text-xs">
+          <div 
+            className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar scrollbar-none text-xs [&::-webkit-scrollbar]:hidden"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             <button
               onClick={() => setSelectedSubjectFilter('ALL')}
               className={`px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all cursor-pointer ${
