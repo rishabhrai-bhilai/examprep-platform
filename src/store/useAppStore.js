@@ -91,7 +91,7 @@ const savePracticeLocally = (practice) => {
 const DATA_OWNER_KEY = 'data_owner'
 const GUEST = 'guest'
 const USER_DATA_KEYS = ['bookmarks', 'bookmarkFolders', 'questionNotes', 'gate_mock_history', 'gate_pyq_mock_history',
-  PRACTICE_KEY, 'votes', 'solutionVotes', 'discussion_my_comment_ids']
+  PRACTICE_KEY, 'votes', 'solutionVotes', 'discussion_my_comment_ids', 'gate_test_in_progress']
 const VIDEO_NOTE_PREFIX = 'note_question_'
 
 // A browser that has never signed in holds guest data. One that is signed in but

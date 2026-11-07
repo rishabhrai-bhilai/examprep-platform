@@ -547,7 +547,7 @@ export default function DashboardPage() {
       mocks = [
         ...JSON.parse(localStorage.getItem('gate_mock_history') || '[]'),
         ...JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
-      ]
+      ].filter(h => h && h.counted !== false) // under-a-minute submissions don't count
     } catch (e) {
       mocks = []
     }

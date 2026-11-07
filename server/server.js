@@ -885,6 +885,15 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
     if (!Number.isFinite(timeTaken) || timeTaken < 0 || timeTaken > test.durationMinutes * 60 + 120) {
       return res.status(400).json({ error: 'Invalid test duration.' })
     }
+    // Each test can be taken once; a second submission gets the first one's comparison
+    if (mockAttemptDb.getByUser(req.user.id).some(a => a.testId === test.id)) {
+      return res.status(200).json({
+        counted: false,
+        alreadyAttempted: true,
+        reason: 'You have already taken this test. Only your first attempt counts.',
+        comparison: comparisonFor(test.id, req.user.id)
+      })
+    }
     if (!isValidAttempt(timeTaken)) {
       return res.status(200).json({ counted: false, reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.` })
     }
