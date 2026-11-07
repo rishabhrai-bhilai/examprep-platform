@@ -14,6 +14,8 @@ import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
 import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
+import ResumeTestBanner from '../components/ResumeTestBanner'
+import { loadSession, saveSession, clearSession, findMockAttempt, canStartNewTest } from '../utils/testSession'
 
 // The list page groups tests by kind (see shared/mockTests.js)
 const MOCK_CATEGORIES = [
@@ -305,19 +307,27 @@ export default function MockTestsPage() {
     return [...stored, ...dummies]
   }, [questions])
 
-  const handleOpenMockReport = (attempt) => {
+  const handleOpenMockReport = (attempt, returnTo = 'history') => {
     setReportData(attempt)
-    const testQs = attempt.questions && attempt.questions.length > 0 
-      ? attempt.questions 
-      : (questions || []).slice(0, attempt.questionsCount || 65)
-    setActiveTest({ id: attempt.testId, title: attempt.testTitle, questions: testQs })
+    // Attempts store the paper's question ids; older ones fall back to the paper itself
+    const paper = dummyMockTests.find(t => t.id === attempt.testId)
+    const testQs = attempt.questions && attempt.questions.length > 0
+      ? attempt.questions
+      : (paper?.questions || (questions || []).slice(0, attempt.questionsCount || 65))
+    setActiveTest({ id: attempt.testId, title: attempt.testTitle, durationMinutes: paper?.durationMinutes, questions: testQs })
     setAnswers(attempt.answers || {})
     setTimeSpent(attempt.timeSpentMap || {})
     setComparisonState({ status: 'uncounted' })
     setActiveReportTab('overview')
-    setReturnView('history')
+    setReturnView(returnTo)
     setView('report')
   }
+
+  // The test in progress (saved as it goes, so a refresh or crash can resume it)
+  const [session, setSession] = useState(loadSession)
+  useEffect(() => {
+    if (view !== 'testing') setSession(loadSession())
+  }, [view])
 
   // Initialize questions inside a test
   // Papers mix past-paper questions and original ones (shared/originalQuestions.json),
@@ -367,28 +377,72 @@ export default function MockTestsPage() {
     }
   }, [view, timeLeft])
 
-  const startTest = (test) => {
-    setActiveTest(test)
-    setAnswers({})
-    setFlags({})
-    setTimeSpent({})
-    setAnswerTimes({})
-    
-    // Set all questions to not visited, except first
-    const initialVisited = { [test.questions[0]]: true }
-    setVisited(initialVisited)
-    
-    setCurrentQuestionIndex(0)
-    setTimeLeft(test.durationMinutes * 60)
-    setView('testing')
-
-    // Auto-enter fullscreen mode
+  const enterFullscreen = () => {
     if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch((err) => {
         console.warn("Could not enter fullscreen automatically:", err);
       });
     }
   }
+
+  // Each paper can be taken once: a submitted one opens its analysis, and one
+  // in progress resumes instead of starting over
+  const startTest = (test) => {
+    const done = findMockAttempt(test.id)
+    if (done) return handleOpenMockReport(done, 'list')
+    const saved = loadSession()
+    if (saved && saved.page === 'mock' && saved.testId === test.id) return resumeTest(saved)
+    if (!canStartNewTest(test.id)) return
+
+    setActiveTest(test)
+    setAnswers({})
+    setFlags({})
+    setTimeSpent({})
+    setAnswerTimes({})
+
+    // Set all questions to not visited, except first
+    const initialVisited = { [test.questions[0]]: true }
+    setVisited(initialVisited)
+
+    setCurrentQuestionIndex(0)
+    setTimeLeft(test.durationMinutes * 60)
+    setView('testing')
+    enterFullscreen()
+  }
+
+  const resumeTest = (saved = loadSession()) => {
+    if (!saved || saved.page !== 'mock') return
+    const paper = dummyMockTests.find(t => t.id === saved.testId)
+    setActiveTest({
+      ...(paper || { id: saved.testId, title: saved.title }),
+      durationMinutes: saved.durationMinutes || paper?.durationMinutes,
+      questions: saved.questionIds
+    })
+    setAnswers(saved.answers || {})
+    setFlags(saved.flags || {})
+    setVisited(saved.visited || {})
+    setTimeSpent(saved.timeSpent || {})
+    setAnswerTimes(saved.answerTimes || {})
+    setCurrentQuestionIndex(Math.min(saved.currentQuestionIndex || 0, saved.questionIds.length - 1))
+    // A test saved with no time left is submitted as soon as it opens
+    setTimeLeft(Math.max(1, saved.timeLeft || 0))
+    setView('testing')
+    enterFullscreen()
+  }
+
+  // Save progress on every change while the test is running
+  useEffect(() => {
+    if (view !== 'testing' || !activeTest) return
+    saveSession({
+      page: 'mock',
+      testId: activeTest.id,
+      title: activeTest.title,
+      fixed: true,
+      questionIds: (activeTest.questions || []).map(item => (typeof item === 'object' && item !== null ? item.id : item)),
+      durationMinutes: activeTest.durationMinutes,
+      answers, flags, visited, timeLeft, timeSpent, answerTimes, currentQuestionIndex
+    })
+  }, [view, activeTest, answers, flags, visited, timeLeft, timeSpent, answerTimes, currentQuestionIndex])
 
   const handleSelectOption = (questionId, optionIndex) => {
     setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }))
@@ -513,6 +567,7 @@ export default function MockTestsPage() {
 
   const handleSubmitTest = () => {
     if (timerRef.current) clearInterval(timerRef.current)
+    clearSession()
 
     // Auto-exit fullscreen mode
     if (document.fullscreenElement) {
@@ -645,7 +700,8 @@ export default function MockTestsPage() {
     // Estimate rank: rank decreases exponentially as score increases
     const estimatedRank = Math.max(1, Math.round(50000 * Math.pow(0.93, Math.max(0, scaledScore - 15))))
 
-    // Under a minute isn't a real attempt: show the result but save nothing
+    // Under a minute isn't a real attempt: it is kept (the paper is used up and
+    // its analysis stays viewable) but doesn't count toward stats or comparison
     const counted = isValidAttempt(timeTaken)
 
     // Save to local storage history
@@ -683,12 +739,20 @@ export default function MockTestsPage() {
       topicStats,
       difficultyStats,
       errorTags: {}, // to be populated by student
-      timeSpentMap: timeSpent // save raw time per question
+      timeSpentMap: timeSpent, // save raw time per question
+      // so the analysis can be reopened later with every response
+      answers,
+      questions: testQuestions.map(q => q.id)
     }
 
     setReportData(data)
     setActiveReportTab('overview')
+    setReturnView('list')
     setView('report')
+
+    const updatedHistory = [data, ...existingHistory]
+    localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
 
     if (!counted) {
       setComparisonState({ status: 'uncounted' })
@@ -705,15 +769,13 @@ export default function MockTestsPage() {
       })
       .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
-    const updatedHistory = [data, ...existingHistory]
-    localStorage.setItem('gate_mock_history', JSON.stringify(updatedHistory))
-    syncTestRecordsToServer()
-
-    // Signed in: the server scores it too, numbers the attempt and compares the first one
+    // Signed in: the server scores it too and compares it with other students
     if (isSignedIn()) {
       setComparisonState({ status: 'loading' })
       submitMockAttempt(activeTest.id, answers, timeTaken)
         .then((result) => {
+          // Already taken (e.g. on another device): show that attempt's comparison
+          if (result.alreadyAttempted && result.comparison) return setComparisonState({ status: 'ready', comparison: result.comparison })
           if (!result.counted) return setComparisonState({ status: 'uncounted' })
           const serverNo = result.attempt.attemptNo
           if (serverNo !== attemptNo) {
@@ -878,6 +940,7 @@ export default function MockTestsPage() {
     if (!selectedCategoryId) {
       return (
         <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
+          <ResumeTestBanner session={session} page="mock" onResume={() => resumeTest()} />
           {/* Hub Header */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -969,6 +1032,7 @@ export default function MockTestsPage() {
 
     return (
       <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
+        <ResumeTestBanner session={session} page="mock" onResume={() => resumeTest()} />
         {/* Category Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-light dark:border-border-dark">
           <div className="space-y-1">
@@ -1101,12 +1165,25 @@ export default function MockTestsPage() {
                     Difficulty: <strong className="text-slate-700 dark:text-slate-300">{test.difficulty}</strong>
                   </span>
 
-                  <button
-                    onClick={() => startTest(test)}
-                    className="px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary-hover rounded-btn transition-all active:scale-95 shadow-sm cursor-pointer"
-                  >
-                    Attempt Test
-                  </button>
+                  {(() => {
+                    const inProgress = session?.page === 'mock' && session.testId === test.id
+                    const done = !inProgress && findMockAttempt(test.id)
+                    return (
+                      <button
+                        onClick={() => startTest(test)}
+                        title={done ? 'Each test can be taken once. Opens your analysis.' : undefined}
+                        className={`px-4 py-2 text-xs font-bold rounded-btn transition-all active:scale-95 shadow-sm cursor-pointer ${
+                          inProgress
+                            ? 'text-white bg-amber-600 hover:bg-amber-700'
+                            : done
+                              ? 'text-primary bg-primary/10 hover:bg-primary/20 border border-primary/30'
+                              : 'text-white bg-primary hover:bg-primary-hover'
+                        }`}
+                      >
+                        {inProgress ? 'Resume Test' : done ? 'View Analysis' : 'Attempt Test'}
+                      </button>
+                    )
+                  })()}
                 </div>
               </div>
             ))}
@@ -1567,7 +1644,7 @@ export default function MockTestsPage() {
         {reportData.counted === false && (
           <div className="p-3 rounded-btn border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2 no-print">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt isn't counted: it isn't saved and doesn't affect your analytics or rank. You can take the test again.</span>
+            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt doesn't count toward your analytics or rank. Each test can be taken once, so this analysis is what the test will show from now on.</span>
           </div>
         )}
         {reportData.counted !== false && reportData.attemptNo > 1 && (
@@ -2325,13 +2402,6 @@ export default function MockTestsPage() {
             className="px-6 py-2.5 font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-btn hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors active:scale-95"
           >
             Back to Mock List
-          </button>
-          <button
-            onClick={() => startTest(activeTest)}
-            className="px-6 py-2.5 font-bold text-xs bg-primary text-white rounded-btn hover:bg-primary-hover shadow-md flex items-center gap-1.5 transition-all active:scale-95"
-          >
-            <RefreshCw size={12} />
-            <span>Retake Mock Exam</span>
           </button>
         </div>
 

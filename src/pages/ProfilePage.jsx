@@ -363,7 +363,8 @@ export default function ProfilePage() {
   // Mock test statistics
   const mockHistory = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
+      // under-a-minute submissions are kept for their analysis but don't count
+      return JSON.parse(localStorage.getItem('gate_mock_history') || '[]').filter(h => h && h.counted !== false)
     } catch {
       return []
     }
@@ -371,7 +372,7 @@ export default function ProfilePage() {
 
   const pyqHistory = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
+      return JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]').filter(h => h && h.counted !== false)
     } catch {
       return []
     }

@@ -17,9 +17,11 @@ import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
 import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
-import { pyqPaperId } from '../../shared/pyqPapers.js'
+import { pyqPaperId, pyqPaperQuestions } from '../../shared/pyqPapers.js'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import { Link } from 'react-router-dom'
+import ResumeTestBanner from '../components/ResumeTestBanner'
+import { loadSession, saveSession, clearSession, findPaperAttempt, canStartNewTest } from '../utils/testSession'
 
 
 // ==========================================
@@ -211,9 +213,14 @@ export default function PYQMockTestsPage() {
 
   const handleOpenAttemptReport = (attempt) => {
     setReportData(attempt)
-    const testQs = attempt.questions && attempt.questions.length > 0 
-      ? attempt.questions 
-      : (questions || []).slice(0, attempt.questionsCount || 65)
+    // Attempts store question ids (in the order they were shown)
+    const byId = new Map((questions || []).map(q => [q.id, q]))
+    const stored = (attempt.questions || []).map(item => (typeof item === 'object' && item !== null ? item : byId.get(item))).filter(Boolean)
+    const testQs = stored.length > 0
+      ? stored
+      : attempt.paperId
+        ? pyqPaperQuestions(questions || [], attempt.paperId)
+        : (questions || []).slice(0, attempt.questionsCount || 65)
     setActiveTestQuestions(testQs)
     setAnswers(attempt.answers || {})
     setTimeSpent(attempt.timeSpentMap || {})
@@ -494,19 +501,76 @@ export default function PYQMockTestsPage() {
   }, [view, timeLeft])
 
   // --- INITIALIZE TEST FLOW ---
-  const startMockTestSession = (questionsList, title, modeInfo) => {
+  const enterFullscreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn("Could not enter fullscreen automatically:", err)
+      })
+    }
+  }
+
+  // The test in progress (saved as it goes, so a refresh or crash can resume it)
+  const [session, setSession] = useState(loadSession)
+  const [activeSessionId, setActiveSessionId] = useState(null)
+  useEffect(() => {
+    if (view !== 'testing') setSession(loadSession())
+  }, [view])
+
+  const resumeTest = (saved = loadSession()) => {
+    if (!saved || saved.page !== 'pyq') return
+    const byId = new Map(questions.map(q => [q.id, q]))
+    const qs = saved.questionIds.map(id => byId.get(id)).filter(Boolean)
+    if (qs.length === 0) return
+    setActiveTestQuestions(qs)
+    setActiveTestTitle(saved.title)
+    setActiveTestModeInfo(saved.modeInfo || '')
+    setActivePaperId(saved.paperId || null)
+    setActiveSessionId(saved.testId)
+    setAnswers(saved.answers || {})
+    setFlags(saved.flags || {})
+    setVisited(saved.visited || {})
+    setTimeSpent(saved.timeSpent || {})
+    setAnswerTimes(saved.answerTimes || {})
+    setCurrentQuestionIndex(Math.min(saved.currentQuestionIndex || 0, qs.length - 1))
+    // A test saved with no time left is submitted as soon as it opens
+    setTimeLeft(Math.max(1, saved.timeLeft || 0))
+    setView('testing')
+    enterFullscreen()
+  }
+
+  // Save progress on every change while the test is running
+  useEffect(() => {
+    if (view !== 'testing' || !activeSessionId || activeTestQuestions.length === 0) return
+    saveSession({
+      page: 'pyq',
+      testId: activeSessionId,
+      title: activeTestTitle,
+      modeInfo: activeTestModeInfo,
+      fixed: Boolean(activePaperId),
+      paperId: activePaperId,
+      questionIds: activeTestQuestions.map(q => q.id),
+      answers, flags, visited, timeLeft, timeSpent, answerTimes, currentQuestionIndex
+    })
+  }, [view, activeSessionId, activeTestQuestions, activeTestTitle, activeTestModeInfo, activePaperId, answers, flags, visited, timeLeft, timeSpent, answerTimes, currentQuestionIndex])
+
+  // paperId is set for a full year paper, which can be taken once; topic,
+  // subject, random and custom sets are drawn fresh each time
+  const startMockTestSession = (questionsList, title, modeInfo, paperId = null) => {
     if (questionsList.length === 0) {
       alert("No questions found matching your selections!")
       return
     }
-    
+    const sessionId = paperId || `pyq-custom-${Date.now()}`
+    if (!canStartNewTest(sessionId)) return
+
     // Shuffle test questions
     const shuffled = [...questionsList].sort(() => Math.random() - 0.5)
-    
+
     setActiveTestQuestions(shuffled)
     setActiveTestTitle(title)
     setActiveTestModeInfo(modeInfo)
-    setActivePaperId(null)
+    setActivePaperId(paperId)
+    setActiveSessionId(sessionId)
     setAnswers({})
     setFlags({})
     setTimeSpent({})
@@ -520,13 +584,7 @@ export default function PYQMockTestsPage() {
     const totalDurationSeconds = Math.round(shuffled.length * 1.5) * 60
     setTimeLeft(totalDurationSeconds)
     setView('testing')
-
-    // Request fullscreen mode
-    if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.warn("Could not enter fullscreen automatically:", err)
-      })
-    }
+    enterFullscreen()
   }
 
   const handleConfirmStartPractice = () => {
@@ -569,8 +627,14 @@ export default function PYQMockTestsPage() {
     )
     const title = set ? `PYQ Mock: GATE ${year} Set ${set}` : `PYQ Year Mock Test (${year})`
     const modeInfo = set ? `Exam year ${year} • Set ${set}` : `Exam year ${year}`
-    startMockTestSession(filtered, title, modeInfo)
-    setActivePaperId(pyqPaperId(year, set))
+    const paperId = pyqPaperId(year, set)
+    // Each year paper can be taken once: a submitted one opens its analysis,
+    // and one in progress resumes instead of starting over
+    const done = findPaperAttempt(paperId, title)
+    if (done) return handleOpenAttemptReport(done)
+    const saved = loadSession()
+    if (saved && saved.page === 'pyq' && saved.testId === paperId) return resumeTest(saved)
+    startMockTestSession(filtered, title, modeInfo, paperId)
   }
 
   // wizardConfig.topics holds topicKey(subject, topic) strings
@@ -742,6 +806,7 @@ export default function PYQMockTestsPage() {
   // --- EXAM SUBMISSION & STORAGE ---
   const handleSubmitTest = () => {
     if (timerRef.current) clearInterval(timerRef.current)
+    clearSession()
 
     // Release Fullscreen
     if (document.fullscreenElement) {
@@ -874,8 +939,8 @@ export default function PYQMockTestsPage() {
     // Save to local storage under gate_pyq_mock_history
     const existing = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
     const testNum = existing.length + 1
-    // Under a minute isn't a real attempt: show the result but save nothing.
-    // Repeats of the same paper are numbered (attempt 1, 2, ...)
+    // Under a minute isn't a real attempt: it is kept (a year paper is used up and
+    // its analysis stays viewable) but doesn't count toward stats or comparison
     const counted = isValidAttempt(timeTaken)
     const attemptNo = existing.filter(h => h.testTitle === activeTestTitle).length + 1
 
@@ -911,13 +976,20 @@ export default function PYQMockTestsPage() {
       errorTags: {},
       timeSpentMap: timeSpent,
       modeInfo: activeTestModeInfo,
-      ...(activePaperId ? { paperId: activePaperId } : {})
+      ...(activePaperId ? { paperId: activePaperId } : {}),
+      // so the analysis can be reopened later with every response
+      answers,
+      questions: activeTestQuestions.map(q => q.id)
     }
 
     setActiveReportTab('overview')
+    setReportData(data)
+    const updatedHistory = [data, ...existing]
+    localStorage.setItem('gate_pyq_mock_history', JSON.stringify(updatedHistory))
+    syncTestRecordsToServer()
+
     if (!counted) {
       setComparisonState({ status: 'uncounted' })
-      setReportData(data)
       setView('report')
       return
     }
@@ -930,12 +1002,6 @@ export default function PYQMockTestsPage() {
       })
       .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
-    setReportData(data)
-    
-    const updatedHistory = [data, ...existing]
-    localStorage.setItem('gate_pyq_mock_history', JSON.stringify(updatedHistory))
-    syncTestRecordsToServer()
-
     // Full year papers are scored by the server too and compared with other students
     if (!activePaperId) {
       setComparisonState({ status: 'not-year' })
@@ -944,7 +1010,7 @@ export default function PYQMockTestsPage() {
     } else {
       setComparisonState({ status: 'loading' })
       submitMockAttempt(activePaperId, answers, timeTaken)
-        .then(result => setComparisonState(result.counted ? { status: 'ready', comparison: result.comparison } : { status: 'uncounted' }))
+        .then(result => setComparisonState(result.counted || (result.alreadyAttempted && result.comparison) ? { status: 'ready', comparison: result.comparison } : { status: 'uncounted' }))
         .catch(err => setComparisonState({ status: 'error', message: err.message }))
     }
 
@@ -992,7 +1058,12 @@ export default function PYQMockTestsPage() {
   if (view === 'list') {
     return (
       <div className="bg-bg-light dark:bg-bg-dark relative transition-colors duration-200">
-        
+        {session && (
+          <div className="px-4 md:px-8 pt-4 max-w-6xl mx-auto">
+            <ResumeTestBanner session={session} page="pyq" onResume={() => resumeTest()} />
+          </div>
+        )}
+
         {/* Hub Main */}
         {subView === 'hub' && (
           <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
@@ -1454,10 +1525,18 @@ export default function PYQMockTestsPage() {
                         <span>{paper.count} Questions</span>
                       </span>
 
-                      <div className="flex items-center gap-1 text-xs font-bold text-primary group-hover:translate-x-0.5 transition-transform">
-                        <span>Start Mock</span>
-                        <ArrowRight size={13} />
-                      </div>
+                      {(() => {
+                        const id = pyqPaperId(paper.year, paper.set)
+                        const title = paper.set ? `PYQ Mock: GATE ${paper.year} Set ${paper.set}` : `PYQ Year Mock Test (${paper.year})`
+                        const inProgress = session?.page === 'pyq' && session.testId === id
+                        const done = !inProgress && findPaperAttempt(id, title)
+                        return (
+                          <div className={`flex items-center gap-1 text-xs font-bold group-hover:translate-x-0.5 transition-transform ${inProgress ? 'text-amber-600' : done ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`}>
+                            <span>{inProgress ? 'Resume' : done ? 'View Analysis' : 'Start Mock'}</span>
+                            <ArrowRight size={13} />
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 )
@@ -2710,7 +2789,7 @@ export default function PYQMockTestsPage() {
         {reportData.counted === false && (
           <div className="p-3 rounded-btn border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2 no-print">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt isn't counted: it isn't saved and doesn't affect your analytics. You can take the test again.</span>
+            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt doesn't count toward your analytics.</span>
           </div>
         )}
         {reportData.counted !== false && !isSignedIn() && (
@@ -3449,13 +3528,6 @@ export default function PYQMockTestsPage() {
             className="px-6 py-2.5 font-bold text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 rounded-btn hover:bg-slate-200 transition-colors"
           >
             Back to Mocks List
-          </button>
-          <button
-            onClick={() => startMockTestSession(activeTestQuestions, activeTestTitle, activeTestModeInfo)}
-            className="px-6 py-2.5 font-bold text-xs bg-primary text-white rounded-btn hover:bg-primary-hover shadow-md flex items-center gap-1.5 transition-all"
-          >
-            <RefreshCw size={12} />
-            <span>Retake Mock Exam</span>
           </button>
         </div>
 
