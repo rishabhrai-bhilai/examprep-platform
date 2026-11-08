@@ -5,6 +5,8 @@ import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import ReportIssueForm from '../components/ReportIssueForm'
+import originalQuestions from '../../shared/originalQuestions.json'
+import { describeQuestionCode } from '../../shared/questionCodes.js'
 
 const CATEGORY_META = {
   question: { label: 'Question', className: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
@@ -152,8 +154,10 @@ export default function ReportPage() {
   const [statusFilter, setStatusFilter] = useState('all')
 
   const questionLabel = (id) => {
-    const q = (questions || []).find(item => String(item.id) === String(id))
+    const q = (questions || []).find(item => String(item.id) === String(id)) ||
+      originalQuestions.find(item => String(item.id) === String(id))
     if (!q) return `Question #${id}`
+    if (q.code) return `${q.code} · ${describeQuestionCode(q.code)}`
     return `GATE ${q.year} ${q.paper || ''} · Q${q.questionNumber} · ${q.subject}`.replace(/\s+·/g, ' ·')
   }
 
