@@ -1108,7 +1108,7 @@ export default function ScratchpadDrawer({
               <X size={14} />
               <span>Exit Practice</span>
             </button>
-            <span className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Question #{currentQuestion.id}</span>
+            <span className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Question {currentQuestion.code || `#${currentQuestion.id}`}</span>
           </div>
 
           {/* Question Contents Scrollable */}

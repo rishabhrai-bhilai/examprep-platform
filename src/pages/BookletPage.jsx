@@ -1,3 +1,4 @@
+import { describeQuestionCode } from '../../shared/questionCodes.js'
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { 
@@ -976,8 +977,8 @@ export default function BookletPage() {
             {activeQuestion && (
               <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900/40 border-b border-border-light dark:border-border-dark flex items-center justify-between text-[11px]">
                 <div className="flex items-center gap-2 font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  <span className="font-mono font-bold text-primary">
-                    ID #{activeQuestion.id}
+                  <span className="font-mono font-bold text-primary" title={describeQuestionCode(activeQuestion.code)}>
+                    {activeQuestion.code || `ID #${activeQuestion.id}`}
                   </span>
                   <span>•</span>
                   <span>GATE {activeQuestion.year}</span>

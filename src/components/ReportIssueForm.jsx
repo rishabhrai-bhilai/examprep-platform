@@ -4,6 +4,8 @@ import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import QuestionText from './QuestionText'
+import originalQuestions from '../../shared/originalQuestions.json'
+import { findQuestionByRef, describeQuestionCode } from '../../shared/questionCodes.js'
 
 const MIN_LENGTH = 10
 const MAX_LENGTH = 2000
@@ -22,8 +24,10 @@ const PLACEHOLDERS = {
   other: 'Tell us what is on your mind…'
 }
 
-const formatQuestionLabel = (q) =>
-  `GATE ${q.year} ${q.paper || ''} · Q${q.questionNumber} · ${q.subject}`.replace(/\s+·/g, ' ·')
+const formatQuestionLabel = (q) => {
+  const where = q.code ? describeQuestionCode(q.code) : `GATE ${q.year} ${q.paper || ''} · Q${q.questionNumber} · ${q.subject}`.replace(/\s+·/g, ' ·')
+  return q.code ? `${q.code} · ${where}` : where
+}
 
 export default function ReportIssueForm({ initialQuestionId = null, initialCategory, onSubmitted, compact = false }) {
   const { submitReport } = useReportStore()
@@ -39,8 +43,10 @@ export default function ReportIssueForm({ initialQuestionId = null, initialCateg
   const [success, setSuccess] = useState(false)
 
   const trimmedId = questionIdInput.trim()
+  // A code (01-CS-261-OS-2N-047, or just 01-CS-261-047) or the numeric id, from
+  // past papers or the original mock questions
   const resolvedQuestion = trimmedId
-    ? (questions || []).find(q => String(q.id) === trimmedId) || null
+    ? findQuestionByRef(questions, trimmedId) || findQuestionByRef(originalQuestions, trimmedId)
     : null
   const trimmedLength = message.trim().length
   const needsQuestion = category === 'question'
@@ -152,21 +158,22 @@ export default function ReportIssueForm({ initialQuestionId = null, initialCateg
             </label>
             <input
               id="report-question-id"
-              type="number"
-              min="1"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
               value={questionIdInput}
               onChange={(e) => setQuestionIdInput(e.target.value)}
-              placeholder="e.g. 1234"
+              placeholder="e.g. 01-CS-261-OS-2N-047"
               className="w-full h-10 px-3 rounded-input bg-white dark:bg-slate-900 border border-border-light dark:border-border-dark text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             />
             <p className="text-[11px] text-slate-400">
-              Open the question and use the flag button, or enter its ID
+              Open the question and use the flag button, or enter its code (shown next to the question; the old number works too)
             </p>
             {trimmedId && (
               resolvedQuestion ? (
                 <p className="text-xs font-semibold text-primary">{formatQuestionLabel(resolvedQuestion)}</p>
               ) : (
-                <p className="text-xs font-semibold text-error">No question with this ID</p>
+                <p className="text-xs font-semibold text-error">No question with this code or ID</p>
               )
             )}
           </div>

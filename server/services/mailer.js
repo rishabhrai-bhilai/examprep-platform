@@ -1,3 +1,4 @@
+import { describeQuestionCode } from '../../shared/questionCodes.js'
 import nodemailer from 'nodemailer'
 
 // Two ways to send:
@@ -116,7 +117,9 @@ export function sendReportMail(to, report, { question = null, link = null } = {}
   const label = REPORT_LABELS[report.category] || report.category
   const reporter = `${report.userName || 'A user'} <${report.userEmail}>`
   const questionLine = question
-    ? `Question ${question.id} (GATE ${question.year}${question.set ? ` set ${question.set}` : ''}, ${question.subject})`
+    ? (question.code
+        ? `${question.code}: ${describeQuestionCode(question.code)} (id ${question.id})`
+        : `Question ${question.id} (GATE ${question.year}${question.set ? ` set ${question.set}` : ''}, ${question.subject})`)
     : null
   const excerpt = question?.question ? String(question.question).replace(/\s+/g, ' ').slice(0, 300) : ''
 

@@ -194,7 +194,7 @@ const renderQuestionHeader = (doc, question, startY = 16) => {
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(30, 41, 59)
-  doc.text(`Question #${question.id}  •  ${question.subject}`, margin + 8, startY + 7)
+  doc.text(`Question ${question.code || `#${question.id}`}  •  ${question.subject}`, margin + 8, startY + 7)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8.5)
@@ -481,7 +481,7 @@ export const exportQuestionNotePdf = async (question, note) => {
   // Merge actual pages of any attached PDF documents
   const finalPdfBytes = await mergePdfAttachments(basePdfArrayBuffer, note.attachments || [])
 
-  const safeFilename = `GATE-Q${question.id}-${question.subject}-${question.topic}-Notes.pdf`
+  const safeFilename = `GATE-${question.code || `Q${question.id}`}-${question.subject}-${question.topic}-Notes.pdf`
     .replace(/[\\/:*?"<>|]/g, '_')
     .replace(/\s+/g, '-')
 
@@ -528,7 +528,7 @@ export const exportBulkNotesPdf = async (questionsList = [], questionNotesMap = 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(8.5)
     doc.setTextColor(51, 65, 85)
-    doc.text(`${idx + 1}.  Q#${q.id}  [${q.subject}]  —  ${q.topic} (${q.year})`, 16, coverY)
+    doc.text(`${idx + 1}.  ${q.code || `Q#${q.id}`}  [${q.subject}]  —  ${q.topic} (${q.year})`, 16, coverY)
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)

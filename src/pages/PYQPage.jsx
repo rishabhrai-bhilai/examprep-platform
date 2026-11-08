@@ -1597,7 +1597,7 @@ export default function PYQPage() {
                         </span>
                         <span>•</span>
                         <span className="font-semibold text-slate-500">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
-                        <QuestionIdBadge id={currentQuestion.id} />
+                        <QuestionIdBadge question={currentQuestion} />
                       </div>
                       
                       <div className="flex items-center gap-1.5 sm:gap-2">

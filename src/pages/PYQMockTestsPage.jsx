@@ -11,6 +11,7 @@ import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
+import QuestionIdBadge from '../components/QuestionIdBadge'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, subtopicText, topicKey } from '../utils/topics'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
@@ -3428,6 +3429,7 @@ export default function PYQMockTestsPage() {
                       <div className="flex justify-between items-center text-xs pb-3 border-b border-slate-100 dark:border-slate-800/40">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-500">Question {idx + 1}</span>
+                          <QuestionIdBadge question={q} />
                           <span className="font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">{q.subject}</span>
                           {q.year && (
                             <span className="text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-2 py-0.5 rounded">

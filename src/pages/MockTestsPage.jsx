@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
+import QuestionIdBadge from '../components/QuestionIdBadge'
 import { getTags } from '../utils/topics'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
@@ -2297,6 +2298,7 @@ export default function MockTestsPage() {
                       <div className="flex justify-between items-center text-xs pb-3 border-b border-slate-100 dark:border-slate-800/40">
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-slate-500">Question {idx + 1}</span>
+                          <QuestionIdBadge question={q} />
                           <span className="font-bold text-primary px-2 py-0.5 bg-primary/10 rounded">{q.subject}</span>
                           <span className="text-[10px] text-slate-400 font-mono">Time spent: {formatTime(timeSecs)}</span>
                         </div>

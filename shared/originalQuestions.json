@@ -1,6 +1,7 @@
 [
   {
     "id": 9000001,
+    "code": "04-CS-M01-GA-1M-001",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -29,6 +30,7 @@
   },
   {
     "id": 9000002,
+    "code": "04-CS-M01-GA-1M-002",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -57,6 +59,7 @@
   },
   {
     "id": 9000003,
+    "code": "04-CS-M01-GA-1M-003",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -85,6 +88,7 @@
   },
   {
     "id": 9000004,
+    "code": "04-CS-M01-GA-1M-004",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -113,6 +117,7 @@
   },
   {
     "id": 9000005,
+    "code": "04-CS-M01-GA-1M-005",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -141,6 +146,7 @@
   },
   {
     "id": 9000006,
+    "code": "04-CS-M01-GA-1N-006",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -163,6 +169,7 @@
   },
   {
     "id": 9000007,
+    "code": "04-CS-M01-GA-1M-007",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -191,6 +198,7 @@
   },
   {
     "id": 9000008,
+    "code": "04-CS-M01-GA-1N-008",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -213,6 +221,7 @@
   },
   {
     "id": 9000009,
+    "code": "04-CS-M01-GA-1M-009",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -241,6 +250,7 @@
   },
   {
     "id": 9000010,
+    "code": "04-CS-M01-GA-1M-010",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -269,6 +279,7 @@
   },
   {
     "id": 9000011,
+    "code": "04-CS-M01-GA-1M-011",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -297,6 +308,7 @@
   },
   {
     "id": 9000012,
+    "code": "04-CS-M01-GA-1S-012",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -328,6 +340,7 @@
   },
   {
     "id": 9000013,
+    "code": "04-CS-M01-GA-1S-013",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -359,6 +372,7 @@
   },
   {
     "id": 9000014,
+    "code": "04-CS-M01-GA-1M-014",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -387,6 +401,7 @@
   },
   {
     "id": 9000015,
+    "code": "04-CS-M01-GA-1M-015",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -415,6 +430,7 @@
   },
   {
     "id": 9000016,
+    "code": "04-CS-M01-GA-2M-016",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -443,6 +459,7 @@
   },
   {
     "id": 9000017,
+    "code": "04-CS-M01-GA-2N-017",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -465,6 +482,7 @@
   },
   {
     "id": 9000018,
+    "code": "04-CS-M01-GA-2M-018",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -493,6 +511,7 @@
   },
   {
     "id": 9000019,
+    "code": "04-CS-M01-GA-2N-019",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -515,6 +534,7 @@
   },
   {
     "id": 9000020,
+    "code": "04-CS-M01-GA-2M-020",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -543,6 +563,7 @@
   },
   {
     "id": 9000021,
+    "code": "04-CS-M01-GA-2M-021",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -571,6 +592,7 @@
   },
   {
     "id": 9000022,
+    "code": "04-CS-M01-GA-2M-022",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -599,6 +621,7 @@
   },
   {
     "id": 9000023,
+    "code": "04-CS-M01-GA-2M-023",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -627,6 +650,7 @@
   },
   {
     "id": 9000024,
+    "code": "04-CS-M01-GA-2S-024",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -658,6 +682,7 @@
   },
   {
     "id": 9000025,
+    "code": "04-CS-M01-GA-2M-025",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -686,6 +711,7 @@
   },
   {
     "id": 9000026,
+    "code": "04-CS-M01-GA-2M-026",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -714,6 +740,7 @@
   },
   {
     "id": 9000027,
+    "code": "04-CS-M01-GA-2M-027",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -742,6 +769,7 @@
   },
   {
     "id": 9000028,
+    "code": "04-CS-M01-GA-2M-028",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -770,6 +798,7 @@
   },
   {
     "id": 9000029,
+    "code": "04-CS-M01-GA-2S-029",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -802,6 +831,7 @@
   },
   {
     "id": 9000030,
+    "code": "04-CS-M01-GA-2M-030",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -830,6 +860,7 @@
   },
   {
     "id": 9000031,
+    "code": "04-CS-M01-EM-1M-031",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -858,6 +889,7 @@
   },
   {
     "id": 9000032,
+    "code": "04-CS-M01-EM-1N-032",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -880,6 +912,7 @@
   },
   {
     "id": 9000033,
+    "code": "04-CS-M01-EM-1M-033",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -908,6 +941,7 @@
   },
   {
     "id": 9000034,
+    "code": "04-CS-M01-EM-1M-034",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -936,6 +970,7 @@
   },
   {
     "id": 9000035,
+    "code": "04-CS-M01-EM-1S-035",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -968,6 +1003,7 @@
   },
   {
     "id": 9000036,
+    "code": "04-CS-M01-EM-1N-036",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -990,6 +1026,7 @@
   },
   {
     "id": 9000037,
+    "code": "04-CS-M01-EM-2M-037",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1018,6 +1055,7 @@
   },
   {
     "id": 9000038,
+    "code": "04-CS-M01-EM-2N-038",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1040,6 +1078,7 @@
   },
   {
     "id": 9000039,
+    "code": "04-CS-M01-EM-2M-039",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1068,6 +1107,7 @@
   },
   {
     "id": 9000040,
+    "code": "04-CS-M01-EM-2N-040",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1090,6 +1130,7 @@
   },
   {
     "id": 9000041,
+    "code": "04-CS-M01-EM-2M-041",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1118,6 +1159,7 @@
   },
   {
     "id": 9000042,
+    "code": "04-CS-M01-EM-2S-042",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -1149,6 +1191,7 @@
   },
   {
     "id": 9000043,
+    "code": "04-CS-M01-DM-1M-043",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1177,6 +1220,7 @@
   },
   {
     "id": 9000044,
+    "code": "04-CS-M01-DM-1N-044",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1199,6 +1243,7 @@
   },
   {
     "id": 9000045,
+    "code": "04-CS-M01-DM-1M-045",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1227,6 +1272,7 @@
   },
   {
     "id": 9000046,
+    "code": "04-CS-M01-DM-1M-046",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1255,6 +1301,7 @@
   },
   {
     "id": 9000047,
+    "code": "04-CS-M01-DM-1S-047",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1287,6 +1334,7 @@
   },
   {
     "id": 9000048,
+    "code": "04-CS-M01-DM-1N-048",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1309,6 +1357,7 @@
   },
   {
     "id": 9000049,
+    "code": "04-CS-M01-DM-2M-049",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1337,6 +1386,7 @@
   },
   {
     "id": 9000050,
+    "code": "04-CS-M01-DM-2M-050",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1365,6 +1415,7 @@
   },
   {
     "id": 9000051,
+    "code": "04-CS-M01-DM-2N-051",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1387,6 +1438,7 @@
   },
   {
     "id": 9000052,
+    "code": "04-CS-M01-DM-2M-052",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1415,6 +1467,7 @@
   },
   {
     "id": 9000053,
+    "code": "04-CS-M01-DM-2N-053",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1437,6 +1490,7 @@
   },
   {
     "id": 9000054,
+    "code": "04-CS-M01-DM-2M-054",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1465,6 +1519,7 @@
   },
   {
     "id": 9000055,
+    "code": "04-CS-M01-DM-2S-055",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1496,6 +1551,7 @@
   },
   {
     "id": 9000056,
+    "code": "04-CS-M01-DM-2N-056",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1518,6 +1574,7 @@
   },
   {
     "id": 9000057,
+    "code": "04-CS-M01-DM-2M-057",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -1546,6 +1603,7 @@
   },
   {
     "id": 9000058,
+    "code": "04-CS-M01-DL-1M-058",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1574,6 +1632,7 @@
   },
   {
     "id": 9000059,
+    "code": "04-CS-M01-DL-1N-059",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1596,6 +1655,7 @@
   },
   {
     "id": 9000060,
+    "code": "04-CS-M01-DL-1M-060",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1624,6 +1684,7 @@
   },
   {
     "id": 9000061,
+    "code": "04-CS-M01-DL-1M-061",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1652,6 +1713,7 @@
   },
   {
     "id": 9000062,
+    "code": "04-CS-M01-DL-1S-062",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1683,6 +1745,7 @@
   },
   {
     "id": 9000063,
+    "code": "04-CS-M01-DL-1N-063",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1705,6 +1768,7 @@
   },
   {
     "id": 9000064,
+    "code": "04-CS-M01-DL-2N-064",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1727,6 +1791,7 @@
   },
   {
     "id": 9000065,
+    "code": "04-CS-M01-DL-2M-065",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1755,6 +1820,7 @@
   },
   {
     "id": 9000066,
+    "code": "04-CS-M01-DL-2M-066",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1783,6 +1849,7 @@
   },
   {
     "id": 9000067,
+    "code": "04-CS-M01-DL-2N-067",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1805,6 +1872,7 @@
   },
   {
     "id": 9000068,
+    "code": "04-CS-M01-DL-2M-068",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1833,6 +1901,7 @@
   },
   {
     "id": 9000069,
+    "code": "04-CS-M01-DL-2S-069",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -1865,6 +1934,7 @@
   },
   {
     "id": 9000070,
+    "code": "04-CS-M01-CO-1M-070",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -1893,6 +1963,7 @@
   },
   {
     "id": 9000071,
+    "code": "04-CS-M01-CO-1M-071",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -1921,6 +1992,7 @@
   },
   {
     "id": 9000072,
+    "code": "04-CS-M01-CO-1S-072",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -1952,6 +2024,7 @@
   },
   {
     "id": 9000073,
+    "code": "04-CS-M01-CO-1N-073",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -1974,6 +2047,7 @@
   },
   {
     "id": 9000074,
+    "code": "04-CS-M01-CO-1M-074",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2002,6 +2076,7 @@
   },
   {
     "id": 9000075,
+    "code": "04-CS-M01-CO-1N-075",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2024,6 +2099,7 @@
   },
   {
     "id": 9000076,
+    "code": "04-CS-M01-CO-1S-076",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2056,6 +2132,7 @@
   },
   {
     "id": 9000077,
+    "code": "04-CS-M01-CO-1M-077",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2084,6 +2161,7 @@
   },
   {
     "id": 9000078,
+    "code": "04-CS-M01-CO-1M-078",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2112,6 +2190,7 @@
   },
   {
     "id": 9000079,
+    "code": "04-CS-M01-CO-2N-079",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2134,6 +2213,7 @@
   },
   {
     "id": 9000080,
+    "code": "04-CS-M01-CO-2N-080",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2156,6 +2236,7 @@
   },
   {
     "id": 9000081,
+    "code": "04-CS-M01-CO-2M-081",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2184,6 +2265,7 @@
   },
   {
     "id": 9000082,
+    "code": "04-CS-M01-CO-2N-082",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2206,6 +2288,7 @@
   },
   {
     "id": 9000083,
+    "code": "04-CS-M01-CO-2M-083",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2234,6 +2317,7 @@
   },
   {
     "id": 9000084,
+    "code": "04-CS-M01-CO-2S-084",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2266,6 +2350,7 @@
   },
   {
     "id": 9000085,
+    "code": "04-CS-M01-CO-2N-085",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2288,6 +2373,7 @@
   },
   {
     "id": 9000086,
+    "code": "04-CS-M01-CO-2N-086",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2310,6 +2396,7 @@
   },
   {
     "id": 9000087,
+    "code": "04-CS-M01-CO-2M-087",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -2338,6 +2425,7 @@
   },
   {
     "id": 9000088,
+    "code": "04-CS-M01-PD-1M-088",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2366,6 +2454,7 @@
   },
   {
     "id": 9000089,
+    "code": "04-CS-M01-PD-1M-089",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2394,6 +2483,7 @@
   },
   {
     "id": 9000090,
+    "code": "04-CS-M01-PD-1N-090",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2416,6 +2506,7 @@
   },
   {
     "id": 9000091,
+    "code": "04-CS-M01-PD-1N-091",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2438,6 +2529,7 @@
   },
   {
     "id": 9000092,
+    "code": "04-CS-M01-PD-1M-092",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2466,6 +2558,7 @@
   },
   {
     "id": 9000093,
+    "code": "04-CS-M01-PD-1N-093",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2488,6 +2581,7 @@
   },
   {
     "id": 9000094,
+    "code": "04-CS-M01-PD-1M-094",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2516,6 +2610,7 @@
   },
   {
     "id": 9000095,
+    "code": "04-CS-M01-PD-1M-095",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2544,6 +2639,7 @@
   },
   {
     "id": 9000096,
+    "code": "04-CS-M01-PD-1S-096",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2575,6 +2671,7 @@
   },
   {
     "id": 9000097,
+    "code": "04-CS-M01-PD-1S-097",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2606,6 +2703,7 @@
   },
   {
     "id": 9000098,
+    "code": "04-CS-M01-PD-1M-098",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2634,6 +2732,7 @@
   },
   {
     "id": 9000099,
+    "code": "04-CS-M01-PD-1M-099",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2662,6 +2761,7 @@
   },
   {
     "id": 9000100,
+    "code": "04-CS-M01-PD-1N-100",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2684,6 +2784,7 @@
   },
   {
     "id": 9000101,
+    "code": "04-CS-M01-PD-1N-101",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2706,6 +2807,7 @@
   },
   {
     "id": 9000102,
+    "code": "04-CS-M01-PD-1M-102",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2734,6 +2836,7 @@
   },
   {
     "id": 9000103,
+    "code": "04-CS-M01-PD-1M-103",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2762,6 +2865,7 @@
   },
   {
     "id": 9000104,
+    "code": "04-CS-M01-PD-2M-104",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2790,6 +2894,7 @@
   },
   {
     "id": 9000105,
+    "code": "04-CS-M01-PD-2N-105",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2812,6 +2917,7 @@
   },
   {
     "id": 9000106,
+    "code": "04-CS-M01-PD-2M-106",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2840,6 +2946,7 @@
   },
   {
     "id": 9000107,
+    "code": "04-CS-M01-PD-2N-107",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2862,6 +2969,7 @@
   },
   {
     "id": 9000108,
+    "code": "04-CS-M01-PD-2N-108",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2884,6 +2992,7 @@
   },
   {
     "id": 9000109,
+    "code": "04-CS-M01-PD-2M-109",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2912,6 +3021,7 @@
   },
   {
     "id": 9000110,
+    "code": "04-CS-M01-PD-2M-110",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2940,6 +3050,7 @@
   },
   {
     "id": 9000111,
+    "code": "04-CS-M01-PD-2N-111",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2962,6 +3073,7 @@
   },
   {
     "id": 9000112,
+    "code": "04-CS-M01-PD-2M-112",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -2990,6 +3102,7 @@
   },
   {
     "id": 9000113,
+    "code": "04-CS-M01-PD-2S-113",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3022,6 +3135,7 @@
   },
   {
     "id": 9000114,
+    "code": "04-CS-M01-PD-2S-114",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3053,6 +3167,7 @@
   },
   {
     "id": 9000115,
+    "code": "04-CS-M01-PD-2N-115",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3075,6 +3190,7 @@
   },
   {
     "id": 9000116,
+    "code": "04-CS-M01-PD-2M-116",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3103,6 +3219,7 @@
   },
   {
     "id": 9000117,
+    "code": "04-CS-M01-PD-2N-117",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3125,6 +3242,7 @@
   },
   {
     "id": 9000118,
+    "code": "04-CS-M01-PD-2M-118",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3153,6 +3271,7 @@
   },
   {
     "id": 9000119,
+    "code": "04-CS-M01-PD-2M-119",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3181,6 +3300,7 @@
   },
   {
     "id": 9000120,
+    "code": "04-CS-M01-PD-2S-120",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -3212,6 +3332,7 @@
   },
   {
     "id": 9000121,
+    "code": "04-CS-M01-AL-1M-121",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3240,6 +3361,7 @@
   },
   {
     "id": 9000122,
+    "code": "04-CS-M01-AL-1M-122",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3268,6 +3390,7 @@
   },
   {
     "id": 9000123,
+    "code": "04-CS-M01-AL-1S-123",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3299,6 +3422,7 @@
   },
   {
     "id": 9000124,
+    "code": "04-CS-M01-AL-1N-124",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3321,6 +3445,7 @@
   },
   {
     "id": 9000125,
+    "code": "04-CS-M01-AL-1N-125",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3343,6 +3468,7 @@
   },
   {
     "id": 9000126,
+    "code": "04-CS-M01-AL-1M-126",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3371,6 +3497,7 @@
   },
   {
     "id": 9000127,
+    "code": "04-CS-M01-AL-1N-127",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3393,6 +3520,7 @@
   },
   {
     "id": 9000128,
+    "code": "04-CS-M01-AL-1M-128",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3421,6 +3549,7 @@
   },
   {
     "id": 9000129,
+    "code": "04-CS-M01-AL-1N-129",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3443,6 +3572,7 @@
   },
   {
     "id": 9000130,
+    "code": "04-CS-M01-AL-1S-130",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3475,6 +3605,7 @@
   },
   {
     "id": 9000131,
+    "code": "04-CS-M01-AL-1M-131",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3503,6 +3634,7 @@
   },
   {
     "id": 9000132,
+    "code": "04-CS-M01-AL-1N-132",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3525,6 +3657,7 @@
   },
   {
     "id": 9000133,
+    "code": "04-CS-M01-AL-1M-133",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3553,6 +3686,7 @@
   },
   {
     "id": 9000134,
+    "code": "04-CS-M01-AL-1M-134",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3581,6 +3715,7 @@
   },
   {
     "id": 9000135,
+    "code": "04-CS-M01-AL-1M-135",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3609,6 +3744,7 @@
   },
   {
     "id": 9000136,
+    "code": "04-CS-M01-AL-1M-136",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3637,6 +3773,7 @@
   },
   {
     "id": 9000137,
+    "code": "04-CS-M01-AL-2N-137",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3659,6 +3796,7 @@
   },
   {
     "id": 9000138,
+    "code": "04-CS-M01-AL-2M-138",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3687,6 +3825,7 @@
   },
   {
     "id": 9000139,
+    "code": "04-CS-M01-AL-2N-139",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3709,6 +3848,7 @@
   },
   {
     "id": 9000140,
+    "code": "04-CS-M01-AL-2M-140",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3737,6 +3877,7 @@
   },
   {
     "id": 9000141,
+    "code": "04-CS-M01-AL-2N-141",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3759,6 +3900,7 @@
   },
   {
     "id": 9000142,
+    "code": "04-CS-M01-AL-2N-142",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3781,6 +3923,7 @@
   },
   {
     "id": 9000143,
+    "code": "04-CS-M01-AL-2M-143",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3809,6 +3952,7 @@
   },
   {
     "id": 9000144,
+    "code": "04-CS-M01-AL-2N-144",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3831,6 +3975,7 @@
   },
   {
     "id": 9000145,
+    "code": "04-CS-M01-AL-2N-145",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3853,6 +3998,7 @@
   },
   {
     "id": 9000146,
+    "code": "04-CS-M01-AL-2M-146",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3881,6 +4027,7 @@
   },
   {
     "id": 9000147,
+    "code": "04-CS-M01-AL-2M-147",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3909,6 +4056,7 @@
   },
   {
     "id": 9000148,
+    "code": "04-CS-M01-AL-2M-148",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3937,6 +4085,7 @@
   },
   {
     "id": 9000149,
+    "code": "04-CS-M01-AL-2S-149",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -3969,6 +4118,7 @@
   },
   {
     "id": 9000150,
+    "code": "04-CS-M01-AL-2S-150",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -4000,6 +4150,7 @@
   },
   {
     "id": 9000151,
+    "code": "04-CS-M01-AL-2S-151",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -4032,6 +4183,7 @@
   },
   {
     "id": 9000152,
+    "code": "04-CS-M01-AL-2M-152",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -4060,6 +4212,7 @@
   },
   {
     "id": 9000153,
+    "code": "04-CS-M01-AL-2M-153",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -4088,6 +4241,7 @@
   },
   {
     "id": 9000154,
+    "code": "04-CS-M01-TC-1M-154",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4116,6 +4270,7 @@
   },
   {
     "id": 9000155,
+    "code": "04-CS-M01-TC-1N-155",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4138,6 +4293,7 @@
   },
   {
     "id": 9000156,
+    "code": "04-CS-M01-TC-1M-156",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4166,6 +4322,7 @@
   },
   {
     "id": 9000157,
+    "code": "04-CS-M01-TC-1M-157",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4194,6 +4351,7 @@
   },
   {
     "id": 9000158,
+    "code": "04-CS-M01-TC-1M-158",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4222,6 +4380,7 @@
   },
   {
     "id": 9000159,
+    "code": "04-CS-M01-TC-1N-159",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4244,6 +4403,7 @@
   },
   {
     "id": 9000160,
+    "code": "04-CS-M01-TC-1M-160",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4272,6 +4432,7 @@
   },
   {
     "id": 9000161,
+    "code": "04-CS-M01-TC-1S-161",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4303,6 +4464,7 @@
   },
   {
     "id": 9000162,
+    "code": "04-CS-M01-TC-1M-162",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4331,6 +4493,7 @@
   },
   {
     "id": 9000163,
+    "code": "04-CS-M01-TC-1N-163",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4353,6 +4516,7 @@
   },
   {
     "id": 9000164,
+    "code": "04-CS-M01-TC-1M-164",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4381,6 +4545,7 @@
   },
   {
     "id": 9000165,
+    "code": "04-CS-M01-TC-1S-165",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4412,6 +4577,7 @@
   },
   {
     "id": 9000166,
+    "code": "04-CS-M01-TC-1N-166",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4434,6 +4600,7 @@
   },
   {
     "id": 9000167,
+    "code": "04-CS-M01-TC-2N-167",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4456,6 +4623,7 @@
   },
   {
     "id": 9000168,
+    "code": "04-CS-M01-TC-2N-168",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4478,6 +4646,7 @@
   },
   {
     "id": 9000169,
+    "code": "04-CS-M01-TC-2M-169",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4506,6 +4675,7 @@
   },
   {
     "id": 9000170,
+    "code": "04-CS-M01-TC-2N-170",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4528,6 +4698,7 @@
   },
   {
     "id": 9000171,
+    "code": "04-CS-M01-TC-2M-171",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4556,6 +4727,7 @@
   },
   {
     "id": 9000172,
+    "code": "04-CS-M01-TC-2S-172",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4588,6 +4760,7 @@
   },
   {
     "id": 9000173,
+    "code": "04-CS-M01-TC-2M-173",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4616,6 +4789,7 @@
   },
   {
     "id": 9000174,
+    "code": "04-CS-M01-TC-2N-174",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4638,6 +4812,7 @@
   },
   {
     "id": 9000175,
+    "code": "04-CS-M01-TC-2M-175",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4666,6 +4841,7 @@
   },
   {
     "id": 9000176,
+    "code": "04-CS-M01-TC-2S-176",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4697,6 +4873,7 @@
   },
   {
     "id": 9000177,
+    "code": "04-CS-M01-TC-2M-177",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4725,6 +4902,7 @@
   },
   {
     "id": 9000178,
+    "code": "04-CS-M01-TC-2S-178",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4756,6 +4934,7 @@
   },
   {
     "id": 9000179,
+    "code": "04-CS-M01-TC-2N-179",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4778,6 +4957,7 @@
   },
   {
     "id": 9000180,
+    "code": "04-CS-M01-TC-2S-180",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4810,6 +4990,7 @@
   },
   {
     "id": 9000181,
+    "code": "04-CS-M01-TC-2M-181",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4838,6 +5019,7 @@
   },
   {
     "id": 9000182,
+    "code": "04-CS-M01-TC-2M-182",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4866,6 +5048,7 @@
   },
   {
     "id": 9000183,
+    "code": "04-CS-M01-TC-2M-183",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -4894,6 +5077,7 @@
   },
   {
     "id": 9000184,
+    "code": "04-CS-M01-CD-1M-184",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -4922,6 +5106,7 @@
   },
   {
     "id": 9000185,
+    "code": "04-CS-M01-CD-1M-185",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -4950,6 +5135,7 @@
   },
   {
     "id": 9000186,
+    "code": "04-CS-M01-CD-1M-186",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -4978,6 +5164,7 @@
   },
   {
     "id": 9000187,
+    "code": "04-CS-M01-CD-1M-187",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5006,6 +5193,7 @@
   },
   {
     "id": 9000188,
+    "code": "04-CS-M01-CD-1M-188",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5034,6 +5222,7 @@
   },
   {
     "id": 9000189,
+    "code": "04-CS-M01-CD-1N-189",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5056,6 +5245,7 @@
   },
   {
     "id": 9000190,
+    "code": "04-CS-M01-CD-2N-190",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5078,6 +5268,7 @@
   },
   {
     "id": 9000191,
+    "code": "04-CS-M01-CD-2M-191",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5106,6 +5297,7 @@
   },
   {
     "id": 9000192,
+    "code": "04-CS-M01-CD-2S-192",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5137,6 +5329,7 @@
   },
   {
     "id": 9000193,
+    "code": "04-CS-M01-CD-2N-193",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5159,6 +5352,7 @@
   },
   {
     "id": 9000194,
+    "code": "04-CS-M01-CD-2N-194",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5181,6 +5375,7 @@
   },
   {
     "id": 9000195,
+    "code": "04-CS-M01-CD-2M-195",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -5209,6 +5404,7 @@
   },
   {
     "id": 9000196,
+    "code": "04-CS-M01-OS-1N-196",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5231,6 +5427,7 @@
   },
   {
     "id": 9000197,
+    "code": "04-CS-M01-OS-1M-197",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5259,6 +5456,7 @@
   },
   {
     "id": 9000198,
+    "code": "04-CS-M01-OS-1M-198",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5287,6 +5485,7 @@
   },
   {
     "id": 9000199,
+    "code": "04-CS-M01-OS-1N-199",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5309,6 +5508,7 @@
   },
   {
     "id": 9000200,
+    "code": "04-CS-M01-OS-1N-200",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5331,6 +5531,7 @@
   },
   {
     "id": 9000201,
+    "code": "04-CS-M01-OS-1M-201",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5359,6 +5560,7 @@
   },
   {
     "id": 9000202,
+    "code": "04-CS-M01-OS-1N-202",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5381,6 +5583,7 @@
   },
   {
     "id": 9000203,
+    "code": "04-CS-M01-OS-1M-203",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5409,6 +5612,7 @@
   },
   {
     "id": 9000204,
+    "code": "04-CS-M01-OS-1S-204",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5441,6 +5645,7 @@
   },
   {
     "id": 9000205,
+    "code": "04-CS-M01-OS-1M-205",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5469,6 +5674,7 @@
   },
   {
     "id": 9000206,
+    "code": "04-CS-M01-OS-1M-206",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5497,6 +5703,7 @@
   },
   {
     "id": 9000207,
+    "code": "04-CS-M01-OS-1M-207",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5525,6 +5732,7 @@
   },
   {
     "id": 9000208,
+    "code": "04-CS-M01-OS-1M-208",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5553,6 +5761,7 @@
   },
   {
     "id": 9000209,
+    "code": "04-CS-M01-OS-2N-209",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5575,6 +5784,7 @@
   },
   {
     "id": 9000210,
+    "code": "04-CS-M01-OS-2M-210",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5603,6 +5813,7 @@
   },
   {
     "id": 9000211,
+    "code": "04-CS-M01-OS-2N-211",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5625,6 +5836,7 @@
   },
   {
     "id": 9000212,
+    "code": "04-CS-M01-OS-2M-212",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5653,6 +5865,7 @@
   },
   {
     "id": 9000213,
+    "code": "04-CS-M01-OS-2S-213",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5684,6 +5897,7 @@
   },
   {
     "id": 9000214,
+    "code": "04-CS-M01-OS-2M-214",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5712,6 +5926,7 @@
   },
   {
     "id": 9000215,
+    "code": "04-CS-M01-OS-2M-215",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5740,6 +5955,7 @@
   },
   {
     "id": 9000216,
+    "code": "04-CS-M01-OS-2M-216",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5768,6 +5984,7 @@
   },
   {
     "id": 9000217,
+    "code": "04-CS-M01-OS-2S-217",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5799,6 +6016,7 @@
   },
   {
     "id": 9000218,
+    "code": "04-CS-M01-OS-2N-218",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5821,6 +6039,7 @@
   },
   {
     "id": 9000219,
+    "code": "04-CS-M01-OS-2S-219",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5852,6 +6071,7 @@
   },
   {
     "id": 9000220,
+    "code": "04-CS-M01-OS-2N-220",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5874,6 +6094,7 @@
   },
   {
     "id": 9000221,
+    "code": "04-CS-M01-OS-2M-221",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5902,6 +6123,7 @@
   },
   {
     "id": 9000222,
+    "code": "04-CS-M01-OS-2N-222",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5924,6 +6146,7 @@
   },
   {
     "id": 9000223,
+    "code": "04-CS-M01-OS-2N-223",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5946,6 +6169,7 @@
   },
   {
     "id": 9000224,
+    "code": "04-CS-M01-OS-2M-224",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -5974,6 +6198,7 @@
   },
   {
     "id": 9000225,
+    "code": "04-CS-M01-OS-2S-225",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -6006,6 +6231,7 @@
   },
   {
     "id": 9000226,
+    "code": "04-CS-M01-DB-1M-226",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6034,6 +6260,7 @@
   },
   {
     "id": 9000227,
+    "code": "04-CS-M01-DB-1M-227",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6062,6 +6289,7 @@
   },
   {
     "id": 9000228,
+    "code": "04-CS-M01-DB-1N-228",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6084,6 +6312,7 @@
   },
   {
     "id": 9000229,
+    "code": "04-CS-M01-DB-1M-229",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6112,6 +6341,7 @@
   },
   {
     "id": 9000230,
+    "code": "04-CS-M01-DB-1M-230",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6140,6 +6370,7 @@
   },
   {
     "id": 9000231,
+    "code": "04-CS-M01-DB-1N-231",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6162,6 +6393,7 @@
   },
   {
     "id": 9000232,
+    "code": "04-CS-M01-DB-1M-232",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6190,6 +6422,7 @@
   },
   {
     "id": 9000233,
+    "code": "04-CS-M01-DB-1S-233",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6221,6 +6454,7 @@
   },
   {
     "id": 9000234,
+    "code": "04-CS-M01-DB-1M-234",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6249,6 +6483,7 @@
   },
   {
     "id": 9000235,
+    "code": "04-CS-M01-DB-1N-235",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6271,6 +6506,7 @@
   },
   {
     "id": 9000236,
+    "code": "04-CS-M01-DB-1N-236",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6293,6 +6529,7 @@
   },
   {
     "id": 9000237,
+    "code": "04-CS-M01-DB-1S-237",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6325,6 +6562,7 @@
   },
   {
     "id": 9000238,
+    "code": "04-CS-M01-DB-1M-238",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6353,6 +6591,7 @@
   },
   {
     "id": 9000239,
+    "code": "04-CS-M01-DB-2N-239",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6375,6 +6614,7 @@
   },
   {
     "id": 9000240,
+    "code": "04-CS-M01-DB-2N-240",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6397,6 +6637,7 @@
   },
   {
     "id": 9000241,
+    "code": "04-CS-M01-DB-2N-241",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6419,6 +6660,7 @@
   },
   {
     "id": 9000242,
+    "code": "04-CS-M01-DB-2N-242",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6441,6 +6683,7 @@
   },
   {
     "id": 9000243,
+    "code": "04-CS-M01-DB-2M-243",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6469,6 +6712,7 @@
   },
   {
     "id": 9000244,
+    "code": "04-CS-M01-DB-2M-244",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6497,6 +6741,7 @@
   },
   {
     "id": 9000245,
+    "code": "04-CS-M01-DB-2S-245",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6528,6 +6773,7 @@
   },
   {
     "id": 9000246,
+    "code": "04-CS-M01-DB-2N-246",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6550,6 +6796,7 @@
   },
   {
     "id": 9000247,
+    "code": "04-CS-M01-DB-2M-247",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6578,6 +6825,7 @@
   },
   {
     "id": 9000248,
+    "code": "04-CS-M01-DB-2N-248",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6600,6 +6848,7 @@
   },
   {
     "id": 9000249,
+    "code": "04-CS-M01-DB-2M-249",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6628,6 +6877,7 @@
   },
   {
     "id": 9000250,
+    "code": "04-CS-M01-DB-2M-250",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6656,6 +6906,7 @@
   },
   {
     "id": 9000251,
+    "code": "04-CS-M01-DB-2S-251",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6687,6 +6938,7 @@
   },
   {
     "id": 9000252,
+    "code": "04-CS-M01-DB-2M-252",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6715,6 +6967,7 @@
   },
   {
     "id": 9000253,
+    "code": "04-CS-M01-DB-2M-253",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6743,6 +6996,7 @@
   },
   {
     "id": 9000254,
+    "code": "04-CS-M01-DB-2M-254",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6771,6 +7025,7 @@
   },
   {
     "id": 9000255,
+    "code": "04-CS-M01-DB-2S-255",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -6802,6 +7057,7 @@
   },
   {
     "id": 9000256,
+    "code": "04-CS-M01-CN-1S-256",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6833,6 +7089,7 @@
   },
   {
     "id": 9000257,
+    "code": "04-CS-M01-CN-1M-257",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6861,6 +7118,7 @@
   },
   {
     "id": 9000258,
+    "code": "04-CS-M01-CN-1N-258",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6883,6 +7141,7 @@
   },
   {
     "id": 9000259,
+    "code": "04-CS-M01-CN-1M-259",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6911,6 +7170,7 @@
   },
   {
     "id": 9000260,
+    "code": "04-CS-M01-CN-1N-260",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6933,6 +7193,7 @@
   },
   {
     "id": 9000261,
+    "code": "04-CS-M01-CN-1N-261",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6955,6 +7216,7 @@
   },
   {
     "id": 9000262,
+    "code": "04-CS-M01-CN-1M-262",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -6983,6 +7245,7 @@
   },
   {
     "id": 9000263,
+    "code": "04-CS-M01-CN-1M-263",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7011,6 +7274,7 @@
   },
   {
     "id": 9000264,
+    "code": "04-CS-M01-CN-1M-264",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7039,6 +7303,7 @@
   },
   {
     "id": 9000265,
+    "code": "04-CS-M01-CN-1M-265",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7067,6 +7332,7 @@
   },
   {
     "id": 9000266,
+    "code": "04-CS-M01-CN-1N-266",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7089,6 +7355,7 @@
   },
   {
     "id": 9000267,
+    "code": "04-CS-M01-CN-1M-267",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7117,6 +7384,7 @@
   },
   {
     "id": 9000268,
+    "code": "04-CS-M01-CN-1N-268",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7139,6 +7407,7 @@
   },
   {
     "id": 9000269,
+    "code": "04-CS-M01-CN-2N-269",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7161,6 +7430,7 @@
   },
   {
     "id": 9000270,
+    "code": "04-CS-M01-CN-2N-270",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7183,6 +7453,7 @@
   },
   {
     "id": 9000271,
+    "code": "04-CS-M01-CN-2S-271",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7215,6 +7486,7 @@
   },
   {
     "id": 9000272,
+    "code": "04-CS-M01-CN-2M-272",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7243,6 +7515,7 @@
   },
   {
     "id": 9000273,
+    "code": "04-CS-M01-CN-2N-273",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7265,6 +7538,7 @@
   },
   {
     "id": 9000274,
+    "code": "04-CS-M01-CN-2S-274",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7296,6 +7570,7 @@
   },
   {
     "id": 9000275,
+    "code": "04-CS-M01-CN-2N-275",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7318,6 +7593,7 @@
   },
   {
     "id": 9000276,
+    "code": "04-CS-M01-CN-2M-276",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7346,6 +7622,7 @@
   },
   {
     "id": 9000277,
+    "code": "04-CS-M01-CN-2N-277",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7368,6 +7645,7 @@
   },
   {
     "id": 9000278,
+    "code": "04-CS-M01-CN-2M-278",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7396,6 +7674,7 @@
   },
   {
     "id": 9000279,
+    "code": "04-CS-M01-CN-2M-279",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7424,6 +7703,7 @@
   },
   {
     "id": 9000280,
+    "code": "04-CS-M01-CN-2M-280",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7452,6 +7732,7 @@
   },
   {
     "id": 9000281,
+    "code": "04-CS-M01-CN-2M-281",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7480,6 +7761,7 @@
   },
   {
     "id": 9000282,
+    "code": "04-CS-M01-CN-2S-282",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7512,6 +7794,7 @@
   },
   {
     "id": 9000283,
+    "code": "04-CS-M01-CN-2S-283",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7543,6 +7826,7 @@
   },
   {
     "id": 9000284,
+    "code": "04-CS-M01-CN-2M-284",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7571,6 +7855,7 @@
   },
   {
     "id": 9000285,
+    "code": "04-CS-M01-CN-2M-285",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -7599,6 +7884,7 @@
   },
   {
     "id": 9000286,
+    "code": "04-CS-M02-GA-1M-001",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7628,6 +7914,7 @@
   },
   {
     "id": 9000287,
+    "code": "04-CS-M02-GA-1M-002",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7657,6 +7944,7 @@
   },
   {
     "id": 9000288,
+    "code": "04-CS-M02-GA-2M-003",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7686,6 +7974,7 @@
   },
   {
     "id": 9000289,
+    "code": "04-CS-M02-GA-2S-004",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7718,6 +8007,7 @@
   },
   {
     "id": 9000290,
+    "code": "04-CS-M02-GA-1M-005",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7747,6 +8037,7 @@
   },
   {
     "id": 9000291,
+    "code": "04-CS-M02-GA-1M-006",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7776,6 +8067,7 @@
   },
   {
     "id": 9000292,
+    "code": "04-CS-M02-GA-2M-007",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7805,6 +8097,7 @@
   },
   {
     "id": 9000293,
+    "code": "04-CS-M02-GA-1N-008",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7828,6 +8121,7 @@
   },
   {
     "id": 9000294,
+    "code": "04-CS-M02-GA-1M-009",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7857,6 +8151,7 @@
   },
   {
     "id": 9000295,
+    "code": "04-CS-M02-GA-2N-010",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7880,6 +8175,7 @@
   },
   {
     "id": 9000296,
+    "code": "04-CS-M02-GA-2M-011",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7909,6 +8205,7 @@
   },
   {
     "id": 9000297,
+    "code": "04-CS-M02-GA-2S-012",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7941,6 +8238,7 @@
   },
   {
     "id": 9000298,
+    "code": "04-CS-M02-GA-1M-013",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7970,6 +8268,7 @@
   },
   {
     "id": 9000299,
+    "code": "04-CS-M02-GA-2M-014",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -7999,6 +8298,7 @@
   },
   {
     "id": 9000300,
+    "code": "04-CS-M02-GA-2M-015",
     "original": true,
     "year": null,
     "subject": "General Aptitude",
@@ -8028,6 +8328,7 @@
   },
   {
     "id": 9000301,
+    "code": "04-CS-M02-DM-1M-016",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8057,6 +8358,7 @@
   },
   {
     "id": 9000302,
+    "code": "04-CS-M02-DM-1N-017",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8080,6 +8382,7 @@
   },
   {
     "id": 9000303,
+    "code": "04-CS-M02-DM-2S-018",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8112,6 +8415,7 @@
   },
   {
     "id": 9000304,
+    "code": "04-CS-M02-DM-1M-019",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8141,6 +8445,7 @@
   },
   {
     "id": 9000305,
+    "code": "04-CS-M02-DM-2N-020",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8164,6 +8469,7 @@
   },
   {
     "id": 9000306,
+    "code": "04-CS-M02-DM-2M-021",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8193,6 +8499,7 @@
   },
   {
     "id": 9000307,
+    "code": "04-CS-M02-DM-1M-022",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8222,6 +8529,7 @@
   },
   {
     "id": 9000308,
+    "code": "04-CS-M02-DM-1N-023",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8245,6 +8553,7 @@
   },
   {
     "id": 9000309,
+    "code": "04-CS-M02-DM-2S-024",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8277,6 +8586,7 @@
   },
   {
     "id": 9000310,
+    "code": "04-CS-M02-DM-2N-025",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8300,6 +8610,7 @@
   },
   {
     "id": 9000311,
+    "code": "04-CS-M02-DM-1M-026",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8329,6 +8640,7 @@
   },
   {
     "id": 9000312,
+    "code": "04-CS-M02-DM-1M-027",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8358,6 +8670,7 @@
   },
   {
     "id": 9000313,
+    "code": "04-CS-M02-DM-2N-028",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8381,6 +8694,7 @@
   },
   {
     "id": 9000314,
+    "code": "04-CS-M02-DM-2S-029",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8413,6 +8727,7 @@
   },
   {
     "id": 9000315,
+    "code": "04-CS-M02-DM-2M-030",
     "original": true,
     "year": null,
     "subject": "Discrete Mathematics",
@@ -8442,6 +8757,7 @@
   },
   {
     "id": 9000316,
+    "code": "04-CS-M02-EM-1M-031",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8471,6 +8787,7 @@
   },
   {
     "id": 9000317,
+    "code": "04-CS-M02-EM-1M-032",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8500,6 +8817,7 @@
   },
   {
     "id": 9000318,
+    "code": "04-CS-M02-EM-1S-033",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8533,6 +8851,7 @@
   },
   {
     "id": 9000319,
+    "code": "04-CS-M02-EM-2N-034",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8556,6 +8875,7 @@
   },
   {
     "id": 9000320,
+    "code": "04-CS-M02-EM-2N-035",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8579,6 +8899,7 @@
   },
   {
     "id": 9000321,
+    "code": "04-CS-M02-EM-2M-036",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8608,6 +8929,7 @@
   },
   {
     "id": 9000322,
+    "code": "04-CS-M02-EM-1M-037",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8637,6 +8959,7 @@
   },
   {
     "id": 9000323,
+    "code": "04-CS-M02-EM-1N-038",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8660,6 +8983,7 @@
   },
   {
     "id": 9000324,
+    "code": "04-CS-M02-EM-2M-039",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8689,6 +9013,7 @@
   },
   {
     "id": 9000325,
+    "code": "04-CS-M02-EM-2N-040",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8712,6 +9037,7 @@
   },
   {
     "id": 9000326,
+    "code": "04-CS-M02-EM-1M-041",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8741,6 +9067,7 @@
   },
   {
     "id": 9000327,
+    "code": "04-CS-M02-EM-1N-042",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8764,6 +9091,7 @@
   },
   {
     "id": 9000328,
+    "code": "04-CS-M02-EM-2M-043",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8793,6 +9121,7 @@
   },
   {
     "id": 9000329,
+    "code": "04-CS-M02-EM-2M-044",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8822,6 +9151,7 @@
   },
   {
     "id": 9000330,
+    "code": "04-CS-M02-EM-2N-045",
     "original": true,
     "year": null,
     "subject": "Engineering Mathematics",
@@ -8845,6 +9175,7 @@
   },
   {
     "id": 9000331,
+    "code": "04-CS-M02-CD-1M-046",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -8874,6 +9205,7 @@
   },
   {
     "id": 9000332,
+    "code": "04-CS-M02-CD-1S-047",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -8906,6 +9238,7 @@
   },
   {
     "id": 9000333,
+    "code": "04-CS-M02-CD-1M-048",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -8935,6 +9268,7 @@
   },
   {
     "id": 9000334,
+    "code": "04-CS-M02-CD-1M-049",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -8964,6 +9298,7 @@
   },
   {
     "id": 9000335,
+    "code": "04-CS-M02-CD-2M-050",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -8993,6 +9328,7 @@
   },
   {
     "id": 9000336,
+    "code": "04-CS-M02-CD-2N-051",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9016,6 +9352,7 @@
   },
   {
     "id": 9000337,
+    "code": "04-CS-M02-CD-2S-052",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9049,6 +9386,7 @@
   },
   {
     "id": 9000338,
+    "code": "04-CS-M02-CD-2N-053",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9072,6 +9410,7 @@
   },
   {
     "id": 9000339,
+    "code": "04-CS-M02-CD-1M-054",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9101,6 +9440,7 @@
   },
   {
     "id": 9000340,
+    "code": "04-CS-M02-CD-1M-055",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9130,6 +9470,7 @@
   },
   {
     "id": 9000341,
+    "code": "04-CS-M02-CD-2M-056",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9159,6 +9500,7 @@
   },
   {
     "id": 9000342,
+    "code": "04-CS-M02-CD-2N-057",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9182,6 +9524,7 @@
   },
   {
     "id": 9000343,
+    "code": "04-CS-M02-CD-1M-058",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9211,6 +9554,7 @@
   },
   {
     "id": 9000344,
+    "code": "04-CS-M02-CD-2N-059",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9234,6 +9578,7 @@
   },
   {
     "id": 9000345,
+    "code": "04-CS-M02-CD-2M-060",
     "original": true,
     "year": null,
     "subject": "Compiler Design",
@@ -9263,6 +9608,7 @@
   },
   {
     "id": 9000346,
+    "code": "04-CS-M02-DL-1N-061",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9286,6 +9632,7 @@
   },
   {
     "id": 9000347,
+    "code": "04-CS-M02-DL-2N-062",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9309,6 +9656,7 @@
   },
   {
     "id": 9000348,
+    "code": "04-CS-M02-DL-1M-063",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9338,6 +9686,7 @@
   },
   {
     "id": 9000349,
+    "code": "04-CS-M02-DL-1S-064",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9370,6 +9719,7 @@
   },
   {
     "id": 9000350,
+    "code": "04-CS-M02-DL-2N-065",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9393,6 +9743,7 @@
   },
   {
     "id": 9000351,
+    "code": "04-CS-M02-DL-2M-066",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9422,6 +9773,7 @@
   },
   {
     "id": 9000352,
+    "code": "04-CS-M02-DL-1M-067",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9451,6 +9803,7 @@
   },
   {
     "id": 9000353,
+    "code": "04-CS-M02-DL-2N-068",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9474,6 +9827,7 @@
   },
   {
     "id": 9000354,
+    "code": "04-CS-M02-DL-2N-069",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9497,6 +9851,7 @@
   },
   {
     "id": 9000355,
+    "code": "04-CS-M02-DL-1M-070",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9526,6 +9881,7 @@
   },
   {
     "id": 9000356,
+    "code": "04-CS-M02-DL-1M-071",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9555,6 +9911,7 @@
   },
   {
     "id": 9000357,
+    "code": "04-CS-M02-DL-2N-072",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9578,6 +9935,7 @@
   },
   {
     "id": 9000358,
+    "code": "04-CS-M02-DL-1M-073",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9607,6 +9965,7 @@
   },
   {
     "id": 9000359,
+    "code": "04-CS-M02-DL-2N-074",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9630,6 +9989,7 @@
   },
   {
     "id": 9000360,
+    "code": "04-CS-M02-DL-2S-075",
     "original": true,
     "year": null,
     "subject": "Digital Logic",
@@ -9663,6 +10023,7 @@
   },
   {
     "id": 9000361,
+    "code": "04-CS-M02-CO-1M-076",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9692,6 +10053,7 @@
   },
   {
     "id": 9000362,
+    "code": "04-CS-M02-CO-2N-077",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9715,6 +10077,7 @@
   },
   {
     "id": 9000363,
+    "code": "04-CS-M02-CO-1M-078",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9744,6 +10107,7 @@
   },
   {
     "id": 9000364,
+    "code": "04-CS-M02-CO-2N-079",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9767,6 +10131,7 @@
   },
   {
     "id": 9000365,
+    "code": "04-CS-M02-CO-2S-080",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9800,6 +10165,7 @@
   },
   {
     "id": 9000366,
+    "code": "04-CS-M02-CO-2M-081",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9829,6 +10195,7 @@
   },
   {
     "id": 9000367,
+    "code": "04-CS-M02-CO-1M-082",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9858,6 +10225,7 @@
   },
   {
     "id": 9000368,
+    "code": "04-CS-M02-CO-1M-083",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9887,6 +10255,7 @@
   },
   {
     "id": 9000369,
+    "code": "04-CS-M02-CO-1S-084",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9920,6 +10289,7 @@
   },
   {
     "id": 9000370,
+    "code": "04-CS-M02-CO-2N-085",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9943,6 +10313,7 @@
   },
   {
     "id": 9000371,
+    "code": "04-CS-M02-CO-2N-086",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9966,6 +10337,7 @@
   },
   {
     "id": 9000372,
+    "code": "04-CS-M02-CO-2M-087",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -9995,6 +10367,7 @@
   },
   {
     "id": 9000373,
+    "code": "04-CS-M02-CO-1M-088",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -10024,6 +10397,7 @@
   },
   {
     "id": 9000374,
+    "code": "04-CS-M02-CO-1M-089",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -10053,6 +10427,7 @@
   },
   {
     "id": 9000375,
+    "code": "04-CS-M02-CO-2N-090",
     "original": true,
     "year": null,
     "subject": "Computer Organization & Architecture",
@@ -10076,6 +10451,7 @@
   },
   {
     "id": 9000376,
+    "code": "04-CS-M02-PD-2N-091",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -10099,6 +10475,7 @@
   },
   {
     "id": 9000377,
+    "code": "04-CS-M02-PD-1M-092",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -10128,6 +10505,7 @@
   },
   {
     "id": 9000378,
+    "code": "04-CS-M02-PD-2M-093",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -10157,6 +10535,7 @@
   },
   {
     "id": 9000379,
+    "code": "04-CS-M02-PD-1M-094",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -10186,6 +10565,7 @@
   },
   {
     "id": 9000380,
+    "code": "04-CS-M02-PD-2N-095",
     "original": true,
     "year": null,
     "subject": "Programming & Data Structures",
@@ -10209,6 +10589,7 @@
   },
   {
     "id": 9000381,
+    "code": "04-CS-M02-AL-1M-096",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -10238,6 +10619,7 @@
   },
   {
     "id": 9000382,
+    "code": "04-CS-M02-AL-1M-097",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -10267,6 +10649,7 @@
   },
   {
     "id": 9000383,
+    "code": "04-CS-M02-AL-1N-098",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -10290,6 +10673,7 @@
   },
   {
     "id": 9000384,
+    "code": "04-CS-M02-AL-2M-099",
     "original": true,
     "year": null,
     "subject": "Algorithms",
@@ -10319,6 +10703,7 @@
   },
   {
     "id": 9000385,
+    "code": "04-CS-M02-TC-2S-100",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -10351,6 +10736,7 @@
   },
   {
     "id": 9000386,
+    "code": "04-CS-M02-TC-2N-101",
     "original": true,
     "year": null,
     "subject": "Theory of Computation",
@@ -10374,6 +10760,7 @@
   },
   {
     "id": 9000387,
+    "code": "04-CS-M02-OS-1M-102",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -10403,6 +10790,7 @@
   },
   {
     "id": 9000388,
+    "code": "04-CS-M02-OS-2S-103",
     "original": true,
     "year": null,
     "subject": "Operating Systems",
@@ -10436,6 +10824,7 @@
   },
   {
     "id": 9000389,
+    "code": "04-CS-M02-DB-1N-104",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -10459,6 +10848,7 @@
   },
   {
     "id": 9000390,
+    "code": "04-CS-M02-DB-1M-105",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -10488,6 +10878,7 @@
   },
   {
     "id": 9000391,
+    "code": "04-CS-M02-DB-2N-106",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -10511,6 +10902,7 @@
   },
   {
     "id": 9000392,
+    "code": "04-CS-M02-DB-2S-107",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -10543,6 +10935,7 @@
   },
   {
     "id": 9000393,
+    "code": "04-CS-M02-DB-2N-108",
     "original": true,
     "year": null,
     "subject": "Databases",
@@ -10566,6 +10959,7 @@
   },
   {
     "id": 9000394,
+    "code": "04-CS-M02-CN-1M-109",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -10595,6 +10989,7 @@
   },
   {
     "id": 9000395,
+    "code": "04-CS-M02-CN-2N-110",
     "original": true,
     "year": null,
     "subject": "Computer Networks",
@@ -10618,6 +11013,7 @@
   },
   {
     "id": 9000396,
+    "code": "04-CS-M02-CN-2M-111",
     "original": true,
     "year": null,
     "subject": "Computer Networks",

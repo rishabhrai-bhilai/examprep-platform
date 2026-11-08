@@ -311,7 +311,7 @@ export default function DiscussionDrawer({
               <X size={14} />
               <span>Exit Discussion</span>
             </button>
-            <span className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Question #{currentQuestion.id}</span>
+            <span className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Question {currentQuestion.code || `#${currentQuestion.id}`}</span>
           </div>
 
           {/* Question Contents Scrollable */}
@@ -324,7 +324,7 @@ export default function DiscussionDrawer({
               <span className="truncate max-w-[120px]">{currentQuestion.topic}</span>
               <span>•</span>
               <span className="font-semibold">{currentQuestion.year}{currentQuestion.set ? ` • Set ${currentQuestion.set}` : ''}</span>
-              <QuestionIdBadge id={currentQuestion.id} />
+              <QuestionIdBadge question={currentQuestion} />
             </div>
 
             <div className="flex items-center gap-1.5">

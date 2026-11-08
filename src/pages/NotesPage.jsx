@@ -14,6 +14,7 @@ import FilterDropdown from '../components/FilterDropdown'
 import { exportQuestionNotePdf, exportBulkNotesPdf, renderSheetToDataUrl } from '../utils/notesPdfExport'
 import { compareSubjects } from '../utils/subjects'
 import { getTags, hasTopicName } from '../utils/topics'
+import { matchesQuestionRef } from '../../shared/questionCodes.js'
 
 export default function NotesPage() {
   const { 
@@ -92,7 +93,8 @@ export default function NotesPage() {
         const matchYear = q.year?.toString().includes(query)
         const matchQuestion = q.question?.toLowerCase().includes(query)
         const matchNoteName = note.name?.toLowerCase().includes(query)
-        return matchSubject || matchTopic || matchYear || matchQuestion || matchNoteName
+        const matchCode = matchesQuestionRef(q, searchQuery) || (q.code || '').toLowerCase().includes(query.trim())
+        return matchSubject || matchTopic || matchYear || matchQuestion || matchNoteName || matchCode
       }
 
       return true
@@ -493,7 +495,7 @@ export default function NotesPage() {
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className="font-extrabold text-xs text-primary bg-indigo-500/10 px-2 py-0.5 rounded">
-                                Q#{q.id}
+                                {q.code || `Q#${q.id}`}
                               </span>
                               <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-primary text-white shadow-xs">
                                 {q.year}

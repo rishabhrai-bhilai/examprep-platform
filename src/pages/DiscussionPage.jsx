@@ -17,6 +17,7 @@ import FormattedContent from '../components/FormattedContent'
 import FilterDropdown from '../components/FilterDropdown'
 import { compareSubjects } from '../utils/subjects'
 import { getTags, hasTopicName } from '../utils/topics'
+import { matchesQuestionRef } from '../../shared/questionCodes.js'
 
 // Recursive component for rendering multi-level threaded replies
 function ThreadedReplyNode({
@@ -456,7 +457,8 @@ export default function DiscussionPage() {
             (setStr && setStr.includes(word)) ||
             (setShort && setShort === word) ||
             idStr === word ||
-            `#${idStr}` === word
+            `#${idStr}` === word ||
+            matchesQuestionRef(q, word)
           )
           if (!matchesAll) return false
         }
@@ -753,7 +755,7 @@ export default function DiscussionPage() {
                             PYQ {q.year}{q.set ? ` • Set ${q.set}` : ''}
                           </span>
                         )}
-                        <QuestionIdBadge id={q.id} />
+                        <QuestionIdBadge question={q} />
                         <span className="text-[9px] font-extrabold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded uppercase border border-amber-500/10">
                           {q.marks} Marks
                         </span>
@@ -861,7 +863,7 @@ export default function DiscussionPage() {
                     GATE {selectedQuestion.year}{selectedQuestion.set ? ` • Set ${selectedQuestion.set}` : ''}
                   </span>
                 )}
-                <QuestionIdBadge id={selectedQuestion.id} className="shrink-0" />
+                <QuestionIdBadge question={selectedQuestion} className="shrink-0" />
               </div>
 
               {/* Horizontal break line */}

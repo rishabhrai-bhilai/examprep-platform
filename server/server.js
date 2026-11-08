@@ -609,7 +609,8 @@ app.post('/api/reports', requireAuth, reportLimiter, (req, res) => {
     let questionId = null
     if (req.body.questionId !== undefined && req.body.questionId !== null && req.body.questionId !== '') {
       questionId = Number(req.body.questionId)
-      if (!questions.some(q => q.id === questionId)) return res.status(400).json({ error: 'That question could not be found.' })
+      // Past-paper or original mock question
+      if (!questions.some(q => q.id === questionId) && !originalById.has(questionId)) return res.status(400).json({ error: 'That question could not be found.' })
     }
     if (category === 'question' && questionId === null) {
       return res.status(400).json({ error: 'Please say which question is wrong.' })
@@ -631,7 +632,7 @@ app.post('/api/reports', requireAuth, reportLimiter, (req, res) => {
     if (admins.length) {
       const base = appUrl()
       sendReportMail(admins, report, {
-        question: questionId !== null ? questions.find(q => q.id === questionId) : null,
+        question: questionId !== null ? (questions.find(q => q.id === questionId) || originalById.get(questionId)) : null,
         link: base ? `${base}/report` : null
       }).catch(err => console.error('Could not email the report:', err.message))
     }
