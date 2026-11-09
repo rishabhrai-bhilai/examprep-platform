@@ -10,7 +10,9 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
-import { TOPICS, getTags, hasTag } from '../utils/topics'
+import { topicList, getTags, hasTag } from '../utils/topics'
+import { useTopicScheme } from '../store/useTopicScheme'
+import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { SUBJECTS, compareSubjects } from '../utils/subjects'
 import QuestionText from '../components/QuestionText'
 import QuestionImage from '../components/QuestionImage'
@@ -74,6 +76,16 @@ export default function BookletPage() {
     fetchDiscussions()
   }, [fetchQuestions, fetchDiscussions])
 
+  // Book chapters or classic topics, as the user picked. An open topic from the
+  // other grouping no longer exists, so switching goes back to the contents.
+  const topicScheme = useTopicScheme(s => s.scheme)
+  const firstScheme = useRef(topicScheme)
+  useEffect(() => {
+    if (firstScheme.current === topicScheme) return
+    firstScheme.current = topicScheme
+    setSelectedTopic(null)
+  }, [topicScheme])
+
   // --- HIERARCHY BUILDER: SUBJECTS -> TOPICS WITH COUNTS ---
   const { subjectsHierarchy, totalTopicsCount } = useMemo(() => {
     let topicCounter = 0
@@ -82,7 +94,7 @@ export default function BookletPage() {
     const subjectTopicMap = new Map()
 
     questions.forEach(q => {
-      const tags = getTags(q)
+      const tags = getTags(q, topicScheme)
       tags.forEach(({ subject, topic }) => {
         if (!subject || !topic) return
         if (!subjectTopicMap.has(subject)) {
@@ -101,7 +113,7 @@ export default function BookletPage() {
     const result = []
 
     sortedSubjectNames.forEach((subjectName) => {
-      const definedTopics = TOPICS.find(t => t.subject === subjectName)?.topics || []
+      const definedTopics = topicList(topicScheme).find(t => t.subject === subjectName)?.topics || []
       const presentTopicsMap = subjectTopicMap.get(subjectName) || new Map()
 
       // Merge defined topics and any dynamic topics present in questions
@@ -133,7 +145,7 @@ export default function BookletPage() {
     })
 
     return { subjectsHierarchy: result, totalTopicsCount: topicCounter }
-  }, [questions])
+  }, [questions, topicScheme])
 
   // Filter Table of Contents by search query & subject filter
   const filteredSubjectsHierarchy = useMemo(() => {
@@ -167,7 +179,7 @@ export default function BookletPage() {
       return { oneMarkQuestions: [], twoMarkQuestions: [], allTopicQuestions: [] }
     }
 
-    const matched = questions.filter(q => hasTag(q, selectedSubject, selectedTopic))
+    const matched = questions.filter(q => hasTag(q, selectedSubject, selectedTopic, topicScheme))
 
     // Segregate into 1-mark and 2-mark questions
     const oneMark = matched.filter(q => q.marks === 1)
@@ -192,7 +204,7 @@ export default function BookletPage() {
       twoMarkQuestions: twoMark,
       allTopicQuestions: [...oneMark, ...twoMark]
     }
-  }, [questions, selectedSubject, selectedTopic, sortAscending])
+  }, [questions, selectedSubject, selectedTopic, sortAscending, topicScheme])
 
   // Active question object in right pane
   const activeQuestion = useMemo(() => {
@@ -396,8 +408,9 @@ export default function BookletPage() {
               </div>
             </div>
 
-            {/* Right: Metadata Badges & Search */}
+            {/* Right: Grouping switch, Metadata Badges & Search */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              <TopicSchemeSwitch />
               <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                   <span className="text-primary font-bold">{subjectsHierarchy.length}</span> Subjects
