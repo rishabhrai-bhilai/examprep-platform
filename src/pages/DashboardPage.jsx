@@ -7,190 +7,208 @@ import { questionPreview } from '../utils/questionPreview'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import { ProblemOfTheDayCard, DiscussionStatsCard, AnalyticsLinkCard } from '../components/EngagementCards'
 import { dayKey } from '../../shared/practice.js'
+import { parseSet, pyqPaperId } from '../../shared/pyqPapers.js'
+import { findPaperAttempt } from '../utils/testSession'
 import { practiceSummary, subjectProgress, topicProgress, weakestTopics, recentActivity, formatDuration, timeAgo } from '../utils/practiceStats'
 
 
+// Every card below is drawn from the signed-in user's own data: practice
+// records (useAppStore().practice) and finished tests (local test history).
+
+// GATE CSE 2027 exam day. Update when the official schedule is announced.
+const GATE_EXAM_DATE = new Date(2027, 1, 14) // 14 Feb 2027
+const GATE_EXAM_LABEL = 'GATE CSE 2027'
+// Questions a day the daily goal asks for
+const DAILY_TARGET = 30
+// GATE gives 180 minutes for 65 questions: about 2m 45s each
+const PACE_BENCHMARK_SEC = 165
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmtDate = (d) => `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
+const fmtPace = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)}m ${String(Math.round(sec % 60)).padStart(2, '0')}s` : `${Math.round(sec)}s`)
+const fmtMarks = (n) => `${Number(n.toFixed(2))}`
+
 // ==========================================
-// GATE EXAM COUNTDOWN & HIGH-YIELD TARGET FOCUS CARD (FEATURE 1)
+// EXAM COUNTDOWN & FOCUS CARD
 // ==========================================
-function GateExamTargetFocusCard() {
+function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper }) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const daysLeft = Math.ceil((GATE_EXAM_DATE - today) / 864e5)
+  const solvedPct = bankSize ? (solved / bankSize) * 100 : 0
+
+  // Up to three suggestions: the weakest topics first, then the next paper and a mock
+  const focus = weakTopics.slice(0, 3).map(t => ({
+    key: `${t.subject}::${t.topic}`,
+    label: t.subject,
+    title: t.topic,
+    note: `${t.solved}/${t.attempted} solved`,
+    to: '/pyq',
+    tone: 'text-rose-500'
+  }))
+  if (focus.length < 3 && nextPaper) {
+    focus.push({ key: 'paper', label: 'Full PYQ paper', title: nextPaper.title, note: 'Next unattempted', to: '/pyq-mock', tone: 'text-purple-500' })
+  }
+  if (focus.length < 3) {
+    focus.push({ key: 'mock', label: 'Mock tests', title: 'Sectional or full mock', note: 'Test yourself', to: '/mock-tests', tone: 'text-teal-500' })
+  }
+  if (focus.length < 3) {
+    focus.push({ key: 'topic', label: 'Practice', title: 'Topic-wise PYQs', note: 'Pick a chapter', to: '/pyq', tone: 'text-indigo-500' })
+  }
+
   return (
     <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-gradient-to-r from-card-light via-card-light to-primary/5 dark:from-card-dark dark:via-card-dark dark:to-primary/10 shadow-soft">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-        {/* Left: Countdown & Target Score Gauge */}
+        {/* Left: countdown and question-bank progress */}
         <div className="lg:col-span-5 space-y-3.5 border-b lg:border-b-0 lg:border-r border-border-light/60 dark:border-border-dark/60 pb-5 lg:pb-0 lg:pr-6">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
               Exam Countdown
             </span>
-            <span className="text-xs text-slate-400 font-semibold">
-              GATE CSE 2027
-            </span>
+            <span className="text-xs text-slate-400 font-semibold">{GATE_EXAM_LABEL}</span>
           </div>
 
-          <div>
-            <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-baseline gap-2">
-              <span>85 Days</span>
-              <span className="text-xs font-semibold text-slate-400">until Feb 14, 2027</span>
-            </h3>
-          </div>
+          <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-baseline gap-2 flex-wrap">
+            {daysLeft > 0 ? (
+              <>
+                <span>{daysLeft} {daysLeft === 1 ? 'Day' : 'Days'}</span>
+                <span className="text-xs font-semibold text-slate-400">until {fmtDate(GATE_EXAM_DATE)}</span>
+              </>
+            ) : daysLeft === 0 ? (
+              <span>Exam day</span>
+            ) : (
+              <span className="text-lg">Exam date passed</span>
+            )}
+          </h3>
 
           <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between items-baseline text-xs">
-              <span className="text-slate-500 font-medium">Target: <strong className="text-slate-800 dark:text-slate-200">75.0 Marks</strong> (AIR &lt; 250)</span>
-              <span className="text-emerald-500 font-bold">Predicted: 71.5 Marks (95%)</span>
+            <div className="flex justify-between items-baseline text-xs gap-2">
+              <span className="text-slate-500 font-medium">PYQs solved: <strong className="text-slate-800 dark:text-slate-200">{solved} of {bankSize}</strong></span>
+              <span className="text-primary font-bold">{Math.round(solvedPct)}%</span>
             </div>
             <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: '95.3%' }} />
+              <div className="h-full bg-primary rounded-full" style={{ width: `${solvedPct}%` }} />
             </div>
           </div>
         </div>
 
-        {/* Right: Today's 3 Recommended High-Yield Focus Actions */}
+        {/* Right: what to work on next */}
         <div className="lg:col-span-7 space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Today&apos;s High-Yield Focus
-            </span>
-            <span className="text-[11px] text-primary font-semibold">Priority Topics</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Today&apos;s Focus</span>
+            <span className="text-[11px] text-primary font-semibold">{weakTopics.length ? 'Topics you miss most' : 'Where to start'}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            <Link
-              to="/pyq"
-              className="p-3 rounded-xl border border-border-light dark:border-border-dark bg-card-light/60 dark:bg-card-dark/60 hover:border-primary/50 hover:bg-primary/5 transition-all group block"
-            >
-              <span className="text-[10px] uppercase font-bold text-indigo-500 block">Algorithms</span>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors line-clamp-1 mt-0.5">
-                Dynamic Programming
-              </p>
-              <span className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
-                <span>5 NAT questions</span>
-                <span className="text-primary font-bold group-hover:translate-x-0.5 transition-transform">→</span>
-              </span>
-            </Link>
-
-            <Link
-              to="/mock-tests"
-              className="p-3 rounded-xl border border-border-light dark:border-border-dark bg-card-light/60 dark:bg-card-dark/60 hover:border-primary/50 hover:bg-primary/5 transition-all group block"
-            >
-              <span className="text-[10px] uppercase font-bold text-teal-500 block">Operating Systems</span>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors line-clamp-1 mt-0.5">
-                Virtual Memory &amp; Paging
-              </p>
-              <span className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
-                <span>Sectional mock</span>
-                <span className="text-primary font-bold group-hover:translate-x-0.5 transition-transform">→</span>
-              </span>
-            </Link>
-
-            <Link
-              to="/pyq-mock"
-              className="p-3 rounded-xl border border-border-light dark:border-border-dark bg-card-light/60 dark:bg-card-dark/60 hover:border-primary/50 hover:bg-primary/5 transition-all group block"
-            >
-              <span className="text-[10px] uppercase font-bold text-purple-500 block">GATE Simulation</span>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors line-clamp-1 mt-0.5">
-                GATE 2024 (Set 1)
-              </p>
-              <span className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
-                <span>Next unattempted</span>
-                <span className="text-primary font-bold group-hover:translate-x-0.5 transition-transform">→</span>
-              </span>
-            </Link>
+            {focus.map(f => (
+              <Link
+                key={f.key}
+                to={f.to}
+                className="p-3 rounded-xl border border-border-light dark:border-border-dark bg-card-light/60 dark:bg-card-dark/60 hover:border-primary/50 hover:bg-primary/5 transition-all group block"
+              >
+                <span className={`text-[10px] uppercase font-bold block truncate ${f.tone}`}>{f.label}</span>
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors line-clamp-1 mt-0.5">
+                  {f.title}
+                </p>
+                <span className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+                  <span>{f.note}</span>
+                  <span className="text-primary font-bold group-hover:translate-x-0.5 transition-transform">→</span>
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ==========================================
-// DAILY PRACTICE GOAL & SPEED PACING CARD (FEATURE 2)
+// DAILY GOAL & PACE CARD
 // ==========================================
-function DailyStudyGoalCard() {
+function DailyStudyGoalCard({ answeredToday, avgSec }) {
+  const pct = Math.min(100, (answeredToday / DAILY_TARGET) * 100)
+  const left = Math.max(0, DAILY_TARGET - answeredToday)
+  const status = answeredToday >= DAILY_TARGET
+    ? { label: 'Goal met', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' }
+    : answeredToday > 0
+      ? { label: 'In progress', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' }
+      : { label: 'Not started', cls: 'bg-slate-500/10 text-slate-500 border-slate-500/20' }
+  const fast = avgSec !== null && avgSec <= PACE_BENCHMARK_SEC
+
   return (
     <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
-      <div className="flex justify-between items-baseline">
+      <div className="flex justify-between items-baseline gap-3">
         <div className="space-y-0.5">
-          <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">
-            Daily Goal &amp; Pacing Diagnostics
-          </h3>
-          <p className="text-xs text-slate-500">
-            Keep your momentum alive with targeted daily reps.
-          </p>
+          <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">Daily Goal &amp; Pace</h3>
+          <p className="text-xs text-slate-500">Questions answered today and your average time per question.</p>
         </div>
-        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-          On Track
-        </span>
+        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border whitespace-nowrap ${status.cls}`}>{status.label}</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Daily Question Target */}
         <div className="p-4 rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/60 space-y-2">
           <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Daily Target</span>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-black text-slate-900 dark:text-slate-100">24 / 30</span>
-            <span className="text-xs font-bold text-emerald-500">80% Done</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{answeredToday} / {DAILY_TARGET}</span>
+            <span className="text-xs font-bold text-primary">{Math.round(pct)}%</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-primary rounded-full" style={{ width: '80%' }} />
+            <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-[10px] text-slate-400 block">6 questions left today</span>
+          <span className="text-[10px] text-slate-400 block">
+            {left > 0 ? `${left} question${left === 1 ? '' : 's'} left today` : 'Done for today'}
+          </span>
         </div>
 
-        {/* Avg Pace */}
         <div className="p-4 rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/60 space-y-2">
           <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Avg Time / Q</span>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-black text-slate-900 dark:text-slate-100">2m 14s</span>
-            <span className="text-xs font-bold text-emerald-500">Optimal</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{avgSec === null ? '—' : fmtPace(avgSec)}</span>
+            {avgSec !== null && (
+              <span className={`text-xs font-bold ${fast ? 'text-emerald-500' : 'text-amber-500'}`}>{fast ? 'On pace' : 'Slow'}</span>
+            )}
           </div>
           <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: '74%' }} />
+            <div
+              className={`h-full rounded-full ${fast ? 'bg-emerald-500' : 'bg-amber-500'}`}
+              style={{ width: `${avgSec === null ? 0 : Math.min(100, (avgSec / PACE_BENCHMARK_SEC) * 100)}%` }}
+            />
           </div>
-          <span className="text-[10px] text-slate-400 block">Under 2m 45s benchmark</span>
+          <span className="text-[10px] text-slate-400 block">
+            {avgSec === null ? 'Answer a question to see it' : `GATE pace is about ${fmtPace(PACE_BENCHMARK_SEC)}`}
+          </span>
         </div>
 
-        {/* Quick Launch Action */}
         <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 flex flex-col justify-between space-y-2">
           <div>
-            <span className="text-[10px] uppercase font-bold text-primary block tracking-wider">Quick Speed Sprint</span>
-            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">
-              5 Rapid Questions (10m)
-            </p>
+            <span className="text-[10px] uppercase font-bold text-primary block tracking-wider">Quick Practice</span>
+            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-1">Pick a topic and keep going</p>
           </div>
           <Link
             to="/pyq"
             className="w-full py-2 px-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-95 text-center"
           >
-            <span>Start Speed Sprint</span>
+            <span>Practice PYQs</span>
             <Play size={12} className="fill-white" />
           </Link>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
+// The newest year's first paper not taken yet
+const nextPaperToTake = (papers) =>
+  [...papers].sort((a, b) => Number(b.year) - Number(a.year) || a.set - b.set).find(p => !p.attempt)
+
 // ==========================================
-// OFFICIAL PYQ PAPER COVERAGE CARD (IMAGE 2)
+// PYQ YEAR-PAPER COVERAGE CARD
 // ==========================================
-function OfficialPyqCoverageCard() {
-  const papers = [
-    { year: '2014', score: '62M', completed: true },
-    { year: '2015', score: '64.5M', completed: true },
-    { year: '2016', score: '68M', completed: true },
-    { year: '2017', score: '71M', completed: true },
-    { year: '2018', score: '65.5M', completed: true },
-    { year: '2019', score: '66M', completed: true },
-    { year: '2020', score: '71.5M', completed: true },
-    { year: '2021', score: '73M', completed: true },
-    { year: '2022', score: '75.5M', completed: true },
-    { year: '2023', score: '89M', completed: true },
-    { year: '2024', score: 'Pending', completed: false },
-    { year: '2025', score: 'Pending', completed: false },
-    { year: '2026', score: 'Pending', completed: false },
-  ];
+function OfficialPyqCoverageCard({ papers }) {
+  const done = papers.filter(p => p.attempt).length
+  const pct = papers.length ? Math.round((done / papers.length) * 100) : 0
+  const next = nextPaperToTake(papers)
 
   return (
     <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
@@ -200,127 +218,119 @@ function OfficialPyqCoverageCard() {
             <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <Calendar size={16} />
             </div>
-            <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">
-              Official PYQ Paper Coverage
-            </h3>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">PYQ Paper Coverage</h3>
           </div>
           <p className="text-xs text-slate-500">
-            10 of 13 official GATE CS exam papers completed (77%).
+            {done} of {papers.length} full GATE CS papers taken ({pct}%).
           </p>
         </div>
 
-        {/* Completion Bar on right of header */}
         <div className="w-full sm:w-64 space-y-1">
           <div className="flex items-center justify-between text-xs font-bold">
             <span className="text-slate-500">Completion</span>
-            <span className="text-primary font-black">77%</span>
+            <span className="text-primary font-black">{pct}%</span>
           </div>
           <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: '77%' }} />
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
         </div>
       </div>
 
-      {/* Year Badges Grid (Spacious responsive row/grid) */}
-      <div className="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-13 gap-2.5 pt-1">
+      <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-10 gap-2.5 pt-1">
         {papers.map((p) => (
           <div
-            key={p.year}
+            key={p.id}
+            title={p.attempt ? `${p.title}: ${fmtMarks(p.attempt.score)} / ${p.attempt.maxScore} marks` : `${p.title}: not taken yet`}
             className={`p-2.5 rounded-xl text-center border transition-all ${
-              p.completed
+              p.attempt
                 ? 'bg-primary/5 dark:bg-primary/10 border-primary/25 hover:border-primary text-slate-900 dark:text-slate-100 shadow-xs'
                 : 'bg-slate-50 dark:bg-slate-900/50 border-dashed border-slate-300 dark:border-slate-700 text-slate-400'
             }`}
           >
-            <span className="block text-xs font-extrabold leading-tight">{p.year}</span>
-            <span className={`block text-[11px] mt-1 font-bold ${p.completed ? 'text-primary' : 'text-slate-400'}`}>
-              {p.score}
+            <span className="block text-xs font-extrabold leading-tight">
+              {p.year}{p.multi ? <span className="text-[10px] font-bold opacity-70"> S{p.set}</span> : null}
+            </span>
+            <span className={`block text-[11px] mt-1 font-bold ${p.attempt ? 'text-primary' : 'text-slate-400'}`}>
+              {p.attempt ? `${fmtMarks(p.attempt.score)}M` : 'Pending'}
             </span>
           </div>
         ))}
       </div>
 
-      {/* Footer */}
-      <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between text-xs">
-        <span className="text-slate-500">
-          Next Recommended: <strong className="text-slate-700 dark:text-slate-300">GATE 2024 (Set 1)</strong>
+      <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between gap-3 text-xs">
+        <span className="text-slate-500 truncate">
+          {next
+            ? <>Next recommended: <strong className="text-slate-700 dark:text-slate-300">{next.title}</strong></>
+            : 'Every paper taken. Review them on the PYQ mock page.'}
         </span>
-        <Link
-          to="/pyq-mock"
-          className="text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
-        >
-          <span>Start Paper</span>
+        <Link to="/pyq-mock" className="text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0">
+          <span>{next ? 'Start Paper' : 'Open'}</span>
           <ArrowRight size={13} />
         </Link>
       </div>
     </div>
-  );
+  )
 }
 
 // ==========================================
-// STUDY ACTIVITY 26-WEEK HEATMAP CARD (IMAGE 2)
-// With unclipped hover tooltip and live header indicator
+// STUDY ACTIVITY HEATMAP (last 26 weeks)
 // ==========================================
-function StudyActivityHeatmapCard() {
-  const [hoveredCell, setHoveredCell] = useState(null);
+const HEATMAP_WEEKS = 26
+
+function StudyActivityHeatmapCard({ days, longestStreak }) {
+  const [hoveredCell, setHoveredCell] = useState(null)
 
   const heatmap = useMemo(() => {
-    const matrix = [];
-    const baseDate = new Date(2026, 10, 6); // 6 Nov 2026
-    
-    const weeklyPatterns = [
-      [0, 1, 0, 0, 2, 0, 0], [2, 0, 0, 3, 0, 1, 0], [0, 0, 0, 0, 2, 0, 0], [0, 4, 0, 0, 0, 0, 0],
-      [0, 0, 0, 5, 0, 0, 0], [0, 0, 8, 0, 0, 0, 0], [0, 0, 0, 0, 4, 0, 0], [0, 0, 0, 0, 0, 6, 0],
-      [0, 0, 10, 0, 0, 0, 0], [0, 0, 0, 8, 0, 12, 0], [0, 0, 0, 0, 0, 0, 0], [12, 0, 0, 0, 8, 0, 0], [0, 5, 0, 0, 0, 10, 0],
-      [8, 10, 0, 0, 0, 9, 0], [0, 0, 16, 0, 8, 0, 0], [0, 0, 0, 12, 0, 0, 0], [10, 0, 0, 0, 11, 0, 12],
-      [0, 0, 8, 0, 12, 0, 0], [12, 10, 0, 0, 0, 10, 0], [9, 0, 0, 20, 0, 0, 0], [0, 12, 0, 0, 8, 0, 0],
-      [11, 0, 15, 0, 12, 0, 0], [18, 12, 0, 16, 0, 0, 0], [0, 16, 12, 0, 11, 0, 0], [12, 18, 15, 11, 0, 20, 0],
-      [15, 20, 16, 14, 12, 18, 0]
-    ];
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const mondayOffset = (today.getDay() + 6) % 7 // Monday = 0
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset - (HEATMAP_WEEKS - 1) * 7)
 
-    for (let w = 0; w < 26; w++) {
-      const col = [];
+    const weeks = []
+    let total = 0
+    let active = 0
+    for (let w = 0; w < HEATMAP_WEEKS; w++) {
+      const col = []
       for (let d = 0; d < 7; d++) {
-        const daysAgo = (25 - w) * 7 + (6 - d);
-        const cellDate = new Date(baseDate);
-        cellDate.setDate(cellDate.getDate() - daysAgo);
-        const count = weeklyPatterns[w]?.[d] ?? 0;
-        col.push({
-          dateStr: cellDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
-          count
-        });
+        const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7 + d)
+        if (date > today) {
+          col.push(null)
+          continue
+        }
+        const count = days[dayKey(date.getTime())]?.attempts || 0
+        total += count
+        if (count > 0) active++
+        col.push({ dateStr: fmtDate(date), count })
       }
-      matrix.push(col);
+      const first = new Date(start.getFullYear(), start.getMonth(), start.getDate() + w * 7)
+      weeks.push({ cells: col, month: first.getMonth() })
     }
-    return matrix;
-  }, []);
+    // Month name over the first week that starts in that month
+    weeks.forEach((wk, i) => { wk.label = i === 0 || wk.month !== weeks[i - 1].month ? MONTHS[wk.month] : '' })
+    return { weeks, total, active }
+  }, [days])
 
   const getColorClass = (count) => {
-    if (count === 0) return 'bg-slate-100 dark:bg-slate-800/80';
-    if (count <= 4) return 'bg-blue-200 dark:bg-blue-950/70';
-    if (count <= 9) return 'bg-blue-400 dark:bg-blue-700';
-    if (count <= 15) return 'bg-blue-600 dark:bg-blue-500';
-    return 'bg-blue-800 dark:bg-blue-400';
-  };
+    if (count === 0) return 'bg-slate-100 dark:bg-slate-800/80'
+    if (count <= 4) return 'bg-blue-200 dark:bg-blue-950/70'
+    if (count <= 9) return 'bg-blue-400 dark:bg-blue-700'
+    if (count <= 15) return 'bg-blue-600 dark:bg-blue-500'
+    return 'bg-blue-800 dark:bg-blue-400'
+  }
 
   return (
     <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="space-y-1">
-          <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">
-            Study activity
-          </h3>
-          <p className="text-xs text-slate-500">
-            Questions solved per day, last 26 weeks
-          </p>
+          <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">Study activity</h3>
+          <p className="text-xs text-slate-500">Questions answered per day, last {HEATMAP_WEEKS} weeks</p>
         </div>
 
-        {/* Live Hover Status Indicator: 100% visible, never cut off */}
         <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-border-light dark:border-border-dark self-start sm:self-auto min-h-[32px] flex items-center">
           {hoveredCell ? (
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-              <strong className="text-primary">{hoveredCell.count} questions solved</strong> on {hoveredCell.dateStr}
+              <strong className="text-primary">{hoveredCell.count} question{hoveredCell.count === 1 ? '' : 's'}</strong> on {hoveredCell.dateStr}
             </span>
           ) : (
             <span className="text-slate-400 text-[11px]">Hover over any square to see details</span>
@@ -328,52 +338,42 @@ function StudyActivityHeatmapCard() {
         </div>
       </div>
 
-      {/* Heatmap Grid with generous headroom so tooltips are never clipped */}
-      <div className="overflow-x-auto pt-6 pb-2 scrollbar-none">
+      <div className="overflow-x-auto pt-2 pb-2 scrollbar-none">
         <div className="min-w-[620px]">
-          {/* Months row */}
-          <div className="flex justify-between pl-7 pr-3 text-[11px] font-semibold text-slate-400 mb-2">
-            <span>May</span>
-            <span>Jun</span>
-            <span>Jul</span>
-            <span>Aug</span>
-            <span>Sep</span>
-            <span>Oct</span>
-            <span>Nov</span>
+          {/* Month labels, one slot per week */}
+          <div className="flex gap-3 mb-2">
+            <div className="w-[26px] shrink-0" />
+            <div className="flex-1 flex gap-2">
+              {heatmap.weeks.map((wk, i) => (
+                <span key={i} className="flex-1 text-[11px] font-semibold text-slate-400 whitespace-nowrap overflow-visible">{wk.label}</span>
+              ))}
+            </div>
           </div>
 
-          {/* Matrix with Mon/Wed/Fri labels */}
           <div className="flex gap-3">
-            <div className="flex flex-col justify-between text-[10px] font-semibold text-slate-400 py-0.5 h-[112px]">
+            <div className="w-[26px] shrink-0 flex flex-col justify-between text-[10px] font-semibold text-slate-400 py-0.5 h-[112px]">
               <span>Mon</span>
               <span>Wed</span>
               <span>Fri</span>
             </div>
 
             <div className="flex-1 flex gap-2">
-              {heatmap.map((week, wIdx) => (
+              {heatmap.weeks.map((wk, wIdx) => (
                 <div key={wIdx} className="flex flex-col gap-2 flex-1">
-                  {week.map((cell, dIdx) => (
-                    <div
-                      key={dIdx}
-                      onMouseEnter={() => setHoveredCell(cell)}
-                      onMouseLeave={() => setHoveredCell(null)}
-                      title={`${cell.count} questions solved on ${cell.dateStr}`}
-                      className="relative group/cell cursor-pointer"
-                    >
+                  {wk.cells.map((cell, dIdx) => (
+                    cell === null ? (
+                      <div key={dIdx} className="h-3.5 w-full" />
+                    ) : (
                       <div
-                        className={`h-3.5 w-full rounded-[3px] transition-all hover:scale-125 hover:ring-2 hover:ring-primary ${getColorClass(cell.count)}`}
-                      />
-
-                      {/* Tooltip positioned above cell with shadow */}
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/cell:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
-                        <div className="px-2.5 py-1 rounded-md bg-slate-900 text-white text-[10px] font-bold shadow-xl border border-slate-700/60">
-                          {cell.count > 0 ? `${cell.count} questions solved` : 'No activity'}
-                          <span className="block text-[9px] text-slate-400 font-normal">{cell.dateStr}</span>
-                        </div>
-                        <div className="w-1.5 h-1.5 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700/60" />
+                        key={dIdx}
+                        onMouseEnter={() => setHoveredCell(cell)}
+                        onMouseLeave={() => setHoveredCell(null)}
+                        title={`${cell.count} question${cell.count === 1 ? '' : 's'} on ${cell.dateStr}`}
+                        className="cursor-pointer"
+                      >
+                        <div className={`h-3.5 w-full rounded-[3px] transition-all hover:scale-125 hover:ring-2 hover:ring-primary ${getColorClass(cell.count)}`} />
                       </div>
-                    </div>
+                    )
                   ))}
                 </div>
               ))}
@@ -382,10 +382,9 @@ function StudyActivityHeatmapCard() {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
         <div>
-          <strong className="text-slate-800 dark:text-slate-200">92 active days</strong> · <strong className="text-slate-800 dark:text-slate-200">2,668 questions</strong> · longest streak <strong className="text-slate-800 dark:text-slate-200">12 days</strong>
+          <strong className="text-slate-800 dark:text-slate-200">{heatmap.active} active day{heatmap.active === 1 ? '' : 's'}</strong> · <strong className="text-slate-800 dark:text-slate-200">{heatmap.total.toLocaleString()} question{heatmap.total === 1 ? '' : 's'}</strong> · longest streak <strong className="text-slate-800 dark:text-slate-200">{longestStreak} day{longestStreak === 1 ? '' : 's'}</strong>
         </div>
 
         <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
@@ -399,54 +398,37 @@ function StudyActivityHeatmapCard() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // ==========================================
-// COMPREHENSIVE TEST HISTORY CARD (IMAGE 3)
+// TEST HISTORY CARD
 // ==========================================
-function ComprehensiveTestHistoryCard() {
-  const [filter, setFilter] = useState('all');
+function ComprehensiveTestHistoryCard({ tests }) {
+  const [filter, setFilter] = useState('all')
+  const [showAll, setShowAll] = useState(false)
 
-  const tests = [
-    { id: 't-1', name: 'GATE 2021 Set 1 Paper', type: 'PYQ', date: '29 Oct 2026', score: 73, maxScore: 100, accuracy: '81%', time: '2h 58m', link: '/pyq-mock' },
-    { id: 't-2', name: 'All-India Mock Test #6', type: 'Mock', date: '28 Oct 2026', score: 68, maxScore: 100, accuracy: '78.5%', time: '2h 50m', link: '/mock-tests' },
-    { id: 't-3', name: 'GATE 2020 Official Paper', type: 'PYQ', date: '25 Oct 2026', score: 71.5, maxScore: 100, accuracy: '80%', time: '2h 54m', link: '/pyq-mock' },
-    { id: 't-4', name: 'All-India Mock Test #5', type: 'Mock', date: '24 Oct 2026', score: 71, maxScore: 100, accuracy: '79%', time: '2h 56m', link: '/mock-tests' },
-    { id: 't-5', name: 'GATE 2023 Official Paper', type: 'PYQ', date: '05 Nov 2026', score: 89, maxScore: 100, accuracy: '92.5%', time: '2h 48m', link: '/pyq-mock' },
-    { id: 't-6', name: 'All-India Mock Test #8', type: 'Mock', date: '03 Nov 2026', score: 73, maxScore: 100, accuracy: '82.5%', time: '2h 55m', link: '/mock-tests' },
-  ];
-
-  const filtered = tests.filter(t => {
-    if (filter === 'mock') return t.type === 'Mock';
-    if (filter === 'pyq') return t.type === 'PYQ';
-    return true;
-  });
+  const filtered = tests.filter(t => filter === 'all' || t.type === (filter === 'mock' ? 'Mock' : 'PYQ'))
+  const shown = showAll ? filtered : filtered.slice(0, 6)
 
   return (
     <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
-      {/* Header & Filter Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <Clock size={16} />
             </div>
-            <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">
-              Comprehensive Test History
-            </h3>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100">Test History</h3>
           </div>
-          <p className="text-xs text-slate-500">
-            Click &quot;Review&quot; on any attempt to inspect question-by-question metrics.
-          </p>
+          <p className="text-xs text-slate-500">Every mock and PYQ test you&apos;ve submitted, newest first.</p>
         </div>
 
-        {/* Filter Tabs */}
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-border-light dark:border-border-dark self-start sm:self-auto">
           {[
             { id: 'all', label: 'All Tests' },
             { id: 'mock', label: 'Mock Tests' },
-            { id: 'pyq', label: 'PYQ Tests' },
+            { id: 'pyq', label: 'PYQ Tests' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -463,75 +445,77 @@ function ComprehensiveTestHistoryCard() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-border-light dark:border-border-dark text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              <th className="pb-3 pr-4">Test Name</th>
-              <th className="pb-3 px-3">Type</th>
-              <th className="pb-3 px-3">Date ↓</th>
-              <th className="pb-3 px-3">Score</th>
-              <th className="pb-3 px-3">Accuracy</th>
-              <th className="pb-3 px-3">Time Taken</th>
-              <th className="pb-3 pl-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-light/60 dark:divide-border-dark/60 text-xs">
-            {filtered.map(t => (
-              <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                <td className="py-3.5 pr-4 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">
-                  {t.name}
-                </td>
-                <td className="py-3.5 px-3 whitespace-nowrap">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${
-                    t.type === 'PYQ'
-                      ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                  }`}>
-                    {t.type}
-                  </span>
-                </td>
-                <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">
-                  {t.date}
-                </td>
-                <td className="py-3.5 px-3 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-slate-800 dark:text-slate-200">{t.score} / {t.maxScore}</span>
-                    <div className="h-1.5 w-12 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                      <div className="h-full bg-primary rounded-full" style={{ width: `${(t.score / t.maxScore) * 100}%` }} />
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3.5 px-3 font-bold text-emerald-500 whitespace-nowrap">
-                  {t.accuracy}
-                </td>
-                <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">
-                  {t.time}
-                </td>
-                <td className="py-3.5 pl-3 text-right whitespace-nowrap">
-                  <Link
-                    to={t.link}
-                    className="px-3 py-1 rounded-lg border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 font-bold hover:bg-primary hover:text-white hover:border-primary transition-all text-xs inline-flex items-center gap-1 cursor-pointer active:scale-95"
-                  >
-                    <span>Review</span>
-                  </Link>
-                </td>
+      {filtered.length === 0 ? (
+        <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-500 space-y-2">
+          <p>No {filter === 'mock' ? 'mock ' : filter === 'pyq' ? 'PYQ ' : ''}tests submitted yet.</p>
+          <Link to={filter === 'pyq' ? '/pyq-mock' : '/mock-tests'} className="text-primary font-semibold hover:underline">Take a test</Link>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-border-light dark:border-border-dark text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <th className="pb-3 pr-4">Test Name</th>
+                <th className="pb-3 px-3">Type</th>
+                <th className="pb-3 px-3">Date</th>
+                <th className="pb-3 px-3">Score</th>
+                <th className="pb-3 px-3">Accuracy</th>
+                <th className="pb-3 px-3">Time Taken</th>
+                <th className="pb-3 pl-3 text-right">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-border-light/60 dark:divide-border-dark/60 text-xs">
+              {shown.map(t => (
+                <tr key={t.key} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                  <td className="py-3.5 pr-4 font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{t.name}</td>
+                  <td className="py-3.5 px-3 whitespace-nowrap">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${
+                      t.type === 'PYQ'
+                        ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
+                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {t.type}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">{t.date}</td>
+                  <td className="py-3.5 px-3 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-slate-800 dark:text-slate-200">{fmtMarks(t.score)} / {t.maxScore}</span>
+                      <div className="h-1.5 w-12 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${t.maxScore ? Math.max(0, (t.score / t.maxScore) * 100) : 0}%` }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-3 font-bold text-emerald-500 whitespace-nowrap">{t.accuracy}</td>
+                  <td className="py-3.5 px-3 text-slate-500 whitespace-nowrap">{t.time}</td>
+                  <td className="py-3.5 pl-3 text-right whitespace-nowrap">
+                    <Link
+                      to={t.link}
+                      title="The analysis opens from the test's card"
+                      className="px-3 py-1 rounded-lg border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark text-slate-700 dark:text-slate-300 font-bold hover:bg-primary hover:text-white hover:border-primary transition-all text-xs inline-flex items-center gap-1 cursor-pointer active:scale-95"
+                    >
+                      <span>Open</span>
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-      {/* Footer */}
-      <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between text-xs text-slate-400">
-        <span>Showing {filtered.length} of {tests.length} recorded tests</span>
-        <Link to="/mock-tests" className="font-bold text-primary hover:underline">
-          View All Tests
-        </Link>
-      </div>
+      {filtered.length > 0 && (
+        <div className="pt-3 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between text-xs text-slate-400">
+          <span>Showing {shown.length} of {filtered.length} test{filtered.length === 1 ? '' : 's'}</span>
+          {filtered.length > 6 && (
+            <button onClick={() => setShowAll(v => !v)} className="font-bold text-primary hover:underline cursor-pointer">
+              {showAll ? 'Show fewer' : 'Show all'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
-  );
+  )
 }
 
 export default function DashboardPage() {
@@ -541,18 +525,59 @@ export default function DashboardPage() {
   const summary = useMemo(() => practiceSummary(practice), [practice])
   const subjects = useMemo(() => subjectProgress(practice, questions), [practice, questions])
   const weakTopics = useMemo(() => weakestTopics(topicProgress(practice, questions)), [practice, questions])
-  const activity = useMemo(() => {
-    let mocks = []
-    try {
-      mocks = [
-        ...JSON.parse(localStorage.getItem('gate_mock_history') || '[]'),
-        ...JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
-      ].filter(h => h && h.counted !== false) // under-a-minute submissions don't count
-    } catch (e) {
-      mocks = []
+  // Finished tests (under-a-minute submissions don't count)
+  const testHistory = useMemo(() => {
+    const read = (key) => {
+      try {
+        const list = JSON.parse(localStorage.getItem(key) || '[]')
+        return Array.isArray(list) ? list.filter(h => h && h.counted !== false) : []
+      } catch (e) {
+        return []
+      }
     }
-    return recentActivity(practice, questions, mocks)
-  }, [practice, questions])
+    return { mock: read('gate_mock_history'), pyq: read('gate_pyq_mock_history') }
+  }, [practice])
+  const activity = useMemo(
+    () => recentActivity(practice, questions, [...testHistory.mock, ...testHistory.pyq]),
+    [practice, questions, testHistory]
+  )
+  const testRows = useMemo(() => [
+    ...testHistory.mock.map(h => ({ ...h, type: 'Mock', link: '/mock-tests' })),
+    ...testHistory.pyq.map(h => ({ ...h, type: 'PYQ', link: '/pyq-mock' }))
+  ]
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .map(h => ({
+      key: `${h.type}-${h.timestamp}-${h.testTitle}`,
+      name: h.testTitle || h.displayName || 'Test',
+      type: h.type,
+      date: h.date || (h.timestamp ? new Date(h.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'),
+      score: Number(h.score) || 0,
+      maxScore: Number(h.maxScore) || 0,
+      accuracy: h.percentage !== undefined && h.percentage !== null ? `${h.percentage}%` : '—',
+      time: h.timeTakenFormatted || '—',
+      link: h.link
+    })), [testHistory])
+  // Full year papers, oldest first, with the user's attempt if taken (one attempt each)
+  const yearPapers = useMemo(() => {
+    const map = new Map()
+    questions.forEach(q => {
+      if (!q.year) return
+      const key = `${q.year}_${parseSet(q.set)}`
+      if (!map.has(key)) map.set(key, { year: String(q.year), set: parseSet(q.set) })
+    })
+    const list = [...map.values()].sort((a, b) => Number(a.year) - Number(b.year) || a.set - b.set)
+    return list.map(p => {
+      const multi = list.filter(o => o.year === p.year).length > 1
+      const id = pyqPaperId(p.year, p.set)
+      return {
+        ...p,
+        id,
+        multi,
+        title: multi ? `GATE ${p.year} (Set ${p.set})` : `GATE ${p.year}`,
+        attempt: findPaperAttempt(id, `PYQ Mock: GATE ${p.year} Set ${p.set}`)
+      }
+    })
+  }, [questions, testHistory])
 
   // --- GATED ACCESS VIEW FOR GUESTS ---
   if (!isAuthenticated) {
@@ -687,14 +712,19 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* GATE 2027 Countdown & High-Yield Target Focus Card (NEW USEFUL FEATURE) */}
-      <GateExamTargetFocusCard />
+      {/* Exam countdown and what to work on next */}
+      <GateExamTargetFocusCard
+        solved={solved}
+        bankSize={questions.length}
+        weakTopics={weakTopics}
+        nextPaper={nextPaperToTake(yearPapers)}
+      />
 
-      {/* Official PYQ Paper Coverage (Standalone Separate Card) */}
-      <OfficialPyqCoverageCard />
+      {/* Full PYQ papers taken */}
+      <OfficialPyqCoverageCard papers={yearPapers} />
 
-      {/* Study Activity Heatmap (Standalone Separate Card, Flawless Hovering) */}
-      <StudyActivityHeatmapCard />
+      {/* Questions answered per day */}
+      <StudyActivityHeatmapCard days={practice.days || {}} longestStreak={longestStreak} />
 
       {/* Progress & Activities Split */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -704,8 +734,8 @@ export default function DashboardPage() {
           
 
 
-          {/* Daily Study Goal & Pacing Diagnostics Card (NEW USEFUL FEATURE) */}
-          <DailyStudyGoalCard />
+          {/* Today's goal and average pace */}
+          <DailyStudyGoalCard answeredToday={answeredToday} avgSec={summary.totalAnswers > 0 ? practiceSec / summary.totalAnswers : null} />
 
           {/* Subject Completion Rates */}
           <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-5">
@@ -845,8 +875,8 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* IMAGE 3: Comprehensive Test History */}
-      <ComprehensiveTestHistoryCard />
+      {/* Submitted tests */}
+      <ComprehensiveTestHistoryCard tests={testRows} />
     </div>
   )
 }
