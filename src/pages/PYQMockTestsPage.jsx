@@ -14,6 +14,8 @@ import AnswerProvenance from '../components/AnswerProvenance'
 import QuestionIdBadge from '../components/QuestionIdBadge'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, subtopicText, topicKey } from '../utils/topics'
+import { useTopicScheme } from '../store/useTopicScheme'
+import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
@@ -422,7 +424,14 @@ export default function PYQMockTestsPage() {
   }, {})
   
   // Every listed topic grouped by subject, with how many questions are tagged with it
-  const topicsMap = useMemo(() => buildTopicsMap(questions), [questions])
+  // Book chapters or classic topics, as the user picked; picks made under the
+  // other grouping no longer apply, so they are cleared on a switch
+  const topicScheme = useTopicScheme(s => s.scheme)
+  useEffect(() => {
+    setSelectedTopics([])
+    setWizardConfig(prev => ({ ...prev, topics: [] }))
+  }, [topicScheme])
+  const topicsMap = useMemo(() => buildTopicsMap(questions, topicScheme), [questions, topicScheme])
 
   // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems")
   const subjectAliases = {
@@ -463,7 +472,9 @@ export default function PYQMockTestsPage() {
       })
     })
     return acc
-  }, []) // book order: subjects, then chapters
+  }, [])
+    // Chapters stay in book order; classic topics list the busiest first
+    .sort((a, b) => (topicScheme === 'topics' ? b.questionCount - a.questionCount : 0))
 
   // Track active question ID for the timer closure
   const activeQuestion = activeTestQuestions[currentQuestionIndex]
@@ -1629,10 +1640,11 @@ export default function PYQMockTestsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Topic Wise Mock</h2>
-                <p className="text-sm text-slate-500 mt-1 font-medium">Select topics to bundle. Listed in the book's chapter order.</p>
+                <p className="text-sm text-slate-500 mt-1 font-medium">Select topics to bundle.</p>
               </div>
               
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-3 shrink-0">
+                <TopicSchemeSwitch />
                 {selectedTopics.length > 0 && (
                   <button
                     onClick={() => {
@@ -1854,9 +1866,12 @@ export default function PYQMockTestsPage() {
             {/* STEP 1: SELECT TOPICS (COLLAPSED SUBJECTS ACCODRION) */}
             {wizardStep === 1 && (
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Topics</h3>
-                  <p className="text-xs text-slate-550">Click on any subject to expand and choose topics.</p>
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Topics</h3>
+                    <p className="text-xs text-slate-550">Click on any subject to expand and choose {topicScheme === 'topics' ? 'topics' : 'chapters'}.</p>
+                  </div>
+                  <TopicSchemeSwitch />
                 </div>
                 
                 <div className="space-y-3 pt-2">

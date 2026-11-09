@@ -10,6 +10,8 @@ import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import QuestionIdBadge from '../components/QuestionIdBadge'
 import { getTags } from '../utils/topics'
+import { useTopicScheme } from '../store/useTopicScheme'
+import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
@@ -18,7 +20,10 @@ import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison
 import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findMockAttempt, canStartNewTest } from '../utils/testSession'
 
-// The list page groups tests by kind (see shared/mockTests.js)
+// The list page groups tests by kind (see shared/mockTests.js). Sectional
+// categories show the chapter-based papers, or the classic ones (built before
+// the chapter-based rebuild) when the user picks "Classic topics"; match gets
+// the user's choice as its second argument.
 const MOCK_CATEGORIES = [
   {
     id: 'orig-full',
@@ -37,7 +42,9 @@ const MOCK_CATEGORIES = [
     title: 'Original Sectional Mocks',
     badge: 'Original • 45 Mins',
     description: 'Subject-focused mock exams with fresh questions. 15 questions in 45 minutes, spread across chapters based on syllabus weightage.',
-    match: t => t.id.startsWith('orig-sectional-'),
+    match: (t, scheme) => t.id.startsWith('orig-sectional-') && Boolean(t.classic) === (scheme === 'topics'),
+    classicDescription: 'The first set of original sectionals: 15 fresh questions per subject in 45 minutes, from before the chapter-based rebuild.',
+    classicMeta: '6 Subject Mocks • 45 Mins • Classic Set',
     icon: Layers,
     colorClass: 'text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 border-sky-500/20',
     hoverBorder: 'hover:border-sky-500/60 dark:hover:border-sky-500/60',
@@ -61,7 +68,9 @@ const MOCK_CATEGORIES = [
     title: 'PYQ Sectional Mocks',
     badge: 'Past Papers • 45 Mins',
     description: 'Targeted past GATE questions curated by individual subject. Master Algorithms, OS, DBMS, Networks, and Math separately.',
-    match: t => t.id.startsWith('pyq-sectional-'),
+    match: (t, scheme) => (scheme === 'topics' ? t.id.startsWith('sectional-') : t.id.startsWith('pyq-sectional-')),
+    classicDescription: 'The first set of PYQ sectionals: past GATE questions picked by subject, from before the chapter-wise rebuild.',
+    classicMeta: '24 Subject Mocks • 45 Mins • Classic Set',
     icon: Brain,
     colorClass: 'text-teal-500 bg-teal-500/10 dark:bg-teal-500/20 border-teal-500/20',
     hoverBorder: 'hover:border-teal-500/60 dark:hover:border-teal-500/60',
@@ -322,6 +331,21 @@ export default function MockTestsPage() {
     setActiveReportTab('overview')
     setReturnView(returnTo)
     setView('report')
+  }
+
+  // Book chapters or classic topics: picks which sectional papers are listed
+  const topicScheme = useTopicScheme(s => s.scheme)
+
+  // Topics a classic paper covers, most common first ("Trees (3) · Hashing (2)"),
+  // shown where chapter-based papers list their chapters
+  const topicCoverage = (test) => {
+    const counts = {}
+    ;(test.questions || []).forEach(id => {
+      const q = questionById.get(id)
+      const name = q && (q.topicTags?.[0]?.topic || q.topic)
+      if (name) counts[name] = (counts[name] || 0) + 1
+    })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }))
   }
 
   // The test in progress (saved as it goes, so a refresh or crash can resume it)
@@ -958,7 +982,10 @@ export default function MockTestsPage() {
             <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1 leading-relaxed">
               Evaluate your exam readiness with timed mock tests under authentic GATE conditions.
             </p>
-            
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <span className="text-[11px] font-semibold text-slate-500">Sectional mocks:</span>
+              <TopicSchemeSwitch />
+            </div>
           </div>
 
           {/* 6 Category Boxes Grid */}
@@ -967,7 +994,7 @@ export default function MockTestsPage() {
               const Icon = cat.icon
               const testCount = cat.isHistory 
                 ? mockHistoryAttempts.length 
-                : dummyMockTests.filter(t => !t.retired && cat.match(t)).length
+                : dummyMockTests.filter(t => !t.retired && cat.match(t, topicScheme)).length
 
               return (
                 <div
@@ -1001,7 +1028,7 @@ export default function MockTestsPage() {
                         <ChevronRight size={16} className="text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0 ml-1" />
                       </div>
                       <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
-                        {cat.description}
+                        {topicScheme === 'topics' && cat.classicDescription ? cat.classicDescription : cat.description}
                       </p>
                     </div>
                   </div>
@@ -1020,7 +1047,7 @@ export default function MockTestsPage() {
 
     // Otherwise, show Selected Category Papers List View
     const selectedCategory = MOCK_CATEGORIES.find(c => c.id === selectedCategoryId) || MOCK_CATEGORIES[0]
-    const categoryTests = dummyMockTests.filter(t => !t.retired && selectedCategory.match(t))
+    const categoryTests = dummyMockTests.filter(t => !t.retired && selectedCategory.match(t, topicScheme))
     
     // Filter tests by search query & difficulty
     const filteredTests = categoryTests.filter(t => {
@@ -1053,16 +1080,19 @@ export default function MockTestsPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5 max-w-2xl leading-relaxed">
-              {selectedCategory.description}
+              {topicScheme === 'topics' && selectedCategory.classicDescription ? selectedCategory.classicDescription : selectedCategory.description}
             </p>
           </div>
 
+          <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          {selectedCategory.classicDescription && <TopicSchemeSwitch />}
           <button
             onClick={() => setSelectedCategoryId(null)}
             className="px-4 py-2 rounded-xl bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors self-start sm:self-auto cursor-pointer"
           >
             All Categories
           </button>
+          </div>
         </div>
 
         {/* Search & Difficulty Filter Bar */}
@@ -1154,11 +1184,14 @@ export default function MockTestsPage() {
                     </span>
                   </div>
 
-                  {test.chapters && (
-                    <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed" title={test.chapters.map(c => `${c.name}: ${c.count}`).join('\n')}>
-                      {test.chapters.map(c => `${c.name.split(' (')[0]} (${c.count})`).join(' · ')}
-                    </p>
-                  )}
+                  {(() => {
+                    const coverage = test.chapters || (test.classic ? topicCoverage(test) : null)
+                    return coverage && coverage.length > 0 && (
+                      <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed" title={coverage.map(c => `${c.name}: ${c.count}`).join('\n')}>
+                        {coverage.map(c => `${c.name.split(' (')[0]} (${c.count})`).join(' · ')}
+                      </p>
+                    )
+                  })()}
                 </div>
 
                 <div className="flex justify-between items-center pt-3.5 border-t border-border-light/60 dark:border-border-dark/60">

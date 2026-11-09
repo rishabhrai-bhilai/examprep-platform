@@ -18,6 +18,8 @@ import QuestionIdBadge from '../components/QuestionIdBadge'
 import { isSignedIn, submitProblemOfTheDay } from '../utils/engagementApi'
 import { compareSubjects } from '../utils/subjects'
 import { buildTopicsMap, getTags, hasTag, subtopicText, topicKey } from '../utils/topics'
+import { useTopicScheme } from '../store/useTopicScheme'
+import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 
@@ -302,7 +304,14 @@ export default function PYQPage() {
   }, {})
   
   // Every listed topic grouped by subject, with how many questions are tagged with it
-  const topicsMap = useMemo(() => buildTopicsMap(questions), [questions])
+  // Book chapters or classic topics, as the user picked; picks made under the
+  // other grouping no longer apply, so they are cleared on a switch
+  const topicScheme = useTopicScheme(s => s.scheme)
+  useEffect(() => {
+    setSelectedTopics([])
+    setWizardConfig(prev => ({ ...prev, topics: [] }))
+  }, [topicScheme])
+  const topicsMap = useMemo(() => buildTopicsMap(questions, topicScheme), [questions, topicScheme])
 
   // Subject alias mapping for quick matching (e.g. "os" -> "Operating Systems", "dbms" -> Database)
   const subjectAliases = {
@@ -345,8 +354,10 @@ export default function PYQPage() {
         })
       })
       return acc
-    }, []) // book order: subjects, then chapters
-  }, [topicsMap, questions])
+    }, [])
+      // Chapters stay in book order; classic topics list the busiest first
+      .sort((a, b) => (topicScheme === 'topics' ? b.questionCount - a.questionCount : 0))
+  }, [topicsMap, questions, topicScheme])
 
   const filteredTopicsList = useMemo(() => {
     return flatTopicsList.filter(({ topicName, subjectName, years, subtopics }) => {
@@ -1015,7 +1026,8 @@ export default function PYQPage() {
               <p className="text-sm text-slate-500 mt-1 font-medium">Select one or more topics to customize your practice.</p>
             </div>
             
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <TopicSchemeSwitch />
               {selectedTopics.length > 0 && (
                 <button
                   onClick={() => {
@@ -1210,9 +1222,12 @@ export default function PYQPage() {
           {/* STEP 1: SELECT TOPICS (COLLAPSED SUBJECTS VIEW WITH SELECT ALL TABS) */}
           {wizardStep === 1 && (
             <div className="space-y-4">
-              <div className="space-y-1">
-                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Topics</h3>
-                <p className="text-xs text-slate-550">Click on any subject to expand and select its chapters.</p>
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                <div className="space-y-1">
+                  <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">1. Select Topics</h3>
+                  <p className="text-xs text-slate-550">Click on any subject to expand and select its {topicScheme === 'topics' ? 'topics' : 'chapters'}.</p>
+                </div>
+                <TopicSchemeSwitch />
               </div>
               
               <div className="space-y-3 pt-2">
