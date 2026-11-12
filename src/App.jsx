@@ -24,6 +24,7 @@ import ReportPage from './pages/ReportPage'
 import BookletPage from './pages/BookletPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import PrototypeAnalyticsPage from './pages/PrototypeAnalyticsPage'
+import ResourcesPage from './pages/ResourcesPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -80,6 +81,7 @@ function App() {
           <Route path="/analytics-prototype" element={<PrototypeAnalyticsPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/notes" element={<NotesPage />} />
+          <Route path="/resources" element={<ResourcesPage />} />
           <Route path="/discussion" element={<DiscussionPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<ProfilePage />} />
