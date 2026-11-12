@@ -17,7 +17,7 @@ import FormattedContent from '../components/FormattedContent'
 import FilterDropdown from '../components/FilterDropdown'
 import { compareSubjects } from '../utils/subjects'
 import { getTags, hasTopicName } from '../utils/topics'
-import { matchesQuestionRef } from '../../shared/questionCodes.js'
+import { matchesQuestionRef, parseQuestionCode, EXAMS } from '../../shared/questionCodes.js'
 
 // Recursive component for rendering multi-level threaded replies
 function ThreadedReplyNode({
@@ -180,6 +180,30 @@ function ThreadedReplyNode({
   )
 }
 
+// Helper to determine the exam for a question (GATE, ISRO, BARC, etc.)
+export const getQuestionExam = (q) => {
+  if (q.exam) return String(q.exam).toUpperCase()
+  if (q.code) {
+    const parsed = parseQuestionCode(q.code)
+    if (parsed?.exam) {
+      if (['CS', 'IT', 'DA'].includes(parsed.exam)) return 'GATE'
+      if (parsed.exam === 'IS') return 'ISRO'
+      if (parsed.exam === 'NI') return 'NIELIT'
+      if (parsed.exam === 'UN') return 'UGC NET'
+      return parsed.examName || parsed.exam
+    }
+  }
+  if (q.paper && typeof q.paper === 'string') {
+    const p = q.paper.toUpperCase()
+    if (p.includes('ISRO')) return 'ISRO'
+    if (p.includes('BARC')) return 'BARC'
+    if (p.includes('TIFR')) return 'TIFR'
+    if (p.includes('UGC')) return 'UGC NET'
+    if (p.includes('NIELIT')) return 'NIELIT'
+  }
+  return 'GATE'
+}
+
 const FEED_BATCH = 30
 
 export default function DiscussionPage() {
@@ -214,6 +238,8 @@ export default function DiscussionPage() {
   const [selectedSubject, setSelectedSubject] = useState('ALL')
   const [selectedYear, setSelectedYear] = useState('ALL')
   const [selectedTopic, setSelectedTopic] = useState('ALL')
+  const [selectedExam, setSelectedExam] = useState('ALL')
+  const [selectedType, setSelectedType] = useState('ALL')
 
   // The feed shows questions in batches as you scroll; all ~2000 cards at once made scrolling crawl
   const [visibleCount, setVisibleCount] = useState(FEED_BATCH)
@@ -223,7 +249,7 @@ export default function DiscussionPage() {
   useEffect(() => {
     setVisibleCount(FEED_BATCH)
     if (listRef.current) listRef.current.scrollTop = 0
-  }, [searchQuery, activeFilter, selectedSubject, selectedYear, selectedTopic])
+  }, [searchQuery, activeFilter, selectedSubject, selectedYear, selectedTopic, selectedExam, selectedType])
 
   // Opening a question replaces the list; coming back returns to the same spot
   const openQuestion = (q) => {
@@ -288,6 +314,38 @@ export default function DiscussionPage() {
     const topics = new Set(relevant.flatMap(q => getTags(q).map(t => t.topic)))
     return Array.from(topics).sort()
   }, [questions, selectedSubject])
+  const availableExams = useMemo(() => {
+    const counts = { GATE: 0, ISRO: 0, BARC: 0, TIFR: 0, 'UGC NET': 0, NIELIT: 0 }
+    ;(questions || []).forEach(q => {
+      const ex = getQuestionExam(q)
+      if (counts[ex] !== undefined) counts[ex]++
+      else counts[ex] = 1
+    })
+    return [
+      { value: 'ALL', label: 'All Exams' },
+      { value: 'GATE', label: 'GATE', count: counts.GATE || 0 },
+      { value: 'ISRO', label: 'ISRO', count: counts.ISRO || 0 },
+      { value: 'BARC', label: 'BARC', count: counts.BARC || 0 },
+      { value: 'TIFR', label: 'TIFR', count: counts.TIFR || 0 },
+      { value: 'UGC NET', label: 'UGC NET', count: counts['UGC NET'] || 0 },
+      { value: 'NIELIT', label: 'NIELIT', count: counts.NIELIT || 0 }
+    ]
+  }, [questions])
+
+  const availableTypes = useMemo(() => {
+    const counts = { MCQ: 0, MSQ: 0, NAT: 0 }
+    ;(questions || []).forEach(q => {
+      const t = (q.type || 'MCQ').toUpperCase()
+      if (counts[t] !== undefined) counts[t]++
+      else counts[t] = 1
+    })
+    return [
+      { value: 'ALL', label: 'All Types' },
+      { value: 'MCQ', label: 'MCQ', count: counts.MCQ || 0 },
+      { value: 'MSQ', label: 'MSQ', count: counts.MSQ || 0 },
+      { value: 'NAT', label: 'NAT', count: counts.NAT || 0 }
+    ]
+  }, [questions])
   
   // Discussion solution writing & reply state
   const [isWritingSolution, setIsWritingSolution] = useState(false)
@@ -421,6 +479,9 @@ export default function DiscussionPage() {
   const filteredQuestions = [...questions]
     .filter(q => {
       // 1. Dropdown Filters
+      if (selectedExam !== 'ALL') {
+        if (getQuestionExam(q) !== selectedExam) return false
+      }
       if (selectedSubject !== 'ALL' && q.subject !== selectedSubject) return false
       if (selectedYear !== 'ALL') {
         if (selectedYear.includes('-S')) {
@@ -431,6 +492,10 @@ export default function DiscussionPage() {
         }
       }
       if (selectedTopic !== 'ALL' && !hasTopicName(q, selectedTopic)) return false
+      if (selectedType !== 'ALL') {
+        const qType = (q.type || 'MCQ').toUpperCase()
+        if (qType !== selectedType) return false
+      }
 
       // 2. Search Query
       if (searchQuery.trim()) {
@@ -568,19 +633,31 @@ export default function DiscussionPage() {
       
       {/* 1. QUESTIONS LIST VIEW */}
       {!selectedQuestion ? (
-        <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-6 md:p-8 max-w-5xl mx-auto w-full space-y-6 custom-scrollbar">
+        <div ref={listRef} className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-6 md:py-8 max-w-7xl mx-auto w-full space-y-6 custom-scrollbar">
           {/* Header & Right-aligned Dropdown Filters */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-                <MessageSquare className="text-primary" size={26} />
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div className="space-y-1 shrink-0">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2.5 whitespace-nowrap">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <MessageSquare size={22} className="text-primary" />
+                </div>
                 <span>Discussion Forums</span>
               </h1>
-              <p className="text-xs text-slate-500">Ask questions, share explanations, and discuss concepts with peers.</p>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Ask questions, share explanations, and discuss concepts with peers.</p>
             </div>
 
-            {/* Dropdown Filters starting from right */}
-            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+            {/* Dropdown Filters */}
+            <div className="flex items-center gap-2 flex-wrap xl:justify-end">
+              {/* Exam Dropdown */}
+              <FilterDropdown
+                label="All Exams"
+                value={selectedExam}
+                options={availableExams}
+                onChange={(val) => setSelectedExam(val)}
+                title="Filter by Exam"
+                searchable={false}
+              />
+
               {/* All Subject Dropdown */}
               <FilterDropdown
                 label={`All Subjects (${questions.length})`}
@@ -634,16 +711,28 @@ export default function DiscussionPage() {
                 searchPlaceholder="Search topics..."
               />
 
+              {/* Question Type Dropdown */}
+              <FilterDropdown
+                label="All Types"
+                value={selectedType}
+                options={availableTypes}
+                onChange={(val) => setSelectedType(val)}
+                title="Filter by Question Type"
+                searchable={false}
+              />
+
               {/* Reset Dropdowns Button */}
-              {(selectedSubject !== 'ALL' || selectedYear !== 'ALL' || selectedTopic !== 'ALL') && (
+              {(selectedSubject !== 'ALL' || selectedYear !== 'ALL' || selectedTopic !== 'ALL' || selectedExam !== 'ALL' || selectedType !== 'ALL') && (
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedSubject('ALL')
                     setSelectedYear('ALL')
                     setSelectedTopic('ALL')
+                    setSelectedExam('ALL')
+                    setSelectedType('ALL')
                   }}
-                  className="h-9 px-2.5 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/20 rounded-btn transition-colors flex items-center gap-1 shrink-0"
+                  className="h-9 px-2.5 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-500/10 hover:bg-rose-500/15 border border-rose-500/20 rounded-btn transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
                   title="Reset dropdown filters"
                 >
                   <X size={13} />
@@ -706,12 +795,14 @@ export default function DiscussionPage() {
               <div className="text-center py-16 bg-card-light dark:bg-card-dark rounded-card border border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
                 <p className="font-bold text-sm">No matching questions found.</p>
                 <p className="text-xs mt-1">Try relaxing your search terms or choosing another category.</p>
-                {(selectedSubject !== 'ALL' || selectedYear !== 'ALL' || selectedTopic !== 'ALL' || activeFilter !== 'all' || searchQuery) && (
+                {(selectedSubject !== 'ALL' || selectedYear !== 'ALL' || selectedTopic !== 'ALL' || selectedExam !== 'ALL' || selectedType !== 'ALL' || activeFilter !== 'all' || searchQuery) && (
                   <button
                     onClick={() => {
                       setSelectedSubject('ALL')
                       setSelectedYear('ALL')
                       setSelectedTopic('ALL')
+                      setSelectedExam('ALL')
+                      setSelectedType('ALL')
                       setActiveFilter('all')
                       setSearchQuery('')
                     }}

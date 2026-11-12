@@ -29,7 +29,7 @@ const MOCK_CATEGORIES = [
     id: 'orig-full',
     title: 'Original Full-Length Mocks',
     badge: 'Original • 100 Marks',
-    description: 'Fresh unseen questions created specifically for these full-syllabus mocks. 65 questions, 3 hours in the official GATE CS pattern.',
+    description: 'Fresh unseen questions modeled on official GATE CS pattern. 65 questions, 3 hours.',
     match: t => t.id.startsWith('orig-full-'),
     icon: Sparkles,
     colorClass: 'text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20 border-indigo-500/20',
@@ -41,9 +41,9 @@ const MOCK_CATEGORIES = [
     id: 'orig-sec',
     title: 'Original Sectional Mocks',
     badge: 'Original • 45 Mins',
-    description: 'Subject-focused mock exams with fresh questions. 15 questions in 45 minutes, spread across chapters based on syllabus weightage.',
+    description: 'Subject-focused mock exams with fresh questions. 15 questions in 45 minutes.',
     match: (t, scheme) => t.id.startsWith('orig-sectional-') && Boolean(t.classic) === (scheme === 'topics'),
-    classicDescription: 'The first set of original sectionals: 15 fresh questions per subject in 45 minutes, from before the chapter-based rebuild.',
+    classicDescription: 'Original sectionals before chapter rebuild: 15 fresh questions per subject in 45 minutes.',
     classicMeta: '6 Subject Mocks • 45 Mins • Classic Set',
     icon: Layers,
     colorClass: 'text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 border-sky-500/20',
@@ -55,7 +55,7 @@ const MOCK_CATEGORIES = [
     id: 'pyq-full',
     title: 'PYQ Full-Length Mocks',
     badge: 'Past Papers • 100 Marks',
-    description: 'Complete 3-hour GATE CS simulations assembled from past papers with zero repeated questions across the 8 mock sets.',
+    description: 'Complete 3-hour GATE CS simulations compiled from past papers without repetition.',
     match: t => t.id.startsWith('full-'),
     icon: FileText,
     colorClass: 'text-purple-500 bg-purple-500/10 dark:bg-purple-500/20 border-purple-500/20',
@@ -67,9 +67,9 @@ const MOCK_CATEGORIES = [
     id: 'pyq-sec',
     title: 'PYQ Sectional Mocks',
     badge: 'Past Papers • 45 Mins',
-    description: 'Targeted past GATE questions curated by individual subject. Master Algorithms, OS, DBMS, Networks, and Math separately.',
+    description: 'Targeted past GATE questions curated by individual subject with chapter weightage.',
     match: (t, scheme) => (scheme === 'topics' ? t.id.startsWith('sectional-') : t.id.startsWith('pyq-sectional-')),
-    classicDescription: 'The first set of PYQ sectionals: past GATE questions picked by subject, from before the chapter-wise rebuild.',
+    classicDescription: 'PYQ sectionals before chapter rebuild: past GATE questions picked by subject.',
     classicMeta: '24 Subject Mocks • 45 Mins • Classic Set',
     icon: Brain,
     colorClass: 'text-teal-500 bg-teal-500/10 dark:bg-teal-500/20 border-teal-500/20',
@@ -81,7 +81,7 @@ const MOCK_CATEGORIES = [
     id: 'quick',
     title: 'Quick Practice Tests',
     badge: 'Warm-Up • 10-20 Mins',
-    description: 'Short 3 to 6 question timed tests. Perfect for quick daily warm-ups, speed checks, and rapid concept calibration.',
+    description: 'Short 3 to 6 question timed drills for rapid warm-ups, speed checks, and calibration.',
     match: t => t.id.startsWith('test-'),
     icon: Zap,
     colorClass: 'text-amber-500 bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/20',
@@ -93,7 +93,7 @@ const MOCK_CATEGORIES = [
     id: 'history',
     title: 'Test Analytics & History',
     badge: 'Reports & Solutions',
-    description: 'Review your past mock examination scorecards, detailed question solutions, time pacing diagnostics, accuracy, and estimated ranks.',
+    description: 'Review past mock scorecards, detailed solutions, pacing diagnostics, and ranks.',
     isHistory: true,
     icon: BarChart2,
     colorClass: 'text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/20',
@@ -834,7 +834,7 @@ export default function MockTestsPage() {
     const totalQuestionsSolved = mockHistoryAttempts.reduce((acc, a) => acc + (a.questionsCount || 0), 0)
 
     return (
-      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
+      <div className="px-4 sm:px-6 md:px-8 pt-4 pb-12 sm:pb-16 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
         {/* Header with back button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-light dark:border-border-dark">
           <div>
@@ -964,32 +964,34 @@ export default function MockTestsPage() {
     // If no category is selected, show Category Hub
     if (!selectedCategoryId) {
       return (
-        <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
+        <div className="px-4 sm:px-6 md:px-8 pt-3 sm:pt-4 pb-12 sm:pb-16 max-w-6xl mx-auto space-y-3.5 sm:space-y-4 bg-bg-light dark:bg-bg-dark">
           <ResumeTestBanner session={session} page="mock" onResume={() => resumeTest()} />
           {/* Hub Header */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
-                Exam Simulation Hub
-              </span>
-              <span className="text-xs text-slate-400 font-medium">
-                • 50+ Full-Length & Sectional Papers
-              </span>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 border-b border-border-light/60 dark:border-border-dark/60 pb-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  Exam Simulation Hub
+                </span>
+                <span className="text-[11px] sm:text-xs text-slate-400 font-medium">
+                  • 50+ Full-Length & Sectional Papers
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-[26px] font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
+                Mock Tests
+              </h1>
+              <p className="text-xs sm:text-[13px] text-slate-500 max-w-2xl mt-0.5 leading-normal">
+                Evaluate your exam readiness with timed mock tests under authentic GATE conditions.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
-              Mock Tests
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-2xl mt-1 leading-relaxed">
-              Evaluate your exam readiness with timed mock tests under authentic GATE conditions.
-            </p>
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="flex items-center gap-2 shrink-0">
               <span className="text-[11px] font-semibold text-slate-500">Sectional mocks:</span>
               <TopicSchemeSwitch />
             </div>
           </div>
 
           {/* 6 Category Boxes Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 lg:gap-4">
             {MOCK_CATEGORIES.map((cat) => {
               const Icon = cat.icon
               const testCount = cat.isHistory 
@@ -1008,34 +1010,34 @@ export default function MockTestsPage() {
                       setSelectedDifficulty('All')
                     }
                   }}
-                  className={`p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft ${cat.hoverBorder} hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group active:scale-[0.99]`}
+                  className={`p-4 sm:p-4.5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft ${cat.hoverBorder} hover:shadow-md cursor-pointer transition-all flex flex-col justify-between group active:scale-[0.99]`}
                 >
-                  <div className="space-y-3.5">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border ${cat.colorClass}`}>
-                        <Icon size={24} />
+                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border ${cat.colorClass}`}>
+                        <Icon size={20} />
                       </div>
-                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${cat.tagColor}`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${cat.tagColor}`}>
                         {cat.badge}
                       </span>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">
+                        <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors tracking-tight">
                           {cat.title}
                         </h3>
-                        <ChevronRight size={16} className="text-slate-400 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0 ml-1" />
+                        <ChevronRight size={15} className="text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0 ml-1" />
                       </div>
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
                         {topicScheme === 'topics' && cat.classicDescription ? cat.classicDescription : cat.description}
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-4 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                  <div className="pt-2.5 mt-2.5 border-t border-border-light/60 dark:border-border-dark/60 flex items-center justify-between text-[11px] text-slate-400 font-medium">
                     <span>{cat.isHistory ? `${testCount} attempts logged` : `${testCount} papers available`}</span>
-                    <span className="text-primary font-bold group-hover:underline">Explore →</span>
+                    <span className="text-primary font-bold group-hover:underline flex items-center gap-0.5">Explore <ChevronRight size={13} /></span>
                   </div>
                 </div>
               )
@@ -1059,7 +1061,7 @@ export default function MockTestsPage() {
     })
 
     return (
-      <div className="p-4 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
+      <div className="px-4 sm:px-6 md:px-8 pt-4 pb-12 sm:pb-16 max-w-6xl mx-auto space-y-6 bg-bg-light dark:bg-bg-dark">
         <ResumeTestBanner session={session} page="mock" onResume={() => resumeTest()} />
         {/* Category Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-border-light dark:border-border-dark">
@@ -1632,7 +1634,7 @@ export default function MockTestsPage() {
     }
 
     return (
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark print:bg-white print:p-0 print:text-black">
+      <div className="p-4 md:p-8 pb-16 md:pb-20 max-w-6xl mx-auto space-y-8 bg-bg-light dark:bg-bg-dark print:bg-white print:p-0 print:text-black">
         {/* Print Only Title */}
         <div className="hidden print:block text-center space-y-2 pb-6 border-b border-slate-200">
           <h1 className="text-2xl font-bold">GATE CSE Mock Test Report</h1>
