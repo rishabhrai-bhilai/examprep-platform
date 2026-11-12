@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 
 export default function Sidebar() {
@@ -76,6 +76,7 @@ export default function Sidebar() {
     { name: 'Analytics (Beta)', path: '/analytics-prototype', icon: TrendingUp },
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark, badge: bookmarksCount },
     { name: 'Scratchpad Notes', path: '/notes', icon: NotebookPen, badge: notesCount },
+    { name: 'Free Resources', path: '/resources', icon: Library },
     { name: 'Discussion Forum', path: '/discussion', icon: MessageSquare },
     { name: 'Report an Issue', path: '/report', icon: Flag },
     { name: 'Profile', path: '/profile', icon: User },

@@ -473,15 +473,24 @@ export default function ScratchpadDrawer({
     ctx.restore()
   }
 
+  // Pages like PYQ keep this drawer mounted and only hide it (see the early
+  // return below), so the canvas appears without mode or workspaceTab
+  // changing. The effects below also re-run when the drawer opens; otherwise
+  // the canvas keeps the browser's default 300x150 size, stretched by CSS, and
+  // strokes land away from the pointer.
+  const isOpen = Boolean(scratchpadOpenQuestionId && currentQuestion)
+  const renderCanvasRef = useRef(renderCanvas)
+  renderCanvasRef.current = renderCanvas
+
   useEffect(() => {
     if (mode === 'draw' && workspaceTab === 'canvas' && canvasRef.current) {
       renderCanvas()
     }
-  }, [mode, workspaceTab, activeSheet, currentPoints, zoomScale, panOffset, theme, isEraser, activeColor, penSize, selectedImageId])
+  }, [isOpen, mode, workspaceTab, activeSheet, currentPoints, zoomScale, panOffset, theme, isEraser, activeColor, penSize, selectedImageId])
 
-  // Canvas ResizeObserver
+  // Canvas ResizeObserver: keeps the canvas's pixel size equal to its on-screen size
   useEffect(() => {
-    if (mode === 'draw' && workspaceTab === 'canvas' && canvasRef.current && containerRef.current) {
+    if (isOpen && mode === 'draw' && workspaceTab === 'canvas' && canvasRef.current && containerRef.current) {
       const canvas = canvasRef.current
       const container = containerRef.current
 
@@ -489,7 +498,7 @@ export default function ScratchpadDrawer({
         const rect = container.getBoundingClientRect()
         canvas.width = rect.width || 600
         canvas.height = rect.height || 500
-        renderCanvas()
+        renderCanvasRef.current()
       }
 
       resizeCanvas()
@@ -498,7 +507,7 @@ export default function ScratchpadDrawer({
 
       return () => resizeObserver.disconnect()
     }
-  }, [mode, workspaceTab])
+  }, [isOpen, mode, workspaceTab])
 
   // Convert screen coordinate to canvas world coordinate
   const getConvertedCoords = (e) => {
