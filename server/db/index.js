@@ -253,6 +253,9 @@ export const testRecordDb = {
 // Stored as { [userId]: { attempts: { [questionId]: Attempt }, days: { 'YYYY-MM-DD': DayTotals },
 //   timeZone: string | null, updatedAt: number } } (shapes in shared/practice.js)
 export const attemptDb = {
+  // Everyone's practice records ({ [userId]: { attempts, days } }), for peer comparisons
+  getAll: () => readJson(FILES.attempts, {}),
+
   getUserAttempts: (userId) => {
     if (!userId) return { attempts: {}, days: {}, timeZone: null }
     const all = readJson(FILES.attempts, {})
