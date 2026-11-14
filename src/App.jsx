@@ -35,6 +35,12 @@ import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
 import { BadgeUnlockModal } from './components/Badges'
 
+// Pages still in development (sample data) are only for admins
+function AdminOnly({ children }) {
+  const user = useAuthStore(s => s.user)
+  return user?.isAdmin ? children : <Navigate to="/analytics" replace />
+}
+
 function App() {
   const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
   const { checkAuth } = useAuthStore()
@@ -78,7 +84,7 @@ function App() {
           <Route path="/mock-tests" element={<MockTestsPage />} />
           <Route path="/booklet" element={<BookletPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/analytics-prototype" element={<PrototypeAnalyticsPage />} />
+          <Route path="/analytics-prototype" element={<AdminOnly><PrototypeAnalyticsPage /></AdminOnly>} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/notes" element={<NotesPage />} />
           <Route path="/resources" element={<ResourcesPage />} />
