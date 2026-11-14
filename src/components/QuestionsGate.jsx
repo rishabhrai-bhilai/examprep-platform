@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
+import { useOriginalQuestionsState } from '../utils/originalQuestions'
 
 export function PageLoader({ label = 'Loading…' }) {
   return (
@@ -11,20 +12,29 @@ export function PageLoader({ label = 'Loading…' }) {
 }
 
 // Pages below this only render once the question bank (its own ~1 MB chunk) has
-// arrived, so they never see an empty list and behave as they always have
-export default function QuestionsGate({ children }) {
+// arrived, so they never see an empty list and behave as they always have.
+// With `originals`, they also wait for the mock tests' own questions.
+export default function QuestionsGate({ children, originals = false }) {
   const hasQuestions = useAppStore(s => s.questions.length > 0)
-  const error = useAppStore(s => s.questionsError)
+  const questionsError = useAppStore(s => s.questionsError)
   const fetchQuestions = useAppStore(s => s.fetchQuestions)
+  const originalsState = useOriginalQuestionsState(originals)
 
   useEffect(() => { fetchQuestions() }, [fetchQuestions])
 
-  if (hasQuestions) return children
+  const ready = hasQuestions && (!originals || originalsState.ready)
+  const error = questionsError || (originals ? originalsState.error : null)
+  const retry = () => {
+    if (questionsError) fetchQuestions()
+    if (originals && originalsState.error) originalsState.retry()
+  }
+
+  if (ready) return children
   if (error) {
     return (
       <div className="flex-1 h-full min-h-[50vh] flex flex-col items-center justify-center gap-3 px-6 text-center">
         <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{error}</p>
-        <button onClick={fetchQuestions} className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-btn transition-colors">
+        <button onClick={retry} className="px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-btn transition-colors">
           Try again
         </button>
       </div>

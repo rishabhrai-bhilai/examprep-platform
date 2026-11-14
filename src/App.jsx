@@ -87,7 +87,7 @@ function App() {
           <Route path="/dashboard" element={withQuestions(<DashboardPage />)} />
           <Route path="/pyq" element={withQuestions(<PYQPage />)} />
           <Route path="/pyq-mock" element={withQuestions(<PYQMockTestsPage />)} />
-          <Route path="/mock-tests" element={withQuestions(<MockTestsPage />)} />
+          <Route path="/mock-tests" element={<QuestionsGate originals><MockTestsPage /></QuestionsGate>} />
           <Route path="/booklet" element={withQuestions(<BookletPage />)} />
           <Route path="/analytics" element={withQuestions(<AnalyticsPage />)} />
           <Route path="/analytics-prototype" element={<AdminOnly>{withQuestions(<PrototypeAnalyticsPage />)}</AdminOnly>} />

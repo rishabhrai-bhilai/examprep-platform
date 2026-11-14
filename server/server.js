@@ -908,6 +908,32 @@ const publicAttempt = ({ userId, ...attempt }) => attempt
 const originalQuestions = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'shared', 'originalQuestions.json'), 'utf8'))
 const originalById = new Map(originalQuestions.map(q => [q.id, q]))
 
+// The browser gets these without their answers and explanations. A user sees
+// those for a test only after submitting it (with the submission's reply, or later
+// from /api/mock-tests/:testId/answers), so the key can't be read before a ranked
+// first attempt.
+const publicOriginals = originalQuestions.map(({ answer, explanation, ...q }) => q)
+app.get('/api/original-questions', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300')
+  res.status(200).json(publicOriginals)
+})
+
+// { [questionId]: { answer, explanation } } for a test's original questions
+const answersFor = (test) => Object.fromEntries(test.questions
+  .map(id => originalById.get(id))
+  .filter(Boolean)
+  .map(q => [q.id, { answer: q.answer, explanation: q.explanation }]))
+
+// A user has seen a test's answers once they submitted it: a counted attempt, or
+// one under a minute (not counted, but the paper is used up and its answers shown)
+const hasSubmittedTest = (user, testId) => !!user &&
+  (!!user.mockAnswersSeen?.[testId] || mockAttemptDb.getByUser(user.id).some(a => a.testId === testId))
+
+const markAnswersSeen = (userId, testId) => {
+  const user = userDb.findById(userId)
+  if (user && !user.mockAnswersSeen?.[testId]) userDb.update(userId, { mockAnswersSeen: { ...(user.mockAnswersSeen || {}), [testId]: Date.now() } })
+}
+
 // A comparable test: a mock test, or a full year PYQ paper (pyq-2025-s1)
 const resolveTest = (id) => {
   const mock = findMockTest(id)
@@ -940,11 +966,26 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
         counted: false,
         alreadyAttempted: true,
         reason: 'You have already taken this test. Only your first attempt counts.',
-        comparison: comparisonFor(test.id, req.user.id)
+        comparison: comparisonFor(test.id, req.user.id),
+        answers: answersFor(test)
+      })
+    }
+    // Answers already shown (an earlier attempt under a minute): this one can't rank
+    if (userDb.findById(req.user.id)?.mockAnswersSeen?.[test.id]) {
+      return res.status(200).json({
+        counted: false,
+        answersSeen: true,
+        reason: "You have already seen this test's answers, so this attempt isn't counted.",
+        answers: answersFor(test)
       })
     }
     if (!isValidAttempt(timeTaken)) {
-      return res.status(200).json({ counted: false, reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.` })
+      markAnswersSeen(req.user.id, test.id)
+      return res.status(200).json({
+        counted: false,
+        reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.`,
+        answers: answersFor(test)
+      })
     }
 
     const testQuestions = test.questions.map(id => questions.find(q => q.id === id) || originalById.get(id)).filter(Boolean)
@@ -968,12 +1009,21 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
     res.status(201).json({
       counted: true,
       attempt: publicAttempt(attempt),
-      comparison: comparisonFor(test.id, req.user.id)
+      comparison: comparisonFor(test.id, req.user.id),
+      answers: answersFor(test)
     })
   } catch (err) {
     console.error('Mock attempt error:', err)
     res.status(500).json({ error: 'Failed to save the attempt.' })
   }
+})
+
+// The answers of a test the user has submitted, to reopen its analysis
+app.get('/api/mock-tests/:testId/answers', requireAuth, (req, res) => {
+  const test = resolveTest(req.params.testId)
+  if (!test) return res.status(404).json({ error: 'Test not found.' })
+  if (!hasSubmittedTest(userDb.findById(req.user.id), test.id)) return res.status(403).json({ error: 'Submit the test to see its answers.' })
+  res.status(200).json({ answers: answersFor(test) })
 })
 
 app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
