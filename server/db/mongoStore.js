@@ -60,10 +60,44 @@ export function mongoWrite(name, value) {
   }
   if (!ops.length) return
 
-  queue = queue
-    .then(() => db.collection(name).bulkWrite(ops, { ordered: true }))
-    .catch(err => console.error(`[MongoDB] Could not save ${name}:`, err.message))
+  queue = queue.then(() => writeWithRetry(name, ops))
 }
+
+// A write that fails (a network blip, an Atlas failover) is retried with backoff
+// before the next queued write goes out, so writes stay in order. Errors that
+// retrying can't fix (a document over MongoDB's 16 MB limit, a bad value) are
+// logged once and skipped. `failing` is reported by /api/health.
+const MAX_ATTEMPTS = 8
+const PERMANENT_CODES = new Set([2, 10334, 17419]) // BadValue, BSONObjectTooLarge, document too large
+let failing = null // null | { collection, since, message, lost }
+let lostWrites = 0
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function writeWithRetry(name, ops) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await db.collection(name).bulkWrite(ops, { ordered: true })
+      if (failing) {
+        console.log(`[MongoDB] Writes are succeeding again (failing since ${new Date(failing.since).toISOString()}).`)
+        failing = null
+      }
+      return
+    } catch (err) {
+      const permanent = PERMANENT_CODES.has(err?.code) || /too large/i.test(err?.message || '')
+      failing = failing || { collection: name, since: Date.now() }
+      failing.message = err?.message || String(err)
+      if (permanent || attempt >= MAX_ATTEMPTS) {
+        lostWrites += ops.length
+        console.error(`[MongoDB] GAVE UP saving ${ops.length} change(s) to ${name} after ${attempt} attempt(s): ${failing.message}`)
+        return
+      }
+      console.error(`[MongoDB] Could not save ${name} (attempt ${attempt}/${MAX_ATTEMPTS}), retrying: ${failing.message}`)
+      await sleep(Math.min(30000, 1000 * 2 ** (attempt - 1)))
+    }
+  }
+}
+
+export const mongoHealth = () => ({ backend: 'mongodb', ok: !failing, failingSince: failing?.since || null, error: failing?.message || null, lostWrites })
 
 // Resolves once everything written so far has reached MongoDB (used on shutdown)
 export const flushMongo = () => queue

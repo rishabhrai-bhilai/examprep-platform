@@ -10,18 +10,20 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, initStorage, flushStorage } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, initStorage, flushStorage, storageHealth } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
-import { BADGES, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
+import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
+import { requiredBadgeFor } from '../shared/avatars.js'
 import { isAnswerCorrect } from '../shared/answers.js'
 import { dobProblem } from '../shared/profile.js'
 import {
   hashPassword,
   verifyPassword,
-  generateToken,
+  tokenFor,
+  MIN_JWT_SECRET_LENGTH,
   verifyToken,
   verifyGoogleCredential,
   requireAuth,
@@ -144,52 +146,54 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", ...(NODE_ENV === 'development' ? ["'unsafe-eval'"] : []), "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      // The confetti animation draws in a worker created from a blob: URL
+      workerSrc: ["'self'", "blob:"],
+      // data: covers fonts bundled into the CSS (KaTeX's maths fonts)
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://lh3.googleusercontent.com"],
       frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       connectSrc: [
-        "'self'", 
+        "'self'",
         "https://accounts.google.com",
         "https://apis.google.com",
         "https://challenges.cloudflare.com",
-        "https://examprep-platform.onrender.com", 
-        "https://*.onrender.com", 
-        "http://localhost:*", 
-        "ws://localhost:*", 
-        "http://10.*", 
-        "http://192.*"
+        "https://examprep-platform.onrender.com",
+        ...(NODE_ENV === 'development' ? ["http://localhost:*", "ws://localhost:*"] : [])
       ]
     }
   }
 }))
 
 // 2. Cross-Origin Resource Sharing (CORS)
-const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173'
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || origin === 'null') return callback(null, true)
-    if (NODE_ENV === 'development') {
-      return callback(null, true)
-    }
-    const originLower = origin.toLowerCase()
-    const isAllowed = 
-      origin === corsOrigin || 
-      originLower.includes('onrender.com') ||
-      originLower.includes('localhost') ||
-      originLower.includes('127.0.0.1')
-      
-    if (isAllowed) {
-      return callback(null, true)
-    } else {
-      console.warn(`[CORS Blocked] Rejecting origin: ${origin}`)
-      return callback(new Error('Not allowed by CORS'))
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+// The site calls its own API (same origin), so cross-origin requests are only
+// allowed from the exact addresses listed here
+const allowedOrigins = new Set(
+  [process.env.CORS_ORIGIN, process.env.APP_URL, process.env.RENDER_EXTERNAL_URL, 'https://examprep-platform.onrender.com']
+    .flatMap(v => String(v || '').split(','))
+    .map(v => v.trim().replace(/\/$/, '').toLowerCase())
+    .filter(Boolean)
+)
+// Only the API needs CORS (pages, scripts and styles are served to anyone). The
+// site's own address is always allowed: browsers send an Origin header on some
+// same-site requests too.
+app.use('/api', cors((req, callback) => {
+  const origin = req.headers.origin
+  const sameSite = origin && origin.toLowerCase() === `${req.protocol}://${req.get('host')}`.toLowerCase()
+  const allowed = !origin || origin === 'null' || NODE_ENV === 'development' || sameSite || allowedOrigins.has(origin.toLowerCase())
+  if (!allowed) {
+    console.warn(`[CORS Blocked] Rejecting origin: ${origin}`)
+    const err = new Error('Not allowed by CORS')
+    err.status = 403
+    return callback(err)
+  }
+  callback(null, {
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+  })
 }))
 
 // 3. Compression (Gzip)
@@ -230,8 +234,12 @@ const emailLimiter = limiter(60 * 60 * 1000, 8, 'Too many code requests. Please 
 const reportLimiter = limiter(60 * 60 * 1000, 10, 'You have sent a lot of reports. Please try again in an hour.', userOrIpKey)
 const postLimiter = limiter(10 * 60 * 1000, 30, 'You are posting very fast. Please wait a few minutes.', userOrIpKey)
 
-// Parse JSON request bodies
-app.use(express.json({ limit: '10mb' }))
+// Parse JSON request bodies: 1 MB normally, 10 MB only for routes that carry
+// images (scratchpad notes and discussion posts)
+const smallJson = express.json({ limit: '1mb' })
+const largeJson = express.json({ limit: '10mb' })
+const LARGE_BODY_ROUTES = /^\/api\/(sync\/notes|discussions\/[^/]+\/posts)\/?$/
+app.use((req, res, next) => (LARGE_BODY_ROUTES.test(req.path) ? largeJson : smallJson)(req, res, next))
 
 // Load database questions into memory
 const questionsPath = path.join(__dirname, 'data', 'questions.json')
@@ -253,14 +261,17 @@ try {
 
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'OK', environment: NODE_ENV, timestamp: new Date() })
+  // Always 200 (a failing health check makes Render restart the instance, which
+  // would drop changes still waiting to be saved); `storage.ok` says if writes fail
+  const storage = storageHealth()
+  res.status(200).json({ status: storage.ok ? 'OK' : 'DEGRADED', environment: NODE_ENV, storage, timestamp: new Date() })
 })
 
 // Get Questions with query parameters (server-side filtering)
 app.get('/api/questions', (req, res) => {
   let filtered = [...questions]
   const { year, subject, topic, type, marks } = req.query
-  
+
   if (year) filtered = filtered.filter(q => q.year.toString() === year.toString())
   if (subject) {
     const subjectsList = subject.toString().split(',').map(s => s.trim().toLowerCase())
@@ -273,7 +284,7 @@ app.get('/api/questions', (req, res) => {
   }
   if (type) filtered = filtered.filter(q => q.type.toLowerCase() === type.toString().toLowerCase())
   if (marks) filtered = filtered.filter(q => q.marks.toString() === marks.toString())
-  
+
   res.status(200).json(filtered)
 })
 
@@ -387,7 +398,7 @@ app.post('/api/auth/signup/verify', authLimiter, (req, res) => {
       profileCompleted: false
     })
 
-    const token = generateToken({ userId: newUser.id, email: newUser.email })
+    const token = tokenFor(newUser)
     res.status(201).json({
       message: 'Account created successfully.',
       token,
@@ -435,7 +446,7 @@ app.post('/api/auth/login', authLimiter, (req, res) => {
     }
 
     clearFailedLogins(email)
-    const token = generateToken({ userId: user.id, email: user.email })
+    const token = tokenFor(user)
     res.status(200).json({
       message: 'Login successful.',
       token,
@@ -477,7 +488,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
       user = userDb.update(user.id, updates)
     }
 
-    const token = generateToken({ userId: user.id, email: user.email })
+    const token = tokenFor(user)
     res.status(200).json({
       message: 'Google login successful.',
       token,
@@ -524,7 +535,7 @@ app.post('/api/auth/password/reset', authLimiter, (req, res) => {
     const updated = userDb.setPassword(user.id, hash, salt)
     clearFailedLogins(email)
 
-    const token = generateToken({ userId: updated.id, email: updated.email })
+    const token = tokenFor(updated)
     res.status(200).json({ message: 'Password updated.', token, user: sanitizeUser(updated) })
   } catch (err) {
     console.error('Reset password error:', err)
@@ -575,6 +586,15 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
       const isImage = typeof avatar === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)
       if (!isUrl && !isImage) return res.status(400).json({ error: 'Unsupported profile picture.' })
       if (isImage && avatar.length > MAX_AVATAR_DATA_URL) return res.status(400).json({ error: 'Profile picture is too large.' })
+      // Badge avatars can only be saved once the badge is earned
+      const neededBadge = isUrl ? requiredBadgeFor(avatar) : null
+      if (neededBadge) {
+        const fresh = refreshPracticeStats(userDb.findById(req.user.id))
+        if (!fresh?.badges?.[neededBadge]) {
+          const badge = findBadge(neededBadge)
+          return res.status(403).json({ error: `Earn the "${badge?.name || neededBadge}" badge to unlock this avatar.` })
+        }
+      }
       updates.avatar = avatar
       updates.avatarSource = 'custom'
     }
@@ -997,12 +1017,17 @@ const publicPath = path.join(__dirname, '..', 'public')
 app.use(express.static(publicPath))
 app.use('/diagrams', express.static(path.join(publicPath, 'diagrams')))
 
+// Unknown API routes get a JSON 404, not the app's HTML
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }))
+
 if (NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist')
   if (fs.existsSync(distPath)) {
+    // Built files have content hashes in their names, so they can be cached for a year
+    app.use('/assets', express.static(path.join(distPath, 'assets'), { maxAge: '1y', immutable: true }))
     app.use(express.static(distPath))
   }
-  
+
   // React routing fallback
   app.get('*', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'))
@@ -1010,10 +1035,37 @@ if (NODE_ENV === 'production') {
 }
 
 // --- ERROR HANDLING MIDDLEWARE ---
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({ error: err.message || 'Something went wrong on the server!' })
+  const status = Number(err.status || err.statusCode) || 500
+  if (status >= 500) console.error(err.stack)
+  const message = status === 413 ? 'That request is too large.'
+    : status === 400 && err.type === 'entity.parse.failed' ? 'Malformed request.'
+      : status < 500 ? (err.message || 'Bad request.')
+        : 'Something went wrong on the server. Please try again.'
+  res.status(status).json({ error: message })
 })
+
+// Production refuses to start with settings that would lose data or let anyone
+// forge a login, and says loudly which optional features are switched off
+function checkProductionConfig() {
+  if (NODE_ENV !== 'production') return
+  const problems = []
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) problems.push(`JWT_SECRET must be set to a random string of at least ${MIN_JWT_SECRET_LENGTH} characters`)
+  if (!process.env.MONGODB_URI && process.env.ALLOW_FILE_STORAGE !== '1') problems.push('MONGODB_URI must be set (Render wipes the disk on every deploy)')
+  if (problems.length) {
+    problems.forEach(p => console.error(`[config] ${p}`))
+    console.error('[config] Refusing to start. Set these under Environment on Render.')
+    process.exit(1)
+  }
+  const warnings = []
+  if (!process.env.TURNSTILE_SITE_KEY || !process.env.TURNSTILE_SECRET_KEY) warnings.push('TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY missing: the bot check on sign-up and password reset is OFF')
+  if (!canSendEmail()) warnings.push('No email settings (BREVO_API_KEY + MAIL_FROM, or SMTP_USER + SMTP_PASS): sign-up codes and password resets cannot be sent')
+  if (!process.env.GOOGLE_CLIENT_ID) warnings.push('GOOGLE_CLIENT_ID missing: Google sign-in is hidden')
+  if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports')
+  warnings.forEach(w => console.error(`[config] WARNING: ${w}`))
+}
+checkProductionConfig()
 
 // Start serving once the data is loaded (from MongoDB when MONGODB_URI is set).
 // If the database can't be reached, stop instead of running on an empty disk.
@@ -1021,7 +1073,7 @@ let server = null
 try {
   await initStorage()
 } catch (err) {
-  console.error('Could not connect to MongoDB:', err.message)
+  console.error('Could not start storage:', err.message)
   process.exit(1)
 }
 server = app.listen(PORT, '0.0.0.0', () => {
@@ -1036,8 +1088,10 @@ const gracefulShutdown = () => {
     await flushStorage()
     process.exit(0)
   })
-  setTimeout(() => {
+  setTimeout(async () => {
     console.error('Could not close connections in time, forcefully shutting down')
+    // Give queued database writes a last chance before exiting
+    await Promise.race([flushStorage(), new Promise(resolve => setTimeout(resolve, 5000))])
     process.exit(1)
   }, 10000)
 }

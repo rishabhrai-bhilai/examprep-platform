@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { connectMongo, isMongoEnabled, mongoRead, mongoWrite, flushMongo } from './mongoStore.js'
+import { connectMongo, isMongoEnabled, mongoRead, mongoWrite, flushMongo, mongoHealth } from './mongoStore.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -36,6 +36,11 @@ const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file])
 export async function initStorage() {
   const uri = process.env.MONGODB_URI
   if (!uri) {
+    // On Render the disk is wiped on every deploy and sleep, so running production
+    // on files silently loses every account. Refuse unless explicitly allowed.
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_FILE_STORAGE !== '1') {
+      throw new Error('MONGODB_URI is not set. Production needs MongoDB (or set ALLOW_FILE_STORAGE=1 on a host with a persistent disk).')
+    }
     console.log('Storing data in JSON files (set MONGODB_URI to use MongoDB).')
     return null
   }
@@ -43,6 +48,7 @@ export async function initStorage() {
 }
 
 export const flushStorage = () => (isMongoEnabled() ? flushMongo() : Promise.resolve())
+export const storageHealth = () => (isMongoEnabled() ? mongoHealth() : { backend: 'files', ok: true })
 
 // Safely read JSON file with default fallback
 function readJson(filePath, defaultValue = {}) {
@@ -138,7 +144,8 @@ export const userDb = {
     const users = readJson(FILES.users, [])
     const index = users.findIndex(u => u.id === id)
     if (index === -1) return null
-    users[index] = { ...users[index], passwordHash, salt, updatedAt: Date.now() }
+    // A new password signs out every other session (see tokenFor in services/auth.js)
+    users[index] = { ...users[index], passwordHash, salt, tokenVersion: (users[index].tokenVersion || 0) + 1, updatedAt: Date.now() }
     writeJsonAtomic(FILES.users, users)
     return users[index]
   }

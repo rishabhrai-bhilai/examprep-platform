@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
 import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Sidebar() {
   const location = useLocation()
@@ -66,6 +67,9 @@ export default function Sidebar() {
     rawBookmarkIds.some(id => String(id) === String(q.id))
   ).length
 
+  // The beta analytics page still shows sample data, so only admins see it
+  const isAdmin = useAuthStore(s => Boolean(s.user?.isAdmin))
+
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Practice PYQs', path: '/pyq', icon: FileText },
@@ -73,7 +77,7 @@ export default function Sidebar() {
     { name: 'Mock Tests', path: '/mock-tests', icon: BookOpen },
     { name: 'PYQ Booklet', path: '/booklet', icon: BookText },
     { name: 'Analytics', path: '/analytics', icon: BarChart2 },
-    { name: 'Analytics (Beta)', path: '/analytics-prototype', icon: TrendingUp },
+    ...(isAdmin ? [{ name: 'Analytics (Beta)', path: '/analytics-prototype', icon: TrendingUp }] : []),
     { name: 'Bookmarks', path: '/bookmarks', icon: Bookmark, badge: bookmarksCount },
     { name: 'Scratchpad Notes', path: '/notes', icon: NotebookPen, badge: notesCount },
     { name: 'Free Resources', path: '/resources', icon: Library },

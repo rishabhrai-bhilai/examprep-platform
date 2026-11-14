@@ -1,21 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
-import { Upload, Check, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Upload, Check, CheckCircle, AlertCircle, Loader2, Lock, Award } from 'lucide-react'
+import { dicebearUrl, freeAvatars, badgeAvatars } from '../../shared/avatars.js'
 
-const STYLES = ['adventurer', 'avataaars', 'bottts', 'fun-emoji', 'lorelei', 'micah', 'notionists', 'pixel-art']
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const MAX_DATA_URL_CHARS = 300 * 1024
 const OUTPUT_SIZE = 256
 
-const dicebearUrl = (style, seed) => `https://api.dicebear.com/7.x/${style}/svg?seed=${encodeURIComponent(seed)}`
-
-const buildPresets = (name) => {
-  const base = (name || 'Aspirant').trim() || 'Aspirant'
-  return Array.from({ length: 12 }, (_, i) => {
-    const style = STYLES[i % STYLES.length]
-    const seed = i < STYLES.length ? base : `${base}-${i - STYLES.length + 2}`
-    return { url: dicebearUrl(style, seed), label: `${style} avatar ${i + 1}` }
-  })
-}
 
 const loadImage = (src) => new Promise((resolve, reject) => {
   const img = new Image()
@@ -55,7 +45,10 @@ export default function AvatarPicker({ user, onSave }) {
   const name = user?.name || 'Aspirant'
   const fallback = dicebearUrl('adventurer', name)
   const current = user?.avatar || ''
-  const presets = useMemo(() => buildPresets(name), [name])
+  const presets = useMemo(() => freeAvatars(name), [name])
+  // One avatar per badge; locked until the badge is earned (the server checks too)
+  const rewards = useMemo(() => badgeAvatars(name, user?.badges), [name, user?.badges])
+  const unlockedCount = rewards.filter(r => r.unlocked).length
 
   const [selection, setSelection] = useState(current || fallback)
   const [uploaded, setUploaded] = useState(null)
@@ -71,6 +64,10 @@ export default function AvatarPicker({ user, onSave }) {
   const pick = (url) => {
     setSelection(url)
     setStatus(null)
+  }
+
+  const showLockHint = (reward) => {
+    setStatus({ type: 'locked', text: `Earn the "${reward.badgeName}" badge to unlock this avatar: ${reward.badgeDescription.charAt(0).toLowerCase()}${reward.badgeDescription.slice(1)}.` })
   }
 
   const handleFileChange = async (e) => {
@@ -173,21 +170,69 @@ export default function AvatarPicker({ user, onSave }) {
               <img src={uploaded} alt="Uploaded photo" className="h-full w-full object-cover" />
             </button>
           )}
-          {presets.map((preset) => (
+          {presets.map((preset, i) => (
             <button
               key={preset.url}
               type="button"
               onClick={() => pick(preset.url)}
               className={tileClass(preset.url)}
-              title={preset.label}
+              title={`${preset.label} ${i + 1}`}
             >
-              <img src={preset.url} alt={preset.label} loading="lazy" className="h-full w-full object-cover" />
+              <img src={preset.url} alt={`${preset.label} ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
               {selection === preset.url && (
                 <span className="absolute bottom-0 right-0 m-0.5 p-0.5 rounded-full bg-primary text-white">
                   <Check size={10} />
                 </span>
               )}
             </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase flex items-center gap-1.5">
+            <Award size={13} className="text-primary" />
+            Badge avatars
+          </span>
+          <span className="text-[10px] font-semibold text-slate-400">{unlockedCount} of {rewards.length} unlocked</span>
+        </div>
+        <p className="text-[11px] text-slate-400 leading-snug">Each badge you earn unlocks one of these. Hover a locked one to see how.</p>
+        <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+          {rewards.map((reward) => (
+            reward.unlocked ? (
+              <button
+                key={reward.style}
+                type="button"
+                onClick={() => pick(reward.url)}
+                className={tileClass(reward.url)}
+                title={`Unlocked with "${reward.badgeName}"`}
+              >
+                <img src={reward.url} alt={`Avatar unlocked with ${reward.badgeName}`} loading="lazy" className="h-full w-full object-cover" />
+                {selection === reward.url && (
+                  <span className="absolute bottom-0 right-0 m-0.5 p-0.5 rounded-full bg-primary text-white">
+                    <Check size={10} />
+                  </span>
+                )}
+              </button>
+            ) : (
+              <button
+                key={reward.style}
+                type="button"
+                onClick={() => showLockHint(reward)}
+                aria-label={`Locked: earn the ${reward.badgeName} badge to unlock`}
+                className="group relative aspect-square rounded-full overflow-visible border border-dashed border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 cursor-help"
+              >
+                <img src={reward.url} alt="" loading="lazy" className="h-full w-full rounded-full object-cover grayscale opacity-30" />
+                <span className="absolute inset-0 flex items-center justify-center text-slate-500 dark:text-slate-400">
+                  <Lock size={14} />
+                </span>
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[10px] leading-snug text-center shadow-xl opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity z-20">
+                  <strong className="block text-[10px]">{reward.badgeName}</strong>
+                  {reward.badgeDescription}
+                </span>
+              </button>
+            )
           ))}
         </div>
       </div>
@@ -205,6 +250,12 @@ export default function AvatarPicker({ user, onSave }) {
         {status?.type === 'success' && (
           <span className="text-xs font-semibold text-success flex items-center gap-1">
             <CheckCircle size={14} />
+            <span>{status.text}</span>
+          </span>
+        )}
+        {status?.type === 'locked' && (
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-start gap-1.5 basis-full" role="status">
+            <Lock size={13} className="shrink-0 mt-0.5" />
             <span>{status.text}</span>
           </span>
         )}

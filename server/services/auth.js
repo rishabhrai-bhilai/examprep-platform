@@ -2,16 +2,23 @@ import crypto from 'crypto'
 import { userDb } from '../db/index.js'
 
 // Read on use: this module loads before server.js runs dotenv.config()
-const DEFAULT_JWT_SECRET = 'gate-prep-platform-secure-jwt-key-2026-supersecret-gatekeeper'
-let warnedAboutSecret = false
+// The development fallback is public in the repo, so anyone could forge a login
+// token with it: production refuses to run without a real JWT_SECRET (see
+// checkProductionConfig in server.js, which runs at startup).
+const DEV_JWT_SECRET = 'gate-prep-platform-dev-only-jwt-key'
+export const MIN_JWT_SECRET_LENGTH = 32
 function jwtSecret() {
-  if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production' && !warnedAboutSecret) {
-    // The default is public in the repo, so anyone could forge a login token with it
-    console.warn('[security] JWT_SECRET is not set: login tokens are signed with the default key. Set JWT_SECRET.')
-    warnedAboutSecret = true
+  const secret = process.env.JWT_SECRET
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret || secret.length < MIN_JWT_SECRET_LENGTH) throw new Error('JWT_SECRET must be set (32+ characters) in production')
+    return secret
   }
-  return process.env.JWT_SECRET || DEFAULT_JWT_SECRET
+  return secret || DEV_JWT_SECRET
 }
+
+// Tokens carry the account's token version; bumping it (on a password change)
+// signs out every existing session, including a stolen token
+export const tokenFor = (user) => generateToken({ userId: user.id, email: user.email, tv: user.tokenVersion || 0 })
 
 // --- PASSWORD HASHING (SCRYPT + SALT) ---
 export function hashPassword(password) {
@@ -163,7 +170,7 @@ export async function verifyGoogleCredential(credential) {
   }
   if (!credential || typeof credential !== 'string') return null
   try {
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`)
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`, { signal: AbortSignal.timeout(8000) })
     if (!res.ok) return null
     const info = await res.json()
     const issuerOk = info.iss === 'accounts.google.com' || info.iss === 'https://accounts.google.com'
@@ -226,6 +233,9 @@ export function requireAuth(req, res, next) {
   const user = userDb.findById(payload.userId)
   if (!user) {
     return res.status(401).json({ error: 'User account not found.' })
+  }
+  if ((payload.tv || 0) !== (user.tokenVersion || 0)) {
+    return res.status(401).json({ error: 'Session expired or invalid. Please log in again.' })
   }
 
   // Attach sanitized user to request object

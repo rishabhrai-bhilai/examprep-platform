@@ -51,9 +51,21 @@ function formatMathString(mathStr) {
     .replace(/\_\{([^}]+)\}/g, '_($1)')
 }
 
-function ImageRenderer({ rawToken, rawAlt = '', src, onImageAction }) {
+// Discussion posts are written by users, so links and images only keep safe
+// addresses: a `javascript:` link would run code in the reader's session
+const safeHref = (url) => {
+  const u = String(url || '').trim()
+  return /^(https?:|mailto:)/i.test(u) || (u.startsWith('/') && !u.startsWith('//')) || u.startsWith('#') ? u : null
+}
+const safeImageSrc = (url) => {
+  const u = String(url || '').trim()
+  return /^https:\/\//i.test(u) || /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(u) || (u.startsWith('/') && !u.startsWith('//')) ? u : null
+}
+
+function ImageRenderer({ rawToken, rawAlt = '', src: rawSrc, onImageAction }) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [zoomLevel, setZoomLevel] = useState(1)
+  const src = safeImageSrc(rawSrc)
 
   // Parse options: "Alt label|align:center|size:medium"
   const parts = (rawAlt || '').split('|')
@@ -336,11 +348,14 @@ function renderMarkdownTokens(str, keyPrefix, onImageAction) {
       }
     } else if (chunk.startsWith('[') && chunk.includes('](')) {
       const linkMatch = chunk.match(/\[([^\]]+)\]\(([^)]+)\)/)
-      if (linkMatch) {
+      if (linkMatch && !safeHref(linkMatch[2])) {
+        // Unsafe address: show the link text without making it clickable
+        elements.push(<React.Fragment key={`${keyPrefix}-${i}`}>{linkMatch[1]}</React.Fragment>)
+      } else if (linkMatch) {
         elements.push(
           <a
             key={`${keyPrefix}-${i}`}
-            href={linkMatch[2]}
+            href={safeHref(linkMatch[2])}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline font-semibold"
