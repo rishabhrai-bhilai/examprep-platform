@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 import AvatarPicker from '../components/AvatarPicker'
+import JoinInstituteCard from '../components/JoinInstituteCard'
 import { BadgeGrid } from '../components/Badges'
 import { practiceSummary, formatDuration, subjectProgress } from '../utils/practiceStats'
 import { ageFromDob, dobInputRange, dobProblem } from '../../shared/profile.js'
@@ -652,6 +653,9 @@ export default function ProfilePage() {
         </div>
 
       </div>
+
+      {/* Coaching centre link-up (invite code, or a /profile?join=CODE link) */}
+      <JoinInstituteCard />
 
       {/* 3. NAVIGATION TAB BAR */}
       <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl overflow-x-auto no-scrollbar">

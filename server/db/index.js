@@ -1,4 +1,5 @@
 import fs from 'fs'
+import crypto from 'crypto'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { connectMongo, isMongoEnabled, mongoRead, mongoWrite, flushMongo, mongoHealth } from './mongoStore.js'
@@ -21,12 +22,13 @@ const FILES = {
   reports: path.join(DATA_DIR, 'reports.json'),
   attempts: path.join(DATA_DIR, 'attempts.json'),
   mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
-  potd: path.join(DATA_DIR, 'potd.json')
+  potd: path.join(DATA_DIR, 'potd.json'),
+  institutes: path.join(DATA_DIR, 'institutes.json')
 }
 
 // How each file is shaped, for MongoDB: a list of records with ids, or an object by key
 const FILE_KINDS = {
-  users: 'array', reports: 'array', mockAttempts: 'array',
+  users: 'array', reports: 'array', mockAttempts: 'array', institutes: 'array',
   bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
 }
 const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file]) => [file, name]))
@@ -253,6 +255,9 @@ export const testRecordDb = {
 // Stored as { [userId]: { attempts: { [questionId]: Attempt }, days: { 'YYYY-MM-DD': DayTotals },
 //   timeZone: string | null, updatedAt: number } } (shapes in shared/practice.js)
 export const attemptDb = {
+  // Every user's record at once ({ [userId]: ... }), for reading many users in one pass
+  getAll: () => readJson(FILES.attempts, {}),
+
   getUserAttempts: (userId) => {
     if (!userId) return { attempts: {}, days: {}, timeZone: null }
     const all = readJson(FILES.attempts, {})
@@ -310,5 +315,91 @@ export const potdDb = {
     days[dateKey] = entry
     writeJsonAtomic(FILES.potd, all)
     return { entry, isNew: true }
+  }
+}
+
+// --- COACHING CENTRES (INSTITUTES) ---
+// [{ id, name, code, adminEmails: string[], members: [{ userId, joinedAt }],
+//   createdBy, createdAt, updatedAt }]. Site admins (ADMIN_EMAILS) create centres;
+// students join with the centre's code and can belong to one centre at a time.
+const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O or 1/I
+const newInviteCode = (taken) => {
+  for (;;) {
+    const code = Array.from(crypto.randomBytes(6), b => INVITE_ALPHABET[b % INVITE_ALPHABET.length]).join('')
+    if (!taken.has(code)) return code
+  }
+}
+const normalizeCode = (code) => String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+export const instituteDb = {
+  getAll: () => readJson(FILES.institutes, []),
+  findById: (id) => readJson(FILES.institutes, []).find(i => i.id === id) || null,
+  findByCode: (code) => {
+    const wanted = normalizeCode(code)
+    return wanted ? readJson(FILES.institutes, []).find(i => i.code === wanted) || null : null
+  },
+  // Centres where this email is an admin
+  findByAdmin: (email) => {
+    const e = String(email || '').toLowerCase()
+    return e ? readJson(FILES.institutes, []).filter(i => (i.adminEmails || []).includes(e)) : []
+  },
+  findByMember: (userId) => readJson(FILES.institutes, []).find(i => (i.members || []).some(m => m.userId === userId)) || null,
+
+  create: ({ name, adminEmails, createdBy }) => {
+    const all = readJson(FILES.institutes, [])
+    const institute = {
+      id: `ins-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+      name,
+      code: newInviteCode(new Set(all.map(i => i.code))),
+      adminEmails,
+      members: [],
+      createdBy,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    all.push(institute)
+    writeJsonAtomic(FILES.institutes, all)
+    return institute
+  },
+
+  update: (id, { name, adminEmails, regenerateCode } = {}) => {
+    const all = readJson(FILES.institutes, [])
+    const index = all.findIndex(i => i.id === id)
+    if (index === -1) return null
+    const next = { ...all[index], updatedAt: Date.now() }
+    if (name !== undefined) next.name = name
+    if (adminEmails !== undefined) next.adminEmails = adminEmails
+    if (regenerateCode) next.code = newInviteCode(new Set(all.map(i => i.code)))
+    all[index] = next
+    writeJsonAtomic(FILES.institutes, all)
+    return next
+  },
+
+  // Joining one centre leaves any other (one centre at a time)
+  addMember: (id, userId) => {
+    const all = readJson(FILES.institutes, [])
+    const target = all.find(i => i.id === id)
+    if (!target) return null
+    all.forEach(i => { i.members = (i.members || []).filter(m => m.userId !== userId || i.id === id) })
+    if (!target.members.some(m => m.userId === userId)) target.members.push({ userId, joinedAt: Date.now() })
+    writeJsonAtomic(FILES.institutes, all)
+    return target
+  },
+
+  removeMember: (id, userId) => {
+    const all = readJson(FILES.institutes, [])
+    const target = all.find(i => i.id === id)
+    if (!target || !(target.members || []).some(m => m.userId === userId)) return null
+    target.members = target.members.filter(m => m.userId !== userId)
+    writeJsonAtomic(FILES.institutes, all)
+    return target
+  },
+
+  delete: (id) => {
+    const all = readJson(FILES.institutes, [])
+    const next = all.filter(i => i.id !== id)
+    if (next.length === all.length) return false
+    writeJsonAtomic(FILES.institutes, next)
+    return true
   }
 }

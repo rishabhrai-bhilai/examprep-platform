@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library, School } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 
@@ -69,6 +69,8 @@ export default function Sidebar() {
 
   // The beta analytics page still shows sample data, so only admins see it
   const isAdmin = useAuthStore(s => Boolean(s.user?.isAdmin))
+  // Coaching-centre admins (and site admins, who set centres up) get the centre dashboard
+  const isInstituteAdmin = useAuthStore(s => Boolean(s.user?.isInstituteAdmin))
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -83,6 +85,7 @@ export default function Sidebar() {
     { name: 'Free Resources', path: '/resources', icon: Library },
     { name: 'Discussion Forum', path: '/discussion', icon: MessageSquare },
     { name: 'Report an Issue', path: '/report', icon: Flag },
+    ...(isAdmin || isInstituteAdmin ? [{ name: 'Coaching Dashboard', path: '/institute', icon: School }] : []),
     { name: 'Profile', path: '/profile', icon: User },
   ]
 

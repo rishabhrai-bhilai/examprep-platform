@@ -10,10 +10,10 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, initStorage, flushStorage, storageHealth } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, initStorage, flushStorage, storageHealth } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest } from '../shared/mockTests.js'
-import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
+import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes, pyqPaperTitle } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
 import { requiredBadgeFor } from '../shared/avatars.js'
@@ -28,6 +28,7 @@ import {
   verifyGoogleCredential,
   requireAuth,
   requireAdmin,
+  requireInstituteAdmin,
   isAdminEmail,
   adminEmails,
   loginLockedFor,
@@ -38,6 +39,7 @@ import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
 import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscussionStats } from './services/discussions.js'
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
+import { studentReport, batchSummary } from './services/institutes.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
 dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
@@ -59,7 +61,13 @@ app.set('trust proxy', 1)
 const sanitizeUser = (user) => {
   if (!user) return null
   const { passwordHash, salt, rank, ...safeUser } = user
-  return { ...safeUser, hasPassword: !!passwordHash, isAdmin: isAdminEmail(user.email) }
+  return {
+    ...safeUser,
+    hasPassword: !!passwordHash,
+    isAdmin: isAdminEmail(user.email),
+    // Admin of at least one coaching centre (shows the Coaching Dashboard link)
+    isInstituteAdmin: instituteDb.findByAdmin(user.email).length > 0
+  }
 }
 
 const isValidTimeZone = (tz) => {
@@ -1010,6 +1018,150 @@ app.post('/api/badges/seen', requireAuth, (req, res) => {
   const badgesSeen = Array.from(new Set([...(user.badgesSeen || []), ...ids]))
   const updated = userDb.update(user.id, { badgesSeen })
   res.status(200).json({ user: sanitizeUser(updated) })
+})
+
+// --- REST API: COACHING CENTRES (INSTITUTES) ---
+// Site admins (ADMIN_EMAILS) create a centre and name its admins. Students join with
+// the centre's invite code, agreeing to share their progress (services/institutes.js
+// lists exactly what is shared), and can leave at any time.
+const MAX_INSTITUTE_ADMINS = 10
+const instituteName = (name) => {
+  const trimmed = typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
+  return trimmed.length >= 2 && trimmed.length <= 80 ? trimmed : null
+}
+// Comma/space separated string or array -> { emails } (unique, lower case) or { error }
+const parseAdminEmails = (value) => {
+  const list = (Array.isArray(value) ? value : String(value || '').split(/[\s,;]+/))
+    .map(normalizeEmail).filter(Boolean)
+  const emails = Array.from(new Set(list))
+  if (!emails.length) return { error: 'Add at least one admin email.' }
+  if (emails.length > MAX_INSTITUTE_ADMINS) return { error: `A centre can have at most ${MAX_INSTITUTE_ADMINS} admins.` }
+  const bad = emails.find(e => !EMAIL_RE.test(e))
+  if (bad) return { error: `"${bad}" is not a valid email.` }
+  return { emails }
+}
+const publicInstitute = (i) => ({
+  id: i.id, name: i.name, code: i.code, adminEmails: i.adminEmails,
+  memberCount: (i.members || []).length, createdAt: i.createdAt
+})
+const questionSubjects = new Map([...questions, ...originalQuestions].map(q => [q.id, q.subject || 'General Aptitude']))
+const testTitle = (id) => findMockTest(id)?.title || (isPyqPaperId(id) ? `${pyqPaperTitle(id)} (full paper)` : id)
+
+// Centres the signed-in user manages (every centre, for a site admin)
+app.get('/api/institutes', requireAuth, (req, res) => {
+  const list = req.user.isAdmin ? instituteDb.getAll() : instituteDb.findByAdmin(req.user.email)
+  res.status(200).json({ institutes: list.map(publicInstitute), canCreate: req.user.isAdmin })
+})
+
+app.post('/api/institutes', requireAuth, requireAdmin, (req, res) => {
+  const name = instituteName(req.body?.name)
+  if (!name) return res.status(400).json({ error: 'Centre name must be 2 to 80 characters.' })
+  const admins = parseAdminEmails(req.body?.adminEmails)
+  if (admins.error) return res.status(400).json({ error: admins.error })
+  const institute = instituteDb.create({ name, adminEmails: admins.emails, createdBy: req.user.id })
+  res.status(201).json({ institute: publicInstitute(institute) })
+})
+
+// Rename, change admins, or issue a new invite code (the old one stops working)
+app.patch('/api/institutes/:id', requireAuth, requireInstituteAdmin, (req, res) => {
+  const updates = {}
+  if (req.body?.name !== undefined) {
+    updates.name = instituteName(req.body.name)
+    if (!updates.name) return res.status(400).json({ error: 'Centre name must be 2 to 80 characters.' })
+  }
+  if (req.body?.adminEmails !== undefined) {
+    const admins = parseAdminEmails(req.body.adminEmails)
+    if (admins.error) return res.status(400).json({ error: admins.error })
+    // A centre admin can't lock themselves out (a site admin can fix any centre)
+    if (!req.user.isAdmin && !admins.emails.includes(normalizeEmail(req.user.email))) {
+      return res.status(400).json({ error: 'You cannot remove yourself as an admin.' })
+    }
+    updates.adminEmails = admins.emails
+  }
+  if (req.body?.regenerateCode) updates.regenerateCode = true
+  const updated = instituteDb.update(req.institute.id, updates)
+  res.status(200).json({ institute: publicInstitute(updated) })
+})
+
+app.delete('/api/institutes/:id', requireAuth, requireAdmin, (req, res) => {
+  if (!instituteDb.delete(req.params.id)) return res.status(404).json({ error: 'Coaching centre not found.' })
+  res.status(200).json({ ok: true })
+})
+
+// Every linked student's progress, plus batch totals
+app.get('/api/institutes/:id/dashboard', requireAuth, requireInstituteAdmin, (req, res) => {
+  try {
+    const now = Date.now()
+    const allPractice = attemptDb.getAll()
+    const mocksByUser = new Map()
+    mockAttemptDb.getAll().forEach(a => {
+      if (!mocksByUser.has(a.userId)) mocksByUser.set(a.userId, [])
+      mocksByUser.get(a.userId).push(a)
+    })
+    const students = (req.institute.members || []).map(m => {
+      const user = refreshPracticeStats(userDb.findById(m.userId))
+      if (!user) return null
+      return studentReport({
+        user,
+        joinedAt: m.joinedAt,
+        practice: allPractice[user.id] || { attempts: {}, days: {}, timeZone: null },
+        mocks: mocksByUser.get(user.id) || [],
+        streak: user.streak,
+        subjectOf: (id) => questionSubjects.get(Number(id)),
+        testTitle,
+        now
+      })
+    }).filter(Boolean)
+    res.status(200).json({
+      institute: publicInstitute(req.institute),
+      summary: batchSummary(students, now),
+      students,
+      generatedAt: now
+    })
+  } catch (err) {
+    console.error('Institute dashboard error:', err)
+    res.status(500).json({ error: 'Failed to load the dashboard.' })
+  }
+})
+
+app.delete('/api/institutes/:id/members/:userId', requireAuth, requireInstituteAdmin, (req, res) => {
+  if (!instituteDb.removeMember(req.institute.id, req.params.userId)) return res.status(404).json({ error: 'That student is not in this centre.' })
+  res.status(200).json({ ok: true })
+})
+
+// The signed-in student's own centre
+const membershipFor = (userId) => {
+  const institute = instituteDb.findByMember(userId)
+  if (!institute) return null
+  const member = institute.members.find(m => m.userId === userId)
+  return { id: institute.id, name: institute.name, joinedAt: member.joinedAt }
+}
+
+app.get('/api/me/institute', requireAuth, (req, res) => {
+  res.status(200).json({ institute: membershipFor(req.user.id) })
+})
+
+// The centre behind a code, shown before the student agrees to join
+app.get('/api/me/institute/lookup', requireAuth, postLimiter, (req, res) => {
+  const institute = instituteDb.findByCode(req.query.code)
+  if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
+  res.status(200).json({ institute: { name: institute.name } })
+})
+
+// Joining needs explicit consent; it leaves any other centre (one at a time)
+app.post('/api/me/institute', requireAuth, postLimiter, (req, res) => {
+  const institute = instituteDb.findByCode(req.body?.code)
+  if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
+  if (req.body?.consent !== true) return res.status(400).json({ error: 'Please agree to share your progress with the centre.' })
+  instituteDb.addMember(institute.id, req.user.id)
+  res.status(200).json({ institute: membershipFor(req.user.id) })
+})
+
+// Leaving stops sharing straight away
+app.delete('/api/me/institute', requireAuth, (req, res) => {
+  const current = instituteDb.findByMember(req.user.id)
+  if (current) instituteDb.removeMember(current.id, req.user.id)
+  res.status(200).json({ institute: null })
 })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---
