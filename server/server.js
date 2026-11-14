@@ -35,7 +35,7 @@ import {
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
-import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscussionStats } from './services/discussions.js'
+import { publicDiscussions, publicPost, addPost, deletePost, votePost, cachedDiscussionStats, discussionSummary, reindexQuestion } from './services/discussions.js'
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 
@@ -79,7 +79,7 @@ const isValidTimeZone = (tz) => {
 // includes tests, the Problem of the Day, or posting in discussions); signing in
 // alone never counts. Days are the user's own calendar days (their saved time zone).
 // Badges are awarded once and kept even if a streak later breaks.
-const userTimeZone = (userId) => attemptDb.getUserAttempts(userId).timeZone || null
+const userTimeZone = (userId) => attemptDb.getUserTimeZone(userId)
 
 const activityStats = (user) => {
   const saved = attemptDb.getUserAttempts(user.id)
@@ -87,7 +87,7 @@ const activityStats = (user) => {
   const today = dayKey(Date.now(), timeZone)
   const practice = practiceSummary(saved, today)
   const potdDays = potdDb.getUserDays(user.id)
-  const discussion = userDiscussionStats(discussionDb.getAll(), user.id)
+  const discussion = cachedDiscussionStats(discussionDb.peekAll(), user.id)
 
   // Streak helpers count a day when it has attempts > 0
   const active = { attempts: 1 }
@@ -103,7 +103,7 @@ const activityStats = (user) => {
     potdStreak: currentStreak(potdActive, today),
     longestPotdStreak: longestStreak(potdActive),
     contributions: discussion.solutionsPosted + discussion.repliesPosted,
-    bookmarks: (bookmarkDb.getUserBookmarks(user.id).bookmarks || []).length,
+    bookmarks: bookmarkDb.countUserBookmarks(user.id),
     discussion
   }
 }
@@ -790,9 +790,20 @@ app.put('/api/sync/attempts', requireAuth, (req, res) => {
 })
 
 // 6. Discussion Forum Synchronization & Persistence
+// Everything at once. The app no longer calls this (it loads one question at a time,
+// below); it stays for pages still open from before that change.
 app.get('/api/discussions', (req, res) => {
   try {
-    res.status(200).json(publicDiscussions(discussionDb.getAll()))
+    res.status(200).json(publicDiscussions(discussionDb.peekAll()))
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve discussions.' })
+  }
+})
+
+// How many posts each question has ({ [questionId]: { posts, replies } }), for lists
+app.get('/api/discussions/summary', (req, res) => {
+  try {
+    res.status(200).json(discussionSummary(discussionDb.peekAll()))
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve discussions.' })
   }
@@ -810,15 +821,32 @@ const knownQuestion = (req, res) => {
   return String(qid)
 }
 
+// One question's posts
+app.get('/api/discussions/:questionId', (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    res.status(200).json(publicDiscussions({ [qid]: discussionDb.getQuestion(qid) })[qid] || [])
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve discussions.' })
+  }
+})
+
+// Saves one question's posts and updates the cached counts and stats
+const saveDiscussion = (qid, posts) => {
+  discussionDb.saveQuestion(qid, posts)
+  reindexQuestion(discussionDb.peekAll(), qid)
+}
+
 app.post('/api/discussions/:questionId/posts', requireAuth, postLimiter, (req, res) => {
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const author = { ...req.user, avatar: /^https:\/\/\S+$/.test(req.user.avatar || '') ? req.user.avatar : null }
     const result = addPost(all, qid, author, req.body)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     const user = refreshPracticeStats(userDb.findById(req.user.id))
     res.status(201).json({ post: publicPost(result.post), user: sanitizeUser(user) })
   } catch (err) {
@@ -831,10 +859,10 @@ app.delete('/api/discussions/:questionId/posts/:postId', requireAuth, (req, res)
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const result = deletePost(all, qid, req.params.postId, req.user, req.user.isAdmin)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     res.status(200).json({ success: true })
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete the comment.' })
@@ -845,11 +873,11 @@ app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimi
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const vote = req.body?.vote === undefined ? null : req.body.vote
     const result = votePost(all, qid, req.params.postId, req.user.id, vote)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     const { upvotes, downvotes } = publicPost(result.post)
     res.status(200).json({ upvotes, downvotes })
   } catch (err) {
@@ -866,7 +894,7 @@ const optionalUser = (req) => {
 
 // 7. Discussion statistics for the dashboard
 app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
-  const { postTimes, ...stats } = userDiscussionStats(discussionDb.getAll(), req.user.id)
+  const { postTimes, ...stats } = cachedDiscussionStats(discussionDb.peekAll(), req.user.id)
   res.status(200).json(stats)
 })
 

@@ -5,7 +5,7 @@ import {
   CornerDownRight, Send, Check, Bookmark, Play, X, HelpCircle, Layers, Brain, Target, Zap, BarChart2, Settings2, Sparkles,
   ChevronLeft, Edit3, ArrowBigUp, ArrowBigDown, PenTool, ChevronDown, ChevronUp, Reply, Plus, Trash2
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { discussionCountFor, useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { questionPreview } from '../utils/questionPreview'
 import QuestionImage from '../components/QuestionImage'
@@ -219,6 +219,9 @@ export default function DiscussionPage() {
     setScratchpadOpenQuestionId,
     questionNotes,
     discussions,
+    discussionCounts,
+    discussionLoading,
+    loadDiscussion,
     solutionVotes,
     addSolution,
     addReply,
@@ -378,6 +381,13 @@ export default function DiscussionPage() {
     }
   }, [questions, activeDiscussionQuestionId])
 
+  // A question's posts load when it's opened
+  const selectedQuestionId = selectedQuestion?.id
+  useEffect(() => {
+    if (selectedQuestionId !== undefined) loadDiscussion(selectedQuestionId)
+  }, [selectedQuestionId, loadDiscussion])
+  const solutionsLoading = selectedQuestionId !== undefined && !!discussionLoading[selectedQuestionId]
+
   // Reset when selected question changes
   useEffect(() => {
     if (selectedQuestion) {
@@ -534,8 +544,7 @@ export default function DiscussionPage() {
         return q.year !== undefined && q.year !== null && q.year !== ''
       }
       if (activeFilter === 'unanswered') {
-        const commentsList = discussions[q.id] || []
-        return commentsList.length === 0 && (q.commentsCount === 0 || !q.commentsCount)
+        return discussionCountFor(discussionCounts, q.id).posts === 0 && (q.commentsCount === 0 || !q.commentsCount)
       }
       if (activeFilter === 'aptitude') {
         const sub = (q.subject || '').toLowerCase()
@@ -546,10 +555,8 @@ export default function DiscussionPage() {
     })
     .sort((a, b) => {
       if (activeFilter === 'trending') {
-        const aDiscussions = discussions[a.id] || []
-        const bDiscussions = discussions[b.id] || []
-        const aScore = (a.likes || 0) + (aDiscussions.length * 10)
-        const bScore = (b.likes || 0) + (bDiscussions.length * 10)
+        const aScore = (a.likes || 0) + (discussionCountFor(discussionCounts, a.id).posts * 10)
+        const bScore = (b.likes || 0) + (discussionCountFor(discussionCounts, b.id).posts * 10)
         return bScore - aScore
       }
       return a.id - b.id // Default sort by ID
@@ -816,8 +823,8 @@ export default function DiscussionPage() {
               filteredQuestions.slice(0, visibleCount).map(q => {
                 const config = getSubjectConfig(q.subject)
                 const Icon = config?.icon || Brain
-                const qDiscussions = (discussions && discussions[q.id]) || []
-                const commentCount = qDiscussions.length + qDiscussions.reduce((acc, s) => acc + (s.replies?.length || 0), 0)
+                const qCounts = discussionCountFor(discussionCounts, q.id)
+                const commentCount = qCounts.posts + qCounts.replies
 
                 return (
                   <div
@@ -921,7 +928,7 @@ export default function DiscussionPage() {
                     : 'border-transparent text-slate-500 hover:text-slate-750 dark:hover:text-slate-350'
                 }`}
               >
-                Discussions ({(discussions[selectedQuestion.id] || []).length})
+                Discussions ({discussionCountFor(discussionCounts, selectedQuestion.id).posts})
               </button>
             </div>
           )}
@@ -1308,7 +1315,12 @@ export default function DiscussionPage() {
 
               {/* Solutions & Doubts Stream */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/10">
-                {sortedSolutions.length === 0 ? (
+                {solutionsLoading && sortedSolutions.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 py-16 text-xs font-semibold text-slate-400 dark:text-slate-500" role="status">
+                    <span className="h-4 w-4 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+                    <span>Loading discussion…</span>
+                  </div>
+                ) : sortedSolutions.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 dark:text-slate-500 space-y-3 bg-card-light dark:bg-card-dark rounded-xl border border-dashed border-border-light dark:border-border-dark p-6">
                     <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                       <PenTool size={22} />

@@ -197,6 +197,8 @@ export default function DiscussionDrawer({
     downvoteQuestion,
     setActiveVideoSolutionUrl,
     discussions,
+    discussionLoading,
+    loadDiscussion,
     solutionVotes,
     addSolution,
     addReply,
@@ -232,7 +234,13 @@ export default function DiscussionDrawer({
     }
   }, [activeDiscussionQuestionId])
 
+  // The question's posts load when the drawer opens on it
+  useEffect(() => {
+    if (activeDiscussionQuestionId !== null && activeDiscussionQuestionId !== undefined) loadDiscussion(activeDiscussionQuestionId)
+  }, [activeDiscussionQuestionId, loadDiscussion])
+
   if (activeDiscussionQuestionId === null || !currentQuestion) return null
+  const commentsLoading = !!discussionLoading[activeDiscussionQuestionId]
 
   const comments = (discussions[activeDiscussionQuestionId] || []).slice().sort((a, b) => {
     const netA = (a.upvotes || 0) - (a.downvotes || 0)
@@ -627,7 +635,12 @@ export default function DiscussionDrawer({
 
               {/* Comment / Solution Stream */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/20">
-                {comments.length === 0 ? (
+                {commentsLoading && comments.length === 0 ? (
+                  <div className="flex items-center justify-center gap-2 h-48 text-xs font-semibold text-slate-400 dark:text-slate-500" role="status">
+                    <span className="h-4 w-4 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+                    <span>Loading discussion…</span>
+                  </div>
+                ) : comments.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400 dark:text-slate-500">
                     <MessageSquare size={32} className="mb-2 opacity-50 text-primary" />
                     <span className="text-sm font-semibold">No solutions posted yet.</span>

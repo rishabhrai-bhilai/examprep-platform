@@ -4,7 +4,7 @@ import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import QuestionText from './QuestionText'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useOriginalQuestions } from '../utils/originalQuestions'
 import { findQuestionByRef, describeQuestionCode } from '../../shared/questionCodes.js'
 
 const MIN_LENGTH = 10
@@ -33,6 +33,7 @@ export default function ReportIssueForm({ initialQuestionId = null, initialCateg
   const { submitReport } = useReportStore()
   const { isAuthenticated, openAuthPrompt } = useAuthStore()
   const { questions } = useAppStore()
+  const originalQuestions = useOriginalQuestions()
 
   const hasInitialQuestion = initialQuestionId !== null && initialQuestionId !== undefined && initialQuestionId !== ''
   const [category, setCategory] = useState(initialCategory || (hasInitialQuestion ? 'question' : 'bug'))

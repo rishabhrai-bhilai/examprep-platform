@@ -5,7 +5,7 @@ import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import ReportIssueForm from '../components/ReportIssueForm'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useOriginalQuestions } from '../utils/originalQuestions'
 import { describeQuestionCode } from '../../shared/questionCodes.js'
 
 const CATEGORY_META = {
@@ -139,6 +139,7 @@ export default function ReportPage() {
   const { fetchMyReports, fetchAllReports } = useReportStore()
   const { isAuthenticated, user } = useAuthStore()
   const { questions } = useAppStore()
+  const originalQuestions = useOriginalQuestions()
   const isAdmin = !!user?.isAdmin
 
   const questionIdParam = searchParams.get('questionId')

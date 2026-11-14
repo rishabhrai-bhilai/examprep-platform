@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAppStore } from './store/useAppStore'
 import { useAuthStore } from './store/useAuthStore'
@@ -7,24 +7,29 @@ import 'katex/dist/katex.min.css'
 // Layouts
 import DashboardLayout from './layouts/DashboardLayout'
 
-// Pages
+// Pages. The landing page comes with the app; every other page is its own chunk,
+// downloaded the first time it's opened.
 import LandingPage from './pages/LandingPage'
-import LoginPage from './pages/LoginPage'
-import SignupPage from './pages/SignupPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import DashboardPage from './pages/DashboardPage'
-import PYQPage from './pages/PYQPage'
-import PYQMockTestsPage from './pages/PYQMockTestsPage'
-import MockTestsPage from './pages/MockTestsPage'
-import BookmarksPage from './pages/BookmarksPage'
-import NotesPage from './pages/NotesPage'
-import ProfilePage from './pages/ProfilePage'
-import DiscussionPage from './pages/DiscussionPage'
-import ReportPage from './pages/ReportPage'
-import BookletPage from './pages/BookletPage'
-import AnalyticsPage from './pages/AnalyticsPage'
-import PrototypeAnalyticsPage from './pages/PrototypeAnalyticsPage'
-import ResourcesPage from './pages/ResourcesPage'
+import QuestionsGate, { PageLoader } from './components/QuestionsGate'
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const SignupPage = lazy(() => import('./pages/SignupPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const PYQPage = lazy(() => import('./pages/PYQPage'))
+const PYQMockTestsPage = lazy(() => import('./pages/PYQMockTestsPage'))
+const MockTestsPage = lazy(() => import('./pages/MockTestsPage'))
+const BookmarksPage = lazy(() => import('./pages/BookmarksPage'))
+const NotesPage = lazy(() => import('./pages/NotesPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const DiscussionPage = lazy(() => import('./pages/DiscussionPage'))
+const ReportPage = lazy(() => import('./pages/ReportPage'))
+const BookletPage = lazy(() => import('./pages/BookletPage'))
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
+const PrototypeAnalyticsPage = lazy(() => import('./pages/PrototypeAnalyticsPage'))
+const ResourcesPage = lazy(() => import('./pages/ResourcesPage'))
+
+// Pages that read the question bank wait until it has loaded
+const withQuestions = (page) => <QuestionsGate>{page}</QuestionsGate>
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -69,6 +74,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -78,25 +84,26 @@ function App() {
 
         {/* Dashboard/Practice Routes */}
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/pyq" element={<PYQPage />} />
-          <Route path="/pyq-mock" element={<PYQMockTestsPage />} />
-          <Route path="/mock-tests" element={<MockTestsPage />} />
-          <Route path="/booklet" element={<BookletPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/analytics-prototype" element={<AdminOnly><PrototypeAnalyticsPage /></AdminOnly>} />
-          <Route path="/bookmarks" element={<BookmarksPage />} />
-          <Route path="/notes" element={<NotesPage />} />
+          <Route path="/dashboard" element={withQuestions(<DashboardPage />)} />
+          <Route path="/pyq" element={withQuestions(<PYQPage />)} />
+          <Route path="/pyq-mock" element={withQuestions(<PYQMockTestsPage />)} />
+          <Route path="/mock-tests" element={withQuestions(<MockTestsPage />)} />
+          <Route path="/booklet" element={withQuestions(<BookletPage />)} />
+          <Route path="/analytics" element={withQuestions(<AnalyticsPage />)} />
+          <Route path="/analytics-prototype" element={<AdminOnly>{withQuestions(<PrototypeAnalyticsPage />)}</AdminOnly>} />
+          <Route path="/bookmarks" element={withQuestions(<BookmarksPage />)} />
+          <Route path="/notes" element={withQuestions(<NotesPage />)} />
           <Route path="/resources" element={<ResourcesPage />} />
-          <Route path="/discussion" element={<DiscussionPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/settings" element={<ProfilePage />} />
-          <Route path="/report" element={<ReportPage />} />
+          <Route path="/discussion" element={withQuestions(<DiscussionPage />)} />
+          <Route path="/profile" element={withQuestions(<ProfilePage />)} />
+          <Route path="/settings" element={withQuestions(<ProfilePage />)} />
+          <Route path="/report" element={withQuestions(<ReportPage />)} />
         </Route>
 
         {/* Fallback Redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
 
       {/* Global Overlays */}
       <ScientificCalculator />
