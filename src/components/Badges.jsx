@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { Sparkles, Flame, MessageSquare, Award, Lock, Share2, X } from 'lucide-react'
 import { BADGES, findBadge } from '../../shared/engagement.js'
+import { avatarForBadge } from '../../shared/avatars.js'
 import { useAuthStore } from '../store/useAuthStore'
 import { markBadgesSeen } from '../utils/engagementApi'
 
@@ -108,6 +109,12 @@ export function BadgeGrid() {
               {at ? <Icon size={22} /> : <Lock size={22} />}
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">{badge.name}</h4>
               <p className="text-[10px] text-slate-500 leading-tight">{badge.description}</p>
+              {avatarForBadge(badge.id, user?.name) && (
+                <span className="mt-0.5 inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400" title={at ? 'Avatar unlocked: pick it in Settings' : 'Earn this badge to unlock the avatar'}>
+                  <img src={avatarForBadge(badge.id, user?.name)} alt="" loading="lazy" className={`h-5 w-5 rounded-full ${at ? '' : 'grayscale opacity-40'}`} />
+                  {at ? 'Avatar unlocked' : 'Unlocks an avatar'}
+                </span>
+              )}
               {at && (
                 <button
                   onClick={() => shareBadge(badge, user.name || 'ExamPrep student', at)}
@@ -128,6 +135,8 @@ export function BadgeGrid() {
 // on the server, so the pop-up never comes back for the same badge.
 export function BadgeUnlockModal() {
   const user = useAuthStore(s => s.user)
+  const updateProfile = useAuthStore(s => s.updateProfile)
+  const [avatarState, setAvatarState] = useState(null) // null | 'saving' | 'saved' | 'error'
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
   const [dismissed, setDismissed] = useState([])
 
@@ -146,7 +155,17 @@ export function BadgeUnlockModal() {
   const { icon: Icon, tone } = GROUPS[badge.group]
   const earnedAt = user.badges[badge.id]
 
+  const reward = avatarForBadge(badge.id, user.name)
+  const usingReward = reward && user.avatar === reward
+
+  const useReward = async () => {
+    setAvatarState('saving')
+    const result = await updateProfile({ avatar: reward }).catch(() => null)
+    setAvatarState(result?.success ? 'saved' : 'error')
+  }
+
   const close = () => {
+    setAvatarState(null)
     setDismissed(d => [...d, badge.id])
     markBadgesSeen([badge.id]).catch(() => {})
   }
@@ -179,6 +198,26 @@ export function BadgeUnlockModal() {
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{badge.description}</p>
             <p className="text-[11px] text-slate-400 mt-1">Earned {earnedDate(earnedAt)}{queue.length > 1 ? ` · ${queue.length - 1} more to see` : ''}</p>
           </div>
+          {reward && (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-border-light dark:border-border-dark bg-slate-50 dark:bg-slate-900/60 text-left">
+              <img src={reward} alt="New avatar" className="h-12 w-12 rounded-full shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">New avatar unlocked</p>
+                <p className="text-[11px] text-slate-500">
+                  {avatarState === 'error' ? 'Could not update your picture. Try again from Settings.' : usingReward || avatarState === 'saved' ? 'It is now your profile picture.' : 'Use it now or pick it later in Settings.'}
+                </p>
+              </div>
+              {!usingReward && avatarState !== 'saved' && (
+                <button
+                  onClick={useReward}
+                  disabled={avatarState === 'saving'}
+                  className="shrink-0 px-3 py-1.5 rounded-btn bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 disabled:opacity-60"
+                >
+                  {avatarState === 'saving' ? 'Saving…' : 'Use it'}
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={close} className="flex-1 py-2 rounded-btn bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
               {queue.length > 1 ? 'Next badge' : 'Close'}

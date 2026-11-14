@@ -15,7 +15,8 @@ import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak
 import { findMockTest } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
-import { BADGES, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
+import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
+import { requiredBadgeFor } from '../shared/avatars.js'
 import { isAnswerCorrect } from '../shared/answers.js'
 import { dobProblem } from '../shared/profile.js'
 import {
@@ -575,6 +576,15 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
       const isImage = typeof avatar === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)
       if (!isUrl && !isImage) return res.status(400).json({ error: 'Unsupported profile picture.' })
       if (isImage && avatar.length > MAX_AVATAR_DATA_URL) return res.status(400).json({ error: 'Profile picture is too large.' })
+      // Badge avatars can only be saved once the badge is earned
+      const neededBadge = isUrl ? requiredBadgeFor(avatar) : null
+      if (neededBadge) {
+        const fresh = refreshPracticeStats(userDb.findById(req.user.id))
+        if (!fresh?.badges?.[neededBadge]) {
+          const badge = findBadge(neededBadge)
+          return res.status(403).json({ error: `Earn the "${badge?.name || neededBadge}" badge to unlock this avatar.` })
+        }
+      }
       updates.avatar = avatar
       updates.avatarSource = 'custom'
     }
