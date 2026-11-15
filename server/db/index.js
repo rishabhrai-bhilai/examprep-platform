@@ -23,12 +23,16 @@ const FILES = {
   attempts: path.join(DATA_DIR, 'attempts.json'),
   mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
   potd: path.join(DATA_DIR, 'potd.json'),
-  institutes: path.join(DATA_DIR, 'institutes.json')
+  institutes: path.join(DATA_DIR, 'institutes.json'),
+  testSeries: path.join(DATA_DIR, 'test_series.json'),
+  orders: path.join(DATA_DIR, 'orders.json'),
+  coupons: path.join(DATA_DIR, 'coupons.json')
 }
 
 // How each file is shaped, for MongoDB: a list of records with ids, or an object by key
 const FILE_KINDS = {
   users: 'array', reports: 'array', mockAttempts: 'array', institutes: 'array',
+  testSeries: 'array', orders: 'array', coupons: 'array',
   bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
 }
 const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file]) => [file, name]))
@@ -319,7 +323,7 @@ export const potdDb = {
 }
 
 // --- COACHING CENTRES (INSTITUTES) ---
-// [{ id, name, code, adminEmails: string[], members: [{ userId, joinedAt }],
+// [{ id, name, code, adminEmails: string[], seats, seriesIds, members: [{ userId, joinedAt }],
 //   createdBy, createdAt, updatedAt }]. Site admins (ADMIN_EMAILS) create centres;
 // students join with the centre's code and can belong to one centre at a time.
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O or 1/I
@@ -345,13 +349,15 @@ export const instituteDb = {
   },
   findByMember: (userId) => readJson(FILES.institutes, []).find(i => (i.members || []).some(m => m.userId === userId)) || null,
 
-  create: ({ name, adminEmails, createdBy }) => {
+  create: ({ name, adminEmails, seats = 0, seriesIds = [], createdBy }) => {
     const all = readJson(FILES.institutes, [])
     const institute = {
       id: `ins-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
       name,
       code: newInviteCode(new Set(all.map(i => i.code))),
       adminEmails,
+      seats,
+      seriesIds,
       members: [],
       createdBy,
       createdAt: Date.now(),
@@ -362,13 +368,15 @@ export const instituteDb = {
     return institute
   },
 
-  update: (id, { name, adminEmails, regenerateCode } = {}) => {
+  update: (id, { name, adminEmails, seats, seriesIds, regenerateCode } = {}) => {
     const all = readJson(FILES.institutes, [])
     const index = all.findIndex(i => i.id === id)
     if (index === -1) return null
     const next = { ...all[index], updatedAt: Date.now() }
     if (name !== undefined) next.name = name
     if (adminEmails !== undefined) next.adminEmails = adminEmails
+    if (seats !== undefined) next.seats = seats
+    if (seriesIds !== undefined) next.seriesIds = seriesIds
     if (regenerateCode) next.code = newInviteCode(new Set(all.map(i => i.code)))
     all[index] = next
     writeJsonAtomic(FILES.institutes, all)
@@ -401,5 +409,63 @@ export const instituteDb = {
     if (next.length === all.length) return false
     writeJsonAtomic(FILES.institutes, next)
     return true
+  }
+}
+
+// A simple list store: records with ids in one file
+const listStore = (file, prefix) => ({
+  getAll: () => readJson(file, []),
+  findById: (id) => readJson(file, []).find(r => r.id === id) || null,
+  create: (data) => {
+    const all = readJson(file, [])
+    const now = Date.now()
+    const record = { id: `${prefix}-${now}-${crypto.randomBytes(3).toString('hex')}`, ...data, createdAt: now, updatedAt: now }
+    all.push(record)
+    writeJsonAtomic(file, all)
+    return record
+  },
+  update: (id, updates) => {
+    const all = readJson(file, [])
+    const index = all.findIndex(r => r.id === id)
+    if (index === -1) return null
+    const safe = { ...updates }
+    delete safe.id
+    all[index] = { ...all[index], ...safe, updatedAt: Date.now() }
+    writeJsonAtomic(file, all)
+    return all[index]
+  },
+  delete: (id) => {
+    const all = readJson(file, [])
+    const next = all.filter(r => r.id !== id)
+    if (next.length === all.length) return false
+    writeJsonAtomic(file, next)
+    return true
+  }
+})
+
+// --- TEST SERIES (what students buy) ---
+// [{ id, title, description, pricePaise, mrpPaise, validityDays (null = no expiry),
+//   testIds: string[] (ids from shared/mockTests.js), published, createdAt, updatedAt }]
+export const seriesDb = listStore(FILES.testSeries, 'ser')
+
+// --- ORDERS (purchases and access grants) ---
+// [{ id, userId, seriesId, seriesTitle, amountPaise, discountPaise, couponCode,
+//   status: 'created' | 'paid' | 'failed' | 'refunded' | 'revoked',
+//   source: 'razorpay' | 'admin' | 'coupon' | 'dev', razorpayOrderId, razorpayPaymentId,
+//   paidAt, expiresAt, refundId, refundedAt, grantedBy, createdAt, updatedAt }]
+export const orderDb = {
+  ...listStore(FILES.orders, 'ord'),
+  getByUser: (userId) => readJson(FILES.orders, []).filter(o => o.userId === userId),
+  findByRazorpayOrder: (rzpOrderId) => readJson(FILES.orders, []).find(o => o.razorpayOrderId === rzpOrderId) || null
+}
+
+// --- COUPONS ---
+// [{ id, code (upper case), percentOff, seriesIds: [] (empty = every series),
+//   maxUses (null = unlimited), uses, expiresAt (null = never), active, createdAt, updatedAt }]
+export const couponDb = {
+  ...listStore(FILES.coupons, 'cpn'),
+  findByCode: (code) => {
+    const wanted = String(code || '').trim().toUpperCase()
+    return wanted ? readJson(FILES.coupons, []).find(c => c.code === wanted) || null : null
   }
 }

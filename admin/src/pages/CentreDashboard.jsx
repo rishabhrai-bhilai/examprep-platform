@@ -1,201 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   School, Users, Target, Flame, CheckCircle, ClipboardList, Activity, Download, RefreshCw,
-  Copy, Check, Loader2, AlertCircle, Search, ChevronDown, ChevronUp, UserMinus, Plus,
-  Settings2, Trash2, Link2, TrendingDown, Lock
+  Copy, Check, Loader2, Search, ChevronDown, ChevronUp, UserMinus,
+  Settings2, Link2, TrendingDown, ArrowLeft, Armchair
 } from 'lucide-react'
-import { useAuthStore } from '../store/useAuthStore'
-import { useInstituteStore } from '../store/useInstituteStore'
-import { formatDuration, timeAgo } from '../utils/practiceStats'
-import { studentsCsv, downloadText, STUDENT_SORTS, sortStudents, activityStatus } from '../utils/instituteStats'
+import { api, useAdminAuth } from '../lib/api'
+import { formatDuration, timeAgo } from '../../../src/utils/practiceStats'
+import { studentsCsv, downloadText, STUDENT_SORTS, sortStudents, activityStatus } from '../lib/instituteStats'
+import {
+  card, inputCls, btnPrimary, btnGhost, Pill, StatTile, SectionTitle, DailyBars, SubjectBars, MockTable,
+  ErrorBox, Spinner, accuracyTone, fmtPct, fmtDate
+} from '../components/ui'
+import SeatsAndSeries from '../components/SeatsAndSeries'
 
-const card = 'rounded-3xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft'
-const inputCls = 'w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-800/60 border border-border-light dark:border-border-dark focus:outline-none focus:border-primary'
-const btn = 'inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors disabled:opacity-50'
-const btnPrimary = `${btn} bg-primary text-white hover:opacity-90`
-const btnGhost = `${btn} border border-border-light dark:border-border-dark text-slate-700 dark:text-slate-200 hover:border-primary hover:text-primary`
-
-const TONES = {
-  good: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/25',
-  warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/25',
-  critical: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/25',
-  muted: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
-}
-const accuracyTone = (a) => (a === null || a === undefined ? 'muted' : a >= 70 ? 'good' : a >= 45 ? 'warning' : 'critical')
-const fmtPct = (v) => (v === null || v === undefined ? '–' : `${v}%`)
-const fmtDate = (t) => (t ? new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '–')
-const shortDay = (key) => new Date(`${key}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-const joinLink = (code) => `${window.location.origin}/profile?join=${code}`
-
-function Pill({ tone = 'muted', children }) {
-  return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${TONES[tone]}`}>{children}</span>
-}
-
-function StatTile({ icon: Icon, label, value, sub }) {
-  return (
-    <div className="p-4 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark space-y-1">
-      <div className="flex items-center justify-between text-slate-400">
-        <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
-        <Icon size={15} className="text-primary" />
-      </div>
-      <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{value}</div>
-      {sub && <p className="text-[11px] text-slate-500 truncate">{sub}</p>}
-    </div>
-  )
-}
-
-function SectionTitle({ title, subtitle, right }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
-      <div>
-        <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100 tracking-tight">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
-      </div>
-      {right}
-    </div>
-  )
-}
-
-// Answers per day: one series, thin bars anchored to the baseline, hover for the numbers
-function ActivityBars({ days, valueKey = 'attempts', detail }) {
-  const max = Math.max(1, ...days.map(d => d[valueKey]))
-  const [hover, setHover] = useState(null)
-  const shown = hover !== null ? days[hover] : null
-  return (
-    <div>
-      <div className="h-5 text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
-        {shown ? `${shortDay(shown.date)}: ${detail(shown)}` : <span className="text-slate-400 font-normal">Hover a bar for the day&apos;s numbers</span>}
-      </div>
-      <div className="flex items-end h-28 gap-[2px] border-b border-slate-200 dark:border-slate-700" onMouseLeave={() => setHover(null)}>
-        {days.map((d, i) => (
-          <div
-            key={d.date}
-            className="flex-1 h-full flex items-end cursor-default"
-            onMouseEnter={() => setHover(i)}
-            title={`${shortDay(d.date)}: ${detail(d)}`}
-          >
-            <div
-              className={`w-full rounded-t-[4px] transition-colors ${hover === i ? 'bg-primary' : 'bg-primary/60'}`}
-              style={{ height: d[valueKey] ? `${Math.max(4, (d[valueKey] / max) * 100)}%` : 0 }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-        <span>{shortDay(days[0].date)}</span>
-        <span>Today</span>
-      </div>
-    </div>
-  )
-}
-
-// Subject accuracy as a bar per row (the numbers are printed, so colour is never needed to read it)
-function SubjectBars({ rows, weak = [] }) {
-  if (!rows.length) return <p className="text-xs text-slate-400 py-6 text-center">No answers yet.</p>
-  return (
-    <div className="space-y-2.5">
-      {rows.map(r => {
-        const isWeak = weak.includes(r.subject)
-        return (
-          <div key={r.subject} className="grid grid-cols-[minmax(0,14rem)_1fr_auto] items-center gap-3">
-            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate flex items-center gap-1" title={r.subject}>
-              {isWeak && <TrendingDown size={12} className="shrink-0 text-rose-500" aria-label="Weak subject" />}
-              {r.subject}
-            </span>
-            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-              <div className={`h-full rounded-full ${isWeak ? 'bg-rose-500' : 'bg-primary'}`} style={{ width: `${r.accuracy ?? 0}%` }} />
-            </div>
-            <span className="text-xs tabular-nums text-slate-600 dark:text-slate-300 w-28 text-right">
-              <span className="font-bold">{fmtPct(r.accuracy)}</span> <span className="text-slate-400">· {r.answers} ans</span>
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// --- Site admins: create a centre and see every centre ---
-function CentresAdmin({ institutes, onCreated, onDeleted }) {
-  const { createInstitute, deleteInstitute } = useInstituteStore()
-  const [name, setName] = useState('')
-  const [emails, setEmails] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState(null)
-
-  const create = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const created = await createInstitute(name, emails)
-      setName('')
-      setEmails('')
-      onCreated(created)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const remove = async (id) => {
-    try {
-      await deleteInstitute(id)
-      setConfirmDelete(null)
-      onDeleted(id)
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  return (
-    <div className={`${card} p-6`}>
-      <SectionTitle title="Coaching centres" subtitle="Only site admins see this. Each centre's admins sign in with the emails listed here." />
-      <form onSubmit={create} className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr_auto] gap-2">
-        <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Centre name, e.g. Ace Academy Bhilai" aria-label="Centre name" />
-        <input className={inputCls} value={emails} onChange={e => setEmails(e.target.value)} placeholder="Admin emails, comma separated" aria-label="Admin emails" />
-        <button className={btnPrimary} disabled={busy}>{busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Create centre</button>
-      </form>
-      {error && <p className="text-xs text-rose-600 mt-2 flex items-center gap-1.5"><AlertCircle size={13} />{error}</p>}
-      {institutes.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="text-left text-[10px] uppercase tracking-wider text-slate-400">
-              <tr><th className="py-2 pr-3">Centre</th><th className="py-2 pr-3">Code</th><th className="py-2 pr-3">Admins</th><th className="py-2 pr-3">Students</th><th /></tr>
-            </thead>
-            <tbody className="divide-y divide-border-light dark:divide-border-dark">
-              {institutes.map(i => (
-                <tr key={i.id}>
-                  <td className="py-2 pr-3 font-semibold text-slate-800 dark:text-slate-200">{i.name}</td>
-                  <td className="py-2 pr-3 font-mono">{i.code}</td>
-                  <td className="py-2 pr-3 text-slate-500">{i.adminEmails.join(', ')}</td>
-                  <td className="py-2 pr-3 tabular-nums">{i.memberCount}</td>
-                  <td className="py-2 text-right whitespace-nowrap">
-                    {confirmDelete === i.id ? (
-                      <>
-                        <button onClick={() => remove(i.id)} className="text-rose-600 font-bold mr-2">Delete for good</button>
-                        <button onClick={() => setConfirmDelete(null)} className="text-slate-500">Cancel</button>
-                      </>
-                    ) : (
-                      <button onClick={() => setConfirmDelete(i.id)} className="text-slate-400 hover:text-rose-600" aria-label={`Delete ${i.name}`}><Trash2 size={14} /></button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
+// Students join on the student site, so the link points there (VITE_STUDENT_SITE_URL in the admin build)
+const studentSite = (import.meta.env.VITE_STUDENT_SITE_URL || window.location.origin.replace('//admin.', '//')).replace(/\/$/, '')
+const joinLink = (code) => `${studentSite}/profile?join=${code}`
+const updateInstitute = async (id, updates) => (await api(`/api/institutes/${id}`, { method: 'PATCH', body: updates })).institute
 
 // --- Invite code, link and admins of one centre ---
-function CentreSettings({ institute, onChange }) {
-  const { updateInstitute } = useInstituteStore()
+function CentreSettings({ institute, onChange, isSiteAdmin }) {
   const [copied, setCopied] = useState('')
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(institute.name)
@@ -259,6 +84,11 @@ function CentreSettings({ institute, onChange }) {
             <span className="text-[11px] font-bold text-slate-500">Admin emails (they see this dashboard)</span>
             <input className={inputCls} value={emails} onChange={e => setEmails(e.target.value)} />
           </label>
+          {isSiteAdmin && (
+            <div className="md:col-span-2">
+              <SeatsAndSeries institute={institute} onSaved={onChange} />
+            </div>
+          )}
           <div className="md:col-span-2 flex flex-wrap items-center gap-2">
             <button className={btnPrimary} disabled={busy} onClick={() => save({ name, adminEmails: emails })}>
               {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Save
@@ -297,10 +127,11 @@ function StudentDetail({ student, onRemove }) {
           <dt className="text-slate-500">Active days</dt><dd className="text-slate-800 dark:text-slate-200">{student.activeDays}</dd>
           <dt className="text-slate-500">Longest streak</dt><dd className="text-slate-800 dark:text-slate-200">{student.longestStreak} days</dd>
           <dt className="text-slate-500">Answers given</dt><dd className="text-slate-800 dark:text-slate-200">{student.totalAnswers}</dd>
+          <dt className="text-slate-500">Test series seat</dt><dd className="text-slate-800 dark:text-slate-200">{student.hasSeat ? 'Yes' : 'No'}</dd>
         </dl>
         <div className="pt-1">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Last 30 days</p>
-          <ActivityBars days={student.activity} detail={d => `${d.attempts} answers, ${d.correct} correct`} />
+          <DailyBars days={student.activity} detail={d => `${d.attempts} answers, ${d.correct} correct`} />
         </div>
         <div className="pt-2">
           {!confirm ? (
@@ -322,43 +153,16 @@ function StudentDetail({ student, onRemove }) {
 
       <div>
         <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">Mock tests ({student.mocks.length})</p>
-        {student.mocks.length === 0 ? (
-          <p className="text-xs text-slate-400 py-6 text-center">No mock tests taken yet.</p>
-        ) : (
-          <div className="max-h-72 overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead className="text-left text-[10px] uppercase tracking-wider text-slate-400">
-                <tr><th className="py-1.5 pr-2">Test</th><th className="py-1.5 pr-2 text-right">Score</th><th className="py-1.5 text-right">Right / wrong</th></tr>
-              </thead>
-              <tbody className="divide-y divide-border-light dark:divide-border-dark">
-                {student.mocks.map(m => (
-                  <tr key={`${m.testId}-${m.submittedAt}`}>
-                    <td className="py-1.5 pr-2">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">{m.title}</div>
-                      <div className="text-[10px] text-slate-400">{fmtDate(m.submittedAt)} · {Math.round(m.timeTaken / 60)} min</div>
-                    </td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums whitespace-nowrap">
-                      <span className="font-bold">{m.score}</span><span className="text-slate-400">/{m.maxScore}</span>
-                      <div><Pill tone={accuracyTone(m.percent)}>{fmtPct(m.percent)}</Pill></div>
-                    </td>
-                    <td className="py-1.5 text-right tabular-nums text-slate-500">{m.correct} / {m.incorrect}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <MockTable mocks={student.mocks} />
       </div>
     </div>
   )
 }
 
-export default function InstitutePage() {
-  const { user, isAuthenticated } = useAuthStore()
-  const { fetchInstitutes, fetchDashboard, removeStudent } = useInstituteStore()
-  const [institutes, setInstitutes] = useState(null)
-  const [canCreate, setCanCreate] = useState(false)
-  const [selectedId, setSelectedId] = useState(null)
+export default function CentreDashboard() {
+  const { id } = useParams()
+  const isSiteAdmin = useAdminAuth(s => Boolean(s.user?.isAdmin))
+  const [institute, setInstitute] = useState(null)
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -367,33 +171,21 @@ export default function InstitutePage() {
   const [sortDesc, setSortDesc] = useState(true)
   const [expanded, setExpanded] = useState(null)
 
-  const loadInstitutes = useCallback(async () => {
-    try {
-      const data = await fetchInstitutes()
-      setInstitutes(data.institutes)
-      setCanCreate(data.canCreate)
-      setSelectedId(id => (data.institutes.some(i => i.id === id) ? id : data.institutes[0]?.id || null))
-    } catch (err) {
-      setError(err.message)
-      setInstitutes([])
-    }
-  }, [fetchInstitutes])
-
-  const loadDashboard = useCallback(async (id) => {
-    if (!id) return setDashboard(null)
+  const loadDashboard = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      setDashboard(await fetchDashboard(id))
+      const data = await api(`/api/institutes/${id}/dashboard`)
+      setDashboard(data)
+      setInstitute(data.institute)
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [fetchDashboard])
+  }, [id])
 
-  useEffect(() => { if (isAuthenticated) loadInstitutes() }, [isAuthenticated, loadInstitutes])
-  useEffect(() => { loadDashboard(selectedId) }, [selectedId, loadDashboard])
+  useEffect(() => { loadDashboard() }, [loadDashboard])
 
   const students = useMemo(() => {
     const list = dashboard?.students || []
@@ -402,36 +194,23 @@ export default function InstitutePage() {
     return sortStudents(filtered, sortKey, sortDesc)
   }, [dashboard, query, sortKey, sortDesc])
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (institutes === null) {
-    return <div className="flex items-center justify-center py-24 text-slate-400"><Loader2 className="animate-spin" /></div>
-  }
-  if (!institutes.length && !canCreate) {
-    return (
-      <div className={`${card} p-10 text-center max-w-xl mx-auto mt-10 space-y-2`}>
-        <Lock className="mx-auto text-slate-400" />
-        <h2 className="font-extrabold text-lg text-slate-900 dark:text-slate-100">Coaching dashboard</h2>
-        <p className="text-sm text-slate-500">This page is for coaching-centre admins. If your centre uses ExamPrep, ask us to add {user?.email} as an admin.</p>
-      </div>
-    )
-  }
+  if (!institute) return error ? <div className="space-y-4"><ErrorBox>{error}</ErrorBox><Link to="/centres" className="text-sm font-bold text-primary">← Centres</Link></div> : <Spinner />
 
-  const institute = institutes.find(i => i.id === selectedId) || null
   const summary = dashboard?.summary
   const setSort = (key) => {
     if (key === sortKey) setSortDesc(d => !d)
     else { setSortKey(key); setSortDesc(!STUDENT_SORTS[key].asc) }
   }
-  const replaceInstitute = (updated) => setInstitutes(list => list.map(i => (i.id === updated.id ? updated : i)))
+  const replaceInstitute = (updated) => { setInstitute(updated); loadDashboard() }
   const exportCsv = () => {
     const slug = institute.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     downloadText(`${slug || 'centre'}-students-${new Date().toISOString().slice(0, 10)}.csv`, studentsCsv(students))
   }
   const onRemove = async (student) => {
     try {
-      await removeStudent(institute.id, student.id)
+      await api(`/api/institutes/${institute.id}/members/${encodeURIComponent(student.id)}`, { method: 'DELETE' })
       setExpanded(null)
-      await Promise.all([loadDashboard(institute.id), loadInstitutes()])
+      await loadDashboard()
     } catch (err) {
       setError(err.message)
     }
@@ -439,47 +218,31 @@ export default function InstitutePage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
+      <Link to="/centres" className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-primary"><ArrowLeft size={14} /> Centres</Link>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center"><School size={24} /></div>
           <div>
-            <h2 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">{institute?.name || 'Coaching dashboard'}</h2>
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">{institute.name}</h2>
             <p className="text-xs text-slate-500">
-              {dashboard ? `Updated ${timeAgo(dashboard.generatedAt)} · ${summary.students} student${summary.students === 1 ? '' : 's'}` : 'Track your batch on ExamPrep'}
+              {dashboard ? `Updated ${timeAgo(dashboard.generatedAt)} · ${summary.students} student${summary.students === 1 ? '' : 's'}` : 'Loading…'}
+              {institute.series.length > 0 && <> · <Armchair size={11} className="inline -mt-0.5" /> {institute.memberCount}/{institute.seats} seats for {institute.series.map(s => s.title).join(', ')}</>}
             </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {institutes.length > 1 && (
-            <select className={`${inputCls} !w-auto !py-2 text-xs font-bold`} value={selectedId || ''} onChange={e => { setSelectedId(e.target.value); setExpanded(null) }} aria-label="Choose centre">
-              {institutes.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-          )}
-          {institute && (
-            <>
-              <button className={btnGhost} onClick={() => loadDashboard(institute.id)} disabled={loading}>
-                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
-              </button>
-              <button className={btnPrimary} onClick={exportCsv} disabled={!students.length}><Download size={13} /> Export CSV</button>
-            </>
-          )}
+          <button className={btnGhost} onClick={loadDashboard} disabled={loading}>
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
+          </button>
+          <button className={btnPrimary} onClick={exportCsv} disabled={!students.length}><Download size={13} /> Export CSV</button>
         </div>
       </div>
 
-      {error && <div className="p-3 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-400 text-xs flex items-center gap-2"><AlertCircle size={14} />{error}</div>}
+      <ErrorBox>{error}</ErrorBox>
 
-      {canCreate && (
-        <CentresAdmin
-          institutes={institutes}
-          onCreated={(created) => { setInstitutes(list => [...list, created]); setSelectedId(created.id) }}
-          onDeleted={(id) => { setInstitutes(list => list.filter(i => i.id !== id)); if (id === selectedId) setSelectedId(null); loadInstitutes() }}
-        />
-      )}
+      <CentreSettings institute={institute} onChange={replaceInstitute} isSiteAdmin={isSiteAdmin} />
 
-      {institute && <CentreSettings institute={institute} onChange={replaceInstitute} />}
-
-      {institute && !dashboard && loading && <div className="flex justify-center py-16 text-slate-400"><Loader2 className="animate-spin" /></div>}
+      {!dashboard && loading && <Spinner />}
 
       {dashboard && summary.students === 0 && (
         <div className={`${card} p-10 text-center space-y-2`}>
@@ -504,7 +267,7 @@ export default function InstitutePage() {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div className={`${card} p-6`}>
               <SectionTitle title="Batch activity" subtitle="Questions answered per day by the whole batch, last 30 days" />
-              <ActivityBars days={summary.activity} detail={d => `${d.attempts} answers by ${d.activeStudents} student${d.activeStudents === 1 ? '' : 's'}`} />
+              <DailyBars days={summary.activity} detail={d => `${d.attempts} answers by ${d.activeStudents} student${d.activeStudents === 1 ? '' : 's'}`} />
             </div>
             <div className={`${card} p-6`}>
               <SectionTitle

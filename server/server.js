@@ -10,9 +10,9 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, initStorage, flushStorage, storageHealth } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, seriesDb, initStorage, flushStorage, storageHealth } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
-import { findMockTest } from '../shared/mockTests.js'
+import { findMockTest, mockTests } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes, pyqPaperTitle } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
@@ -40,6 +40,9 @@ import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscu
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 import { studentReport, batchSummary } from './services/institutes.js'
+import { canTakeTest, centreSeat } from './services/access.js'
+import { registerStoreRoutes, handleRazorpayWebhook } from './routes/store.js'
+import { registerAdminRoutes } from './routes/admin.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
 dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
@@ -154,19 +157,21 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", ...(NODE_ENV === 'development' ? ["'unsafe-eval'"] : []), "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", ...(NODE_ENV === 'development' ? ["'unsafe-eval'"] : []), "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com", "https://checkout.razorpay.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       // The confetti animation draws in a worker created from a blob: URL
       workerSrc: ["'self'", "blob:"],
       // data: covers fonts bundled into the CSS (KaTeX's maths fonts)
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://lh3.googleusercontent.com"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com", "https://api.razorpay.com", "https://checkout.razorpay.com"],
       connectSrc: [
         "'self'",
         "https://accounts.google.com",
         "https://apis.google.com",
         "https://challenges.cloudflare.com",
+        "https://api.razorpay.com",
+        "https://lumberjack.razorpay.com",
         "https://examprep-platform.onrender.com",
         ...(NODE_ENV === 'development' ? ["http://localhost:*", "ws://localhost:*"] : [])
       ]
@@ -178,7 +183,7 @@ app.use(helmet({
 // The site calls its own API (same origin), so cross-origin requests are only
 // allowed from the exact addresses listed here
 const allowedOrigins = new Set(
-  [process.env.CORS_ORIGIN, process.env.APP_URL, process.env.RENDER_EXTERNAL_URL, 'https://examprep-platform.onrender.com']
+  [process.env.CORS_ORIGIN, process.env.APP_URL, process.env.ADMIN_APP_URL, process.env.RENDER_EXTERNAL_URL, 'https://examprep-platform.onrender.com']
     .flatMap(v => String(v || '').split(','))
     .map(v => v.trim().replace(/\/$/, '').toLowerCase())
     .filter(Boolean)
@@ -244,6 +249,9 @@ const postLimiter = limiter(10 * 60 * 1000, 30, 'You are posting very fast. Plea
 
 // Parse JSON request bodies: 1 MB normally, 10 MB only for routes that carry
 // images (scratchpad notes and discussion posts)
+// Razorpay signs the raw body, so its webhook is read before JSON parsing
+app.post('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }), handleRazorpayWebhook)
+
 const smallJson = express.json({ limit: '1mb' })
 const largeJson = express.json({ limit: '10mb' })
 const LARGE_BODY_ROUTES = /^\/api\/(sync\/notes|discussions\/[^/]+\/posts)\/?$/
@@ -909,6 +917,9 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
   try {
     const test = resolveTest(req.params.testId)
     if (!test) return res.status(404).json({ error: 'Test not found.' })
+    if (!canTakeTest(req.user, test.id)) {
+      return res.status(403).json({ error: "This test is part of a test series you haven't unlocked." })
+    }
 
     const timeTaken = Math.round(Number(req.body?.timeTaken))
     if (!Number.isFinite(timeTaken) || timeTaken < 0 || timeTaken > test.durationMinutes * 60 + 120) {
@@ -1042,8 +1053,27 @@ const parseAdminEmails = (value) => {
 }
 const publicInstitute = (i) => ({
   id: i.id, name: i.name, code: i.code, adminEmails: i.adminEmails,
-  memberCount: (i.members || []).length, createdAt: i.createdAt
+  memberCount: (i.members || []).length, createdAt: i.createdAt,
+  // Seats: how many students get the centre's test series (the centre pays for these)
+  seats: i.seats || 0,
+  seriesIds: i.seriesIds || [],
+  series: (i.seriesIds || []).map(id => ({ id, title: seriesDb.findById(id)?.title || 'Deleted series' }))
 })
+const MAX_SEATS = 5000
+// Seats and series are set by site admins only: { seats, seriesIds } or { error }
+const parseSeatsAndSeries = (body) => {
+  const out = {}
+  if (body?.seats !== undefined) {
+    const n = Math.round(Number(body.seats))
+    if (!Number.isFinite(n) || n < 0 || n > MAX_SEATS) return { error: `Seats must be 0 to ${MAX_SEATS}.` }
+    out.seats = n
+  }
+  if (body?.seriesIds !== undefined) {
+    const known = new Set(seriesDb.getAll().map(s => s.id))
+    out.seriesIds = Array.from(new Set(Array.isArray(body.seriesIds) ? body.seriesIds : [])).filter(id => known.has(id))
+  }
+  return { value: out }
+}
 const questionSubjects = new Map([...questions, ...originalQuestions].map(q => [q.id, q.subject || 'General Aptitude']))
 const testTitle = (id) => findMockTest(id)?.title || (isPyqPaperId(id) ? `${pyqPaperTitle(id)} (full paper)` : id)
 
@@ -1058,7 +1088,9 @@ app.post('/api/institutes', requireAuth, requireAdmin, (req, res) => {
   if (!name) return res.status(400).json({ error: 'Centre name must be 2 to 80 characters.' })
   const admins = parseAdminEmails(req.body?.adminEmails)
   if (admins.error) return res.status(400).json({ error: admins.error })
-  const institute = instituteDb.create({ name, adminEmails: admins.emails, createdBy: req.user.id })
+  const extra = parseSeatsAndSeries(req.body)
+  if (extra.error) return res.status(400).json({ error: extra.error })
+  const institute = instituteDb.create({ name, adminEmails: admins.emails, ...extra.value, createdBy: req.user.id })
   res.status(201).json({ institute: publicInstitute(institute) })
 })
 
@@ -1079,6 +1111,12 @@ app.patch('/api/institutes/:id', requireAuth, requireInstituteAdmin, (req, res) 
     updates.adminEmails = admins.emails
   }
   if (req.body?.regenerateCode) updates.regenerateCode = true
+  if (req.body?.seats !== undefined || req.body?.seriesIds !== undefined) {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Only site admins can change seats and test series.' })
+    const extra = parseSeatsAndSeries(req.body)
+    if (extra.error) return res.status(400).json({ error: extra.error })
+    Object.assign(updates, extra.value)
+  }
   const updated = instituteDb.update(req.institute.id, updates)
   res.status(200).json({ institute: publicInstitute(updated) })
 })
@@ -1101,7 +1139,7 @@ app.get('/api/institutes/:id/dashboard', requireAuth, requireInstituteAdmin, (re
     const students = (req.institute.members || []).map(m => {
       const user = refreshPracticeStats(userDb.findById(m.userId))
       if (!user) return null
-      return studentReport({
+      const report = studentReport({
         user,
         joinedAt: m.joinedAt,
         practice: allPractice[user.id] || { attempts: {}, days: {}, timeZone: null },
@@ -1111,6 +1149,7 @@ app.get('/api/institutes/:id/dashboard', requireAuth, requireInstituteAdmin, (re
         testTitle,
         now
       })
+      return { ...report, hasSeat: !!centreSeat(user.id, req.institute) }
     }).filter(Boolean)
     res.status(200).json({
       institute: publicInstitute(req.institute),
@@ -1134,7 +1173,11 @@ const membershipFor = (userId) => {
   const institute = instituteDb.findByMember(userId)
   if (!institute) return null
   const member = institute.members.find(m => m.userId === userId)
-  return { id: institute.id, name: institute.name, joinedAt: member.joinedAt }
+  const seat = centreSeat(userId, institute)
+  return {
+    id: institute.id, name: institute.name, joinedAt: member.joinedAt,
+    series: seat ? seat.seriesIds.map(id => seriesDb.findById(id)?.title).filter(Boolean) : []
+  }
 }
 
 app.get('/api/me/institute', requireAuth, (req, res) => {
@@ -1145,7 +1188,8 @@ app.get('/api/me/institute', requireAuth, (req, res) => {
 app.get('/api/me/institute/lookup', requireAuth, postLimiter, (req, res) => {
   const institute = instituteDb.findByCode(req.query.code)
   if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
-  res.status(200).json({ institute: { name: institute.name } })
+  const series = (institute.seriesIds || []).map(id => seriesDb.findById(id)?.title).filter(Boolean)
+  res.status(200).json({ institute: { name: institute.name, series } })
 })
 
 // Joining needs explicit consent; it leaves any other centre (one at a time)
@@ -1153,6 +1197,11 @@ app.post('/api/me/institute', requireAuth, postLimiter, (req, res) => {
   const institute = instituteDb.findByCode(req.body?.code)
   if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
   if (req.body?.consent !== true) return res.status(400).json({ error: 'Please agree to share your progress with the centre.' })
+  // A centre that gives students a test series has a fixed number of seats
+  const already = (institute.members || []).some(m => m.userId === req.user.id)
+  if (!already && (institute.seriesIds || []).length && (institute.members || []).length >= (institute.seats || 0)) {
+    return res.status(409).json({ error: 'This centre has no free seats right now. Please ask your centre to add more.' })
+  }
   instituteDb.addMember(institute.id, req.user.id)
   res.status(200).json({ institute: membershipFor(req.user.id) })
 })
@@ -1164,7 +1213,27 @@ app.delete('/api/me/institute', requireAuth, (req, res) => {
   res.status(200).json({ institute: null })
 })
 
+// --- TEST SERIES, PAYMENTS AND THE ADMIN APP'S API ---
+registerStoreRoutes(app, { mockTests, originalQuestions, optionalUser, isAdminEmail, postLimiter, isProduction: NODE_ENV === 'production' })
+registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle, postLimiter })
+
 // --- STATIC ASSETS & PRODUCTION SERVING ---
+// The admin app (admin/, built with `npm run build:admin` into dist-admin) is a
+// separate site. Point a second domain at this server and set ADMIN_HOST to it
+// (e.g. admin.example.com); requests for that host get the admin app instead.
+const adminDistPath = path.join(__dirname, '..', 'dist-admin')
+const adminHost = String(process.env.ADMIN_HOST || '').trim().toLowerCase()
+if (adminHost && fs.existsSync(adminDistPath)) {
+  // Built files have content hashes in their names, so they can be cached for a year
+  const adminAssets = express.static(adminDistPath, { maxAge: '1y', immutable: true, index: false })
+  const adminStatic = express.static(adminDistPath)
+  app.use((req, res, next) => {
+    if (req.hostname.toLowerCase() !== adminHost || req.path.startsWith('/api')) return next()
+    if (req.path.startsWith('/assets/')) return adminAssets(req, res, () => res.status(404).end())
+    adminStatic(req, res, () => res.sendFile(path.join(adminDistPath, 'index.html')))
+  })
+}
+
 const publicPath = path.join(__dirname, '..', 'public')
 app.use(express.static(publicPath))
 app.use('/diagrams', express.static(path.join(publicPath, 'diagrams')))
@@ -1214,7 +1283,9 @@ function checkProductionConfig() {
   if (!process.env.TURNSTILE_SITE_KEY || !process.env.TURNSTILE_SECRET_KEY) warnings.push('TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY missing: the bot check on sign-up and password reset is OFF')
   if (!canSendEmail()) warnings.push('No email settings (BREVO_API_KEY + MAIL_FROM, or SMTP_USER + SMTP_PASS): sign-up codes and password resets cannot be sent')
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push('GOOGLE_CLIENT_ID missing: Google sign-in is hidden')
-  if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports')
+  if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports or use the admin app')
+  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) warnings.push('RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET missing: test series cannot be bought online')
+  else if (!process.env.RAZORPAY_WEBHOOK_SECRET) warnings.push('RAZORPAY_WEBHOOK_SECRET missing: payments are confirmed only while the student keeps the checkout open')
   warnings.forEach(w => console.error(`[config] WARNING: ${w}`))
 }
 checkProductionConfig()

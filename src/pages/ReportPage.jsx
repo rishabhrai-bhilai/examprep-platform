@@ -5,7 +5,7 @@ import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import ReportIssueForm from '../components/ReportIssueForm'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useSeriesStore } from '../store/useSeriesStore'
 import { describeQuestionCode } from '../../shared/questionCodes.js'
 
 const CATEGORY_META = {
@@ -153,9 +153,13 @@ export default function ReportPage() {
   const [allError, setAllError] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
+  const originalQuestions = useSeriesStore(s => s.originals)
+  const fetchOriginals = useSeriesStore(s => s.fetchOriginals)
+  useEffect(() => { if (!originalQuestions) fetchOriginals().catch(() => {}) }, [originalQuestions, fetchOriginals])
+
   const questionLabel = (id) => {
     const q = (questions || []).find(item => String(item.id) === String(id)) ||
-      originalQuestions.find(item => String(item.id) === String(id))
+      (originalQuestions || []).find(item => String(item.id) === String(id))
     if (!q) return `Question #${id}`
     if (q.code) return `${q.code} · ${describeQuestionCode(q.code)}`
     return `GATE ${q.year} ${q.paper || ''} · Q${q.questionNumber} · ${q.subject}`.replace(/\s+·/g, ' ·')

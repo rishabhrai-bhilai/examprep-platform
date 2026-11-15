@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { useAuthStore } from './useAuthStore'
 
 const authHeaders = () => {
   const token = localStorage.getItem('auth_token')
@@ -16,33 +15,9 @@ async function request(url, options = {}) {
   return data
 }
 
-// Admins being added or removed changes who sees the Coaching Dashboard link
-const refreshUser = () => useAuthStore.getState().checkAuth?.()
-
-// Coaching centres (institutes).
-// Centre: { id, name, code, adminEmails, memberCount, createdAt }
-// Dashboard: { institute, summary, students, generatedAt } (server/services/institutes.js)
+// A student's coaching centre (the "Join your coaching centre" box in Profile).
+// Centres are run from the admin app (admin/).
 export const useInstituteStore = create((set) => ({
-  // --- Centre admins and site admins (/institute) ---
-  fetchInstitutes: () => request('/api/institutes'),
-  createInstitute: async (name, adminEmails) => {
-    const data = await request('/api/institutes', { method: 'POST', body: JSON.stringify({ name, adminEmails }) })
-    refreshUser()
-    return data.institute
-  },
-  updateInstitute: async (id, updates) => {
-    const data = await request(`/api/institutes/${id}`, { method: 'PATCH', body: JSON.stringify(updates) })
-    if (updates.adminEmails !== undefined) refreshUser()
-    return data.institute
-  },
-  deleteInstitute: async (id) => {
-    await request(`/api/institutes/${id}`, { method: 'DELETE' })
-    refreshUser()
-  },
-  fetchDashboard: (id) => request(`/api/institutes/${id}/dashboard`),
-  removeStudent: (id, userId) => request(`/api/institutes/${id}/members/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
-
-  // --- Students (Profile) ---
   membership: undefined, // undefined = not loaded, null = no centre
   fetchMembership: async () => {
     const data = await request('/api/me/institute')

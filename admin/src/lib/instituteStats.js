@@ -1,4 +1,4 @@
-// Helpers for the coaching-centre dashboard (/institute). The numbers themselves are
+// Helpers for the student tables (a centre's students, and every student). The numbers themselves are
 // built on the server (server/services/institutes.js); these sort, filter and export them.
 
 // Columns in the student CSV export
@@ -22,6 +22,16 @@ const CSV_COLUMNS = [
   ['Weakest subjects', s => s.weakestSubjects.join('; ')]
 ]
 
+// Every student (site admins): sign-up, centre and purchases instead of the centre join date
+export const SITE_CSV_COLUMNS = [
+  ...CSV_COLUMNS.slice(0, 3),
+  ['Signed up', s => isoDate(s.signedUpAt)],
+  ['Coaching centre', s => s.centre || ''],
+  ['Active test series', s => s.activeSeries],
+  ['Paid (INR)', s => ((s.spentPaise || 0) / 100).toFixed(2)],
+  ...CSV_COLUMNS.slice(4)
+]
+
 const isoDate = (t) => (t ? new Date(t).toISOString().slice(0, 10) : '')
 
 const csvCell = (value) => {
@@ -31,8 +41,8 @@ const csvCell = (value) => {
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
-export const studentsCsv = (students) =>
-  [CSV_COLUMNS.map(([h]) => h), ...students.map(s => CSV_COLUMNS.map(([, get]) => get(s)))]
+export const studentsCsv = (students, columns = CSV_COLUMNS) =>
+  [columns.map(([h]) => h), ...students.map(s => columns.map(([, get]) => get(s)))]
     .map(row => row.map(csvCell).join(','))
     .join('\r\n')
 
@@ -55,7 +65,9 @@ export const STUDENT_SORTS = {
   streak: { label: 'Streak', value: s => s.streak },
   week: { label: 'Last 7 days', value: s => s.answersLast7 },
   mocks: { label: 'Mock avg', value: s => s.avgMockPercent ?? -1 },
-  lastActive: { label: 'Last active', value: s => s.lastActive || 0 }
+  lastActive: { label: 'Last active', value: s => s.lastActive || 0 },
+  signedUp: { label: 'Signed up', value: s => s.signedUpAt || 0 },
+  spent: { label: 'Paid', value: s => s.spentPaise || 0 }
 }
 
 export const sortStudents = (students, key, desc) => {

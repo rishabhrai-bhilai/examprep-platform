@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { School, Loader2, Check, X, LogOut, AlertCircle, ShieldCheck, EyeOff } from 'lucide-react'
+import { School, Loader2, Check, X, LogOut, AlertCircle, ShieldCheck, EyeOff, Package } from 'lucide-react'
 import { useInstituteStore } from '../store/useInstituteStore'
+import { useSeriesStore } from '../store/useSeriesStore'
 
 // What a coaching centre can and can't see (matches server/services/institutes.js)
 const SHARED_WITH_CENTRE = [
@@ -24,6 +25,8 @@ export default function JoinInstituteCard() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmLeave, setConfirmLeave] = useState(false)
+  // A centre's seats unlock its test series, so access changes on joining or leaving
+  const refreshAccess = useSeriesStore(s => s.refreshAccess)
 
   useEffect(() => {
     fetchMembership().catch(() => {})
@@ -52,6 +55,7 @@ export default function JoinInstituteCard() {
 
   const join = () => run(async () => {
     await joinInstitute(code.trim())
+    refreshAccess()
     setFound(null)
     setCode('')
     if (searchParams.has('join')) {
@@ -62,6 +66,7 @@ export default function JoinInstituteCard() {
 
   const leave = () => run(async () => {
     await leaveInstitute()
+    refreshAccess()
     setConfirmLeave(false)
   })
 
@@ -102,9 +107,15 @@ export default function JoinInstituteCard() {
             </div>
           )}
         </div>
+        {membership.series?.length > 0 && (
+          <p className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
+            <Package size={13} className="mt-0.5 shrink-0 text-primary" />
+            <span>Your centre has unlocked <strong>{membership.series.join(', ')}</strong> for you.</span>
+          </p>
+        )}
         <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
           <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-500" />
-          <span>Your centre can see your progress and test scores. {NOT_SHARED} Leaving stops sharing straight away.</span>
+          <span>Your centre can see your progress and test scores. {NOT_SHARED} Leaving stops sharing straight away{membership.series?.length > 0 ? " and gives up the centre's test series" : ''}.</span>
         </p>
         {error && <p className="text-xs text-rose-600 flex items-center gap-1.5"><AlertCircle size={13} />{error}</p>}
       </div>
@@ -132,6 +143,12 @@ export default function JoinInstituteCard() {
       ) : (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
           <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Join {found.name}?</p>
+          {found.series?.length > 0 && (
+            <p className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
+              <Package size={13} className="mt-0.5 shrink-0 text-primary" />
+              <span>Includes <strong>{found.series.join(', ')}</strong>, paid for by your centre.</span>
+            </p>
+          )}
           <div className="space-y-1.5">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">They will see</p>
             <ul className="space-y-1">
