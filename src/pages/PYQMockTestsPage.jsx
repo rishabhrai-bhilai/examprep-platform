@@ -19,7 +19,7 @@ import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
-import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
+import { isSignedIn, submitMockAttempt, fetchMockComparison } from '../utils/engagementApi'
 import { pyqPaperId, pyqPaperQuestions } from '../../shared/pyqPapers.js'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import { Link } from 'react-router-dom'
@@ -27,171 +27,8 @@ import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findPaperAttempt, canStartNewTest } from '../utils/testSession'
 
 
-// ==========================================
-// DUMMY TEST HISTORY GENERATOR FOR PROTOTYPE
-// ==========================================
-const DUMMY_PYQ_CONFIGS = [
-  { id: 'pyq-gate-2024-s1', title: 'GATE 2024 Official Paper (Set 1)', date: '05 Nov 2026', score: 82.5, maxScore: 100, correct: 56, incorrect: 6, unanswered: 3, accuracy: 86.2, timeTaken: 10080, timeFormatted: '2h 48m', estScore: 840, estRank: '142' },
-  { id: 'pyq-gate-2023', title: 'GATE 2023 Official Paper', date: '02 Nov 2026', score: 89.0, maxScore: 100, correct: 58, incorrect: 4, unanswered: 3, accuracy: 92.5, timeTaken: 9720, timeFormatted: '2h 42m', estScore: 895, estRank: '78' },
-  { id: 'pyq-gate-2022', title: 'GATE 2022 Official Paper', date: '29 Oct 2026', score: 75.5, maxScore: 100, correct: 51, incorrect: 9, unanswered: 5, accuracy: 85.0, timeTaken: 10320, timeFormatted: '2h 52m', estScore: 760, estRank: '380' },
-  { id: 'pyq-gate-2021-s1', title: 'GATE 2021 Official Paper (Set 1)', date: '25 Oct 2026', score: 73.0, maxScore: 100, correct: 49, incorrect: 11, unanswered: 5, accuracy: 81.0, timeTaken: 10680, timeFormatted: '2h 58m', estScore: 740, estRank: '460' },
-  { id: 'pyq-gate-2020', title: 'GATE 2020 Official Paper', date: '19 Oct 2026', score: 71.5, maxScore: 100, correct: 47, incorrect: 11, unanswered: 7, accuracy: 80.0, timeTaken: 10440, timeFormatted: '2h 54m', estScore: 725, estRank: '520' },
-];
-
-function buildDummyPyqAttempt(c, availableQuestions = []) {
-  const totalQs = c.correct + c.incorrect + c.unanswered;
-  const testQs = availableQuestions.length >= totalQs
-    ? availableQuestions.slice(0, totalQs)
-    : Array.from({ length: totalQs }, (_, i) => ({
-        id: `${c.id}-q${i + 1}`,
-        type: i % 5 === 0 ? 'NAT' : i % 4 === 0 ? 'MSQ' : 'MCQ',
-        marks: (i % 3 === 0) ? 2 : 1,
-        subject: ['Algorithms', 'Operating Systems', 'Databases', 'Theory of Computation', 'Computer Networks', 'Engineering Mathematics', 'General Aptitude'][i % 7],
-        question: `Sample Question ${i + 1} from ${c.title}. Consider the given system properties and computational behavior.`,
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        answer: i % 4,
-        explanation: `Detailed solution explanation for Question ${i + 1}.`
-      }));
-
-  const answers = {};
-  const timeSpentMap = {};
-  testQs.forEach((q, i) => {
-    if (i < c.correct) {
-      answers[q.id] = q.answer !== undefined ? q.answer : 0;
-    } else if (i < c.correct + c.incorrect) {
-      answers[q.id] = typeof q.answer === 'number' ? (q.answer + 1) % 4 : '0';
-    }
-    timeSpentMap[q.id] = 50 + (i % 5) * 20;
-  });
-
-  const subjectStats = {};
-  ['Algorithms', 'Operating Systems', 'Databases', 'Theory of Computation', 'Computer Networks', 'Engineering Mathematics', 'General Aptitude'].forEach((s) => {
-    const sTotal = Math.round(totalQs / 7);
-    const sCorrect = Math.min(sTotal, Math.round(c.correct / 7));
-    const sIncorrect = Math.min(sTotal - sCorrect, Math.round(c.incorrect / 7));
-    subjectStats[s] = {
-      totalQs: sTotal,
-      correctQs: sCorrect,
-      incorrectQs: sIncorrect,
-      unansweredQs: Math.max(0, sTotal - sCorrect - sIncorrect),
-      marksMax: sTotal * 1.5,
-      marksObtained: sCorrect * 1.5 - sIncorrect * 0.33
-    };
-  });
-
-  const topicStats = {
-    'Subnetting & Routing': { totalQs: 4, correctQs: 2, marksMax: 6, marksObtained: 2.0 },
-    'Page Replacement': { totalQs: 3, correctQs: 3, marksMax: 4.5, marksObtained: 4.5 },
-    'Transactions & 2PL': { totalQs: 3, correctQs: 3, marksMax: 4.5, marksObtained: 4.5 },
-    'Dynamic Programming': { totalQs: 4, correctQs: 3, marksMax: 6, marksObtained: 4.5 },
-    'Closure Properties': { totalQs: 3, correctQs: 2, marksMax: 4.5, marksObtained: 3.0 }
-  };
-
-  return {
-    testId: c.id,
-    testTitle: c.title,
-    displayName: c.title,
-    attemptNo: 1,
-    counted: true,
-    date: c.date,
-    time: '11:45 AM',
-    timestamp: Date.now() - 86400000 * 2,
-    questionsCount: totalQs,
-    correct: c.correct,
-    incorrect: c.incorrect,
-    unanswered: c.unanswered,
-    score: c.score,
-    maxScore: c.maxScore,
-    percentage: c.accuracy,
-    attemptRate: parseFloat((((c.correct + c.incorrect) / totalQs) * 100).toFixed(1)),
-    timeTaken: c.timeTaken,
-    timeTakenFormatted: c.timeFormatted,
-    timeUtilizationRate: 93,
-    avgTimeCorrect: 110,
-    avgTimeIncorrect: 65,
-    avgTimeUnanswered: 18,
-    panicZoneErrors: 1,
-    estimatedGateScore: c.estScore,
-    estimatedRank: c.estRank,
-    subjectStats,
-    topicStats,
-    difficultyStats: {
-      Easy: { correct: Math.round(c.correct * 0.45), incorrect: 1, unanswered: 0 },
-      Medium: { correct: Math.round(c.correct * 0.4), incorrect: Math.round(c.incorrect * 0.6), unanswered: 1 },
-      Hard: { correct: Math.round(c.correct * 0.15), incorrect: Math.round(c.incorrect * 0.4), unanswered: Math.max(0, c.unanswered - 1) }
-    },
-    errorTags: {
-      [testQs[c.correct]?.id || 'err_1']: 'conceptual',
-      [testQs[c.correct + 1]?.id || 'err_2']: 'calculation'
-    },
-    timeSpentMap,
-    modeInfo: 'Full-Length PYQ Exam Simulation',
-    questions: testQs,
-    answers
-  };
-}
 
 
-export function buildDummyGlobalComparison(reportData) {
-  const score = reportData?.score ?? 71.5
-  const maxScore = reportData?.maxScore ?? 100
-  const pct = Math.max(0, Math.min(100, (score / maxScore) * 100))
-  const participants = 18450
-  const percentile = parseFloat(Math.min(99.6, Math.max(15.2, pct * 0.94 + 5.2)).toFixed(1))
-  const rank = Math.max(1, Math.round(participants * (1 - percentile / 100)))
-  const yourBucket = Math.min(9, Math.max(0, Math.floor(pct / 10)))
-
-  let subjects = []
-  if (reportData?.subjectStats && Object.keys(reportData.subjectStats).length > 0) {
-    subjects = Object.entries(reportData.subjectStats).map(([name, s]) => {
-      const maxM = s.marksMax || (s.totalQs * 1.5) || 10
-      const obtained = s.marksObtained ?? (s.correctQs * 1.5 - s.incorrectQs * 0.33)
-      const yourPercent = Math.max(0, Math.min(100, Math.round((obtained / maxM) * 100)))
-      const averagePercent = Math.max(20, Math.min(85, Math.round(yourPercent * 0.65 + 18)))
-      return {
-        name,
-        yourPercent,
-        averagePercent
-      }
-    })
-  }
-
-  if (subjects.length === 0) {
-    subjects = [
-      { name: 'Algorithms', yourPercent: Math.min(100, Math.round(pct * 1.05)), averagePercent: 51 },
-      { name: 'Operating Systems', yourPercent: Math.min(100, Math.round(pct * 0.98)), averagePercent: 48 },
-      { name: 'Databases', yourPercent: Math.min(100, Math.round(pct * 1.12)), averagePercent: 54 },
-      { name: 'Theory of Computation', yourPercent: Math.min(100, Math.round(pct * 0.92)), averagePercent: 42 },
-      { name: 'Computer Networks', yourPercent: Math.min(100, Math.round(pct * 0.88)), averagePercent: 39 },
-      { name: 'Engineering Mathematics', yourPercent: Math.min(100, Math.round(pct * 1.02)), averagePercent: 46 },
-      { name: 'General Aptitude', yourPercent: Math.min(100, Math.round(pct * 1.15)), averagePercent: 62 }
-    ]
-  }
-
-  return {
-    participants,
-    rank: reportData?.estimatedRank ? parseInt(reportData.estimatedRank) || rank : rank,
-    percentile,
-    yourScore: score,
-    maxScore,
-    averageScore: 46.8,
-    highestScore: 94.5,
-    distribution: [
-      { from: 0, to: 10, count: 620 },
-      { from: 10, to: 20, count: 1250 },
-      { from: 20, to: 30, count: 2840 },
-      { from: 30, to: 40, count: 4620 },
-      { from: 40, to: 50, count: 4890 },
-      { from: 50, to: 60, count: 2480 },
-      { from: 60, to: 70, count: 1120 },
-      { from: 70, to: 80, count: 490 },
-      { from: 80, to: 90, count: 120 },
-      { from: 90, to: 100, count: 20 }
-    ],
-    yourBucket,
-    subjects
-  }
-}
 
 export default function PYQMockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
@@ -207,12 +44,15 @@ export default function PYQMockTestsPage() {
   const [historySearchQuery, setHistorySearchQuery] = useState('')
   const [historyFilterType, setHistoryFilterType] = useState('all')
 
-  // Prepared PYQ test attempts history list (merges stored history with dummy attempts for review)
+  // The account's finished attempts, newest first
   const pyqHistoryAttempts = useMemo(() => {
-    const stored = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
-    const dummies = DUMMY_PYQ_CONFIGS.map(c => buildDummyPyqAttempt(c, questions))
-    return [...stored, ...dummies]
-  }, [questions])
+    try {
+      const stored = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
+      return Array.isArray(stored) ? stored.filter(Boolean) : []
+    } catch {
+      return []
+    }
+  }, [view])
 
   const handleOpenAttemptReport = (attempt) => {
     setReportData(attempt)
@@ -229,7 +69,19 @@ export default function PYQMockTestsPage() {
     setTimeSpent(attempt.timeSpentMap || {})
     setActiveTestTitle(attempt.testTitle)
     setActiveTestModeInfo(attempt.modeInfo || 'Full-Length PYQ Exam')
-    setComparisonState({ status: 'uncounted' })
+    // Only full year papers are compared with other students
+    if (!attempt.paperId) {
+      setComparisonState({ status: 'not-year' })
+    } else if (attempt.counted === false) {
+      setComparisonState({ status: 'uncounted' })
+    } else if (!isSignedIn()) {
+      setComparisonState({ status: 'guest' })
+    } else {
+      setComparisonState({ status: 'loading' })
+      fetchMockComparison(attempt.paperId)
+        .then(comparison => setComparisonState(comparison ? { status: 'ready', comparison } : { status: 'uncounted' }))
+        .catch(err => setComparisonState({ status: 'error', message: err.message }))
+    }
     setActiveReportTab('overview')
     setView('report')
   }
@@ -3348,7 +3200,12 @@ export default function PYQMockTestsPage() {
         {/* TAB 4: SOLUTIONS & SOLUTIONS REVIEW */}
         {activeReportTab === 'compare' && (
           <div className="no-print">
-            <GlobalComparison comparison={comparisonState?.status === 'ready' && comparisonState.comparison ? comparisonState.comparison : buildDummyGlobalComparison(reportData)} />
+            {comparisonState.status === 'not-year' && <p className="text-sm text-slate-500 py-8 text-center">Only full year papers are compared with other students. Subject, topic, random and custom papers are different for everyone.</p>}
+            {comparisonState.status === 'guest' && <LoginToCompare />}
+            {comparisonState.status === 'loading' && <p className="text-sm text-slate-500 py-8 text-center">Comparing with other students...</p>}
+            {comparisonState.status === 'error' && <p className="text-sm text-error py-8 text-center">Could not load the comparison: {comparisonState.message}</p>}
+            {comparisonState.status === 'uncounted' && <p className="text-sm text-slate-500 py-8 text-center">This attempt isn't counted, so there's no comparison for it.</p>}
+            {comparisonState.status === 'ready' && comparisonState.comparison && <GlobalComparison comparison={comparisonState.comparison} />}
           </div>
         )}
 

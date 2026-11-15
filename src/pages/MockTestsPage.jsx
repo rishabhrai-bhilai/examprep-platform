@@ -18,7 +18,7 @@ import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
-import { isSignedIn, submitMockAttempt } from '../utils/engagementApi'
+import { isSignedIn, submitMockAttempt, fetchMockComparison } from '../utils/engagementApi'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findMockAttempt, canStartNewTest } from '../utils/testSession'
@@ -106,170 +106,8 @@ const MOCK_CATEGORIES = [
   }
 ]
 
-// ==========================================
-// DUMMY TEST HISTORY GENERATOR FOR PROTOTYPE
-// ==========================================
-const DUMMY_MOCK_CONFIGS = [
-  { id: 'mock-test-8', title: 'All-India Full Mock #8', date: '03 Nov 2026', score: 73.0, maxScore: 100, correct: 48, incorrect: 10, unanswered: 7, accuracy: 82.5, timeTaken: 10500, timeFormatted: '2h 55m', estScore: 740, estRank: '512' },
-  { id: 'mock-test-7', title: 'All-India Full Mock #7', date: '01 Nov 2026', score: 84.5, maxScore: 100, correct: 55, incorrect: 6, unanswered: 4, accuracy: 90.0, timeTaken: 9900, timeFormatted: '2h 45m', estScore: 850, estRank: '210' },
-  { id: 'mock-test-6', title: 'Core CS Subject Mock #6', date: '28 Oct 2026', score: 68.0, maxScore: 100, correct: 45, incorrect: 12, unanswered: 8, accuracy: 78.5, timeTaken: 10200, timeFormatted: '2h 50m', estScore: 690, estRank: '680' },
-  { id: 'mock-test-5', title: 'All-India Full Mock #5', date: '24 Oct 2026', score: 71.0, maxScore: 100, correct: 46, incorrect: 12, unanswered: 7, accuracy: 79.0, timeTaken: 10560, timeFormatted: '2h 56m', estScore: 715, estRank: '590' },
-  { id: 'mock-sectional-4', title: 'Algorithms & Data Structures Sectional Mock #4', date: '20 Oct 2026', score: 24.5, maxScore: 30, correct: 13, incorrect: 2, unanswered: 0, accuracy: 88.0, timeTaken: 2520, timeFormatted: '42m', estScore: 810, estRank: '290' },
-];
-
-function buildDummyMockAttempt(c, availableQuestions = []) {
-  const totalQs = c.correct + c.incorrect + c.unanswered;
-  const testQs = availableQuestions.length >= totalQs
-    ? availableQuestions.slice(0, totalQs)
-    : Array.from({ length: totalQs }, (_, i) => ({
-        id: `${c.id}-q${i + 1}`,
-        type: i % 5 === 0 ? 'NAT' : i % 4 === 0 ? 'MSQ' : 'MCQ',
-        marks: (i % 3 === 0) ? 2 : 1,
-        subject: ['Algorithms', 'Operating Systems', 'Databases', 'Theory of Computation', 'Computer Networks', 'Engineering Mathematics', 'General Aptitude'][i % 7],
-        question: `Sample Question ${i + 1} from ${c.title}. Consider the given computational algorithm or system state.`,
-        options: ['Option A', 'Option B', 'Option C', 'Option D'],
-        answer: i % 4,
-        explanation: `Detailed solution explanation for Question ${i + 1}.`
-      }));
-
-  const answers = {};
-  const timeSpentMap = {};
-  testQs.forEach((q, i) => {
-    if (i < c.correct) {
-      answers[q.id] = q.answer !== undefined ? q.answer : 0;
-    } else if (i < c.correct + c.incorrect) {
-      answers[q.id] = typeof q.answer === 'number' ? (q.answer + 1) % 4 : '0';
-    }
-    timeSpentMap[q.id] = 50 + (i % 5) * 20;
-  });
-
-  const subjectStats = {};
-  ['Algorithms', 'Operating Systems', 'Databases', 'Theory of Computation', 'Computer Networks', 'Engineering Mathematics', 'General Aptitude'].forEach((s) => {
-    const sTotal = Math.round(totalQs / 7);
-    const sCorrect = Math.min(sTotal, Math.round(c.correct / 7));
-    const sIncorrect = Math.min(sTotal - sCorrect, Math.round(c.incorrect / 7));
-    subjectStats[s] = {
-      totalQs: sTotal,
-      correctQs: sCorrect,
-      incorrectQs: sIncorrect,
-      unansweredQs: Math.max(0, sTotal - sCorrect - sIncorrect),
-      marksMax: sTotal * 1.5,
-      marksObtained: sCorrect * 1.5 - sIncorrect * 0.33
-    };
-  });
-
-  const topicStats = {
-    'Dynamic Programming': { totalQs: 4, correctQs: 3, marksMax: 6, marksObtained: 4.5 },
-    'Page Replacement': { totalQs: 3, correctQs: 2, marksMax: 4.5, marksObtained: 3.0 },
-    'Transactions & 2PL': { totalQs: 3, correctQs: 3, marksMax: 4.5, marksObtained: 4.5 },
-    'Shortest Paths': { totalQs: 4, correctQs: 3, marksMax: 6, marksObtained: 4.5 },
-    'Closure Properties': { totalQs: 3, correctQs: 2, marksMax: 4.5, marksObtained: 3.0 }
-  };
-
-  return {
-    testId: c.id,
-    testTitle: c.title,
-    displayName: c.title,
-    attemptNo: 1,
-    counted: true,
-    date: c.date,
-    time: '11:45 AM',
-    timestamp: Date.now() - 86400000 * 2,
-    questionsCount: totalQs,
-    correct: c.correct,
-    incorrect: c.incorrect,
-    unanswered: c.unanswered,
-    score: c.score,
-    maxScore: c.maxScore,
-    percentage: c.accuracy,
-    attemptRate: parseFloat((((c.correct + c.incorrect) / totalQs) * 100).toFixed(1)),
-    timeTaken: c.timeTaken,
-    timeTakenFormatted: c.timeFormatted,
-    timeUtilizationRate: 93,
-    avgTimeCorrect: 110,
-    avgTimeIncorrect: 65,
-    avgTimeUnanswered: 18,
-    panicZoneErrors: 1,
-    estimatedGateScore: c.estScore,
-    estimatedRank: c.estRank,
-    subjectStats,
-    topicStats,
-    difficultyStats: {
-      Easy: { correct: Math.round(c.correct * 0.45), incorrect: 1, unanswered: 0 },
-      Medium: { correct: Math.round(c.correct * 0.4), incorrect: Math.round(c.incorrect * 0.6), unanswered: 1 },
-      Hard: { correct: Math.round(c.correct * 0.15), incorrect: Math.round(c.incorrect * 0.4), unanswered: Math.max(0, c.unanswered - 1) }
-    },
-    errorTags: {
-      [testQs[c.correct]?.id || 'mock_err_1']: 'conceptual'
-    },
-    timeSpentMap,
-    modeInfo: 'All-India Mock Examination',
-    questions: testQs,
-    answers
-  };
-}
 
 
-export function buildDummyGlobalComparison(reportData) {
-  const score = reportData?.score ?? 71.5
-  const maxScore = reportData?.maxScore ?? 100
-  const pct = Math.max(0, Math.min(100, (score / maxScore) * 100))
-  const participants = 18450
-  const percentile = parseFloat(Math.min(99.6, Math.max(15.2, pct * 0.94 + 5.2)).toFixed(1))
-  const rank = Math.max(1, Math.round(participants * (1 - percentile / 100)))
-  const yourBucket = Math.min(9, Math.max(0, Math.floor(pct / 10)))
-
-  let subjects = []
-  if (reportData?.subjectStats && Object.keys(reportData.subjectStats).length > 0) {
-    subjects = Object.entries(reportData.subjectStats).map(([name, s]) => {
-      const maxM = s.marksMax || (s.totalQs * 1.5) || 10
-      const obtained = s.marksObtained ?? (s.correctQs * 1.5 - s.incorrectQs * 0.33)
-      const yourPercent = Math.max(0, Math.min(100, Math.round((obtained / maxM) * 100)))
-      const averagePercent = Math.max(20, Math.min(85, Math.round(yourPercent * 0.65 + 18)))
-      return {
-        name,
-        yourPercent,
-        averagePercent
-      }
-    })
-  }
-
-  if (subjects.length === 0) {
-    subjects = [
-      { name: 'Algorithms', yourPercent: Math.min(100, Math.round(pct * 1.05)), averagePercent: 51 },
-      { name: 'Operating Systems', yourPercent: Math.min(100, Math.round(pct * 0.98)), averagePercent: 48 },
-      { name: 'Databases', yourPercent: Math.min(100, Math.round(pct * 1.12)), averagePercent: 54 },
-      { name: 'Theory of Computation', yourPercent: Math.min(100, Math.round(pct * 0.92)), averagePercent: 42 },
-      { name: 'Computer Networks', yourPercent: Math.min(100, Math.round(pct * 0.88)), averagePercent: 39 },
-      { name: 'Engineering Mathematics', yourPercent: Math.min(100, Math.round(pct * 1.02)), averagePercent: 46 },
-      { name: 'General Aptitude', yourPercent: Math.min(100, Math.round(pct * 1.15)), averagePercent: 62 }
-    ]
-  }
-
-  return {
-    participants,
-    rank: reportData?.estimatedRank ? parseInt(reportData.estimatedRank) || rank : rank,
-    percentile,
-    yourScore: score,
-    maxScore,
-    averageScore: 46.8,
-    highestScore: 94.5,
-    distribution: [
-      { from: 0, to: 10, count: 620 },
-      { from: 10, to: 20, count: 1250 },
-      { from: 20, to: 30, count: 2840 },
-      { from: 30, to: 40, count: 4620 },
-      { from: 40, to: 50, count: 4890 },
-      { from: 50, to: 60, count: 2480 },
-      { from: 60, to: 70, count: 1120 },
-      { from: 70, to: 80, count: 490 },
-      { from: 80, to: 90, count: 120 },
-      { from: 90, to: 100, count: 20 }
-    ],
-    yourBucket,
-    subjects
-  }
-}
 
 export default function MockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
@@ -330,12 +168,15 @@ export default function MockTestsPage() {
   const [comparisonState, setComparisonState] = useState({ status: 'loading' })
   const [questionFilter, setQuestionFilter] = useState('all')
 
-  // Prepared Mock test attempts history list (merges stored history with dummy attempts for review)
+  // The account's finished attempts, newest first
   const mockHistoryAttempts = useMemo(() => {
-    const stored = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
-    const dummies = DUMMY_MOCK_CONFIGS.map(c => buildDummyMockAttempt(c, questions || []))
-    return [...stored, ...dummies]
-  }, [questions])
+    try {
+      const stored = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
+      return Array.isArray(stored) ? stored.filter(Boolean) : []
+    } catch {
+      return []
+    }
+  }, [view])
 
   const handleOpenMockReport = async (attempt, returnTo = 'history') => {
     // Attempts store the paper's question ids; older ones fall back to the paper itself
@@ -364,7 +205,17 @@ export default function MockTestsPage() {
     setActiveTest({ id: attempt.testId, title: attempt.testTitle, durationMinutes: paper?.durationMinutes, questions: testQs })
     setAnswers(attempt.answers || {})
     setTimeSpent(attempt.timeSpentMap || {})
-    setComparisonState({ status: 'uncounted' })
+    // A counted attempt at a fixed test has a comparison with everyone's first attempts
+    if (attempt.counted === false) {
+      setComparisonState({ status: 'uncounted' })
+    } else if (!isSignedIn()) {
+      setComparisonState({ status: 'guest' })
+    } else {
+      setComparisonState({ status: 'loading' })
+      fetchMockComparison(attempt.testId)
+        .then(comparison => setComparisonState(comparison ? { status: 'ready', comparison } : { status: 'uncounted' }))
+        .catch(err => setComparisonState({ status: 'error', message: err.message }))
+    }
     setActiveReportTab('overview')
     setReturnView(returnTo)
     setView('report')
@@ -2324,7 +2175,11 @@ export default function MockTestsPage() {
         {/* --- TAB 4: SOLUTIONS & ERROR TAGGING --- */}
         {activeReportTab === 'compare' && (
           <div className="no-print">
-            <GlobalComparison comparison={comparisonState?.status === 'ready' && comparisonState.comparison ? comparisonState.comparison : buildDummyGlobalComparison(reportData)} />
+            {comparisonState.status === 'guest' && <LoginToCompare />}
+            {comparisonState.status === 'loading' && <p className="text-sm text-slate-500 py-8 text-center">Comparing with other students...</p>}
+            {comparisonState.status === 'error' && <p className="text-sm text-error py-8 text-center">Could not load the comparison: {comparisonState.message}</p>}
+            {comparisonState.status === 'uncounted' && <p className="text-sm text-slate-500 py-8 text-center">This attempt isn't counted, so there's no comparison for it.</p>}
+            {comparisonState.status === 'ready' && comparisonState.comparison && <GlobalComparison comparison={comparisonState.comparison} />}
           </div>
         )}
 

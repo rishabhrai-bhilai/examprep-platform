@@ -317,7 +317,7 @@ export const testRecordDb = {
 // Stored as { [userId]: { attempts: { [questionId]: Attempt }, days: { 'YYYY-MM-DD': DayTotals },
 //   timeZone: string | null, updatedAt: number } } (shapes in shared/practice.js)
 export const attemptDb = {
-  // Every user's record at once ({ [userId]: ... }), for reading many users in one pass
+  // Every user's record at once ({ [userId]: ... }): peer comparisons and reading many users in one pass
   getAll: () => structuredClone(peek('attempts')),
 
   getUserAttempts: (userId) => {

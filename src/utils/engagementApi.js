@@ -51,3 +51,7 @@ export const submitProblemOfTheDay = (questionId, answer) =>
 export const markBadgesSeen = (ids) => request('POST', 'badges/seen', { ids })
 
 export const fetchDiscussionStats = () => request('GET', 'discussions/stats/me')
+
+// Leaderboard, score spread, subjects vs everyone, weekly effort and crowd
+// questions for the Analytics page ('mock' or 'pyq')
+export const fetchPeerAnalytics = (space) => request('GET', `analytics/peers?space=${space === 'pyq' ? 'pyq' : 'mock'}`)

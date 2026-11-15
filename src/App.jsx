@@ -25,7 +25,6 @@ const DiscussionPage = lazy(() => import('./pages/DiscussionPage'))
 const ReportPage = lazy(() => import('./pages/ReportPage'))
 const BookletPage = lazy(() => import('./pages/BookletPage'))
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'))
-const PrototypeAnalyticsPage = lazy(() => import('./pages/PrototypeAnalyticsPage'))
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'))
 
 // Pages that read the question bank wait until it has loaded
@@ -39,12 +38,6 @@ import AuthPromptModal from './components/AuthPromptModal'
 import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
 import { BadgeUnlockModal } from './components/Badges'
-
-// Pages still in development (sample data) are only for admins
-function AdminOnly({ children }) {
-  const user = useAuthStore(s => s.user)
-  return user?.isAdmin ? children : <Navigate to="/analytics" replace />
-}
 
 function App() {
   const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
@@ -90,7 +83,8 @@ function App() {
           <Route path="/mock-tests" element={<QuestionsGate originals><MockTestsPage /></QuestionsGate>} />
           <Route path="/booklet" element={withQuestions(<BookletPage />)} />
           <Route path="/analytics" element={withQuestions(<AnalyticsPage />)} />
-          <Route path="/analytics-prototype" element={<AdminOnly>{withQuestions(<PrototypeAnalyticsPage />)}</AdminOnly>} />
+          {/* The analytics design was previewed here; it is now the Analytics page */}
+          <Route path="/analytics-prototype" element={<Navigate to="/analytics" replace />} />
           <Route path="/bookmarks" element={withQuestions(<BookmarksPage />)} />
           <Route path="/notes" element={withQuestions(<NotesPage />)} />
           <Route path="/resources" element={<ResourcesPage />} />

@@ -14,6 +14,7 @@ import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attem
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest, mockTests } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes, pyqPaperTitle } from '../shared/pyqPapers.js'
+import { peerAnalytics } from './services/analytics.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
 import { requiredBadgeFor } from '../shared/avatars.js'
@@ -918,6 +919,7 @@ const publicAttempt = ({ userId, ...attempt }) => attempt
 // Questions written for the mock tests (not past papers), scored like any other
 const originalQuestions = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'shared', 'originalQuestions.json'), 'utf8'))
 const originalById = new Map(originalQuestions.map(q => [q.id, q]))
+const questionById = new Map(questions.map(q => [q.id, q]))
 
 // The browser gets these without their answers and explanations. A user sees
 // those for a test only after submitting it (with the submission's reply, or later
@@ -1045,6 +1047,35 @@ app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
 app.get('/api/mock-tests/:testId/comparison', requireAuth, (req, res) => {
   if (!resolveTest(req.params.testId)) return res.status(404).json({ error: 'Test not found.' })
   res.status(200).json({ comparison: comparisonFor(req.params.testId, req.user.id) })
+})
+
+// Peer comparison for the Analytics page (?space=mock|pyq): leaderboard, score
+// spread, subjects vs everyone, weekly effort and crowd questions, from real data
+app.get('/api/analytics/peers', requireAuth, (req, res) => {
+  try {
+    const space = req.query.space === 'pyq' ? 'pyq' : 'mock'
+    const attempts = mockAttemptDb.getAll().filter(a => a.attemptNo === 1 && (isPyqPaperId(a.testId) ? 'pyq' : 'mock') === space)
+    const users = new Map(userDb.getAll().map(u => [u.id, { name: u.name, streak: u.streak || 0 }]))
+    // Mock tests mix original questions and past-paper ones; PYQ means the past papers
+    const questionsById = space === 'pyq'
+      ? questionById
+      : new Map(mockTests.flatMap(t => t.questions).map(id => [id, originalById.get(id) || questionById.get(id)]).filter(([, q]) => q))
+    const data = peerAnalytics({
+      userId: req.user.id,
+      space,
+      attempts,
+      users,
+      practice: attemptDb.getAll(),
+      questionsById,
+      testTitle: (id) => findMockTest(id)?.title || (isPyqPaperId(id) ? pyqPaperTitle(id) : id),
+      compareAttempt,
+      today: dayKey(Date.now(), userTimeZone(req.user.id))
+    })
+    res.status(200).json(data)
+  } catch (err) {
+    console.error('Peer analytics error:', err)
+    res.status(500).json({ error: 'Could not load the comparison.' })
+  }
 })
 
 // 9. Problem of the Day: the same question for everyone on a given date, picked
