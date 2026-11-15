@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, ArrowLeft, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X, Users, Sparkles, Layers, Search, Filter } from 'lucide-react'
+import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, ArrowLeft, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X, Users, Sparkles, Layers, Search, Filter, Lock } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useNavigate } from 'react-router-dom'
+import { useSeriesStore } from '../store/useSeriesStore'
+import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
@@ -270,6 +272,15 @@ export function buildDummyGlobalComparison(reportData) {
 
 export default function MockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
+  // Tests inside a test series are locked unless the student's coaching centre gives them that series.
+  // Original questions come from the server (only those this student may see).
+  const navigate = useNavigate()
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  const originals = useSeriesStore(s => s.originals)
+  const seriesAccess = useSeriesStore(s => s.access)
+  const refreshAccess = useSeriesStore(s => s.refreshAccess)
+  useEffect(() => { refreshAccess() }, [isAuthenticated, refreshAccess])
+  const lockFor = (testId) => (seriesAccess.locked[testId] && !seriesAccess.unlocked.includes(testId) ? seriesAccess.locked[testId] : null)
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report' | 'history'
   const [selectedCategoryId, setSelectedCategoryId] = useState(null)
   const [categorySearchQuery, setCategorySearchQuery] = useState('')
@@ -355,9 +366,9 @@ export default function MockTestsPage() {
   }, [view])
 
   // Initialize questions inside a test
-  // Papers mix past-paper questions and original ones (shared/originalQuestions.json),
+  // Papers mix past-paper questions and original ones (served by /api/mock-tests/originals),
   // in the paper's own order
-  const questionById = useMemo(() => new Map([...(questions || []), ...originalQuestions].map(q => [q.id, q])), [questions])
+  const questionById = useMemo(() => new Map([...(questions || []), ...(originals || [])].map(q => [q.id, q])), [questions, originals])
   const testQuestions = activeTest
     ? (Array.isArray(activeTest.questions)
         ? activeTest.questions.map(item => (typeof item === 'object' && item !== null ? item : questionById.get(item))).filter(Boolean)
@@ -415,6 +426,8 @@ export default function MockTestsPage() {
   const startTest = (test) => {
     const done = findMockAttempt(test.id)
     if (done) return handleOpenMockReport(done, 'list')
+    if (lockFor(test.id)) return navigate('/profile#coaching-centre')
+    if (!originals) return // questions still loading
     const saved = loadSession()
     if (saved && saved.page === 'mock' && saved.testId === test.id) return resumeTest(saved)
     if (!canStartNewTest(test.id)) return
@@ -436,7 +449,7 @@ export default function MockTestsPage() {
   }
 
   const resumeTest = (saved = loadSession()) => {
-    if (!saved || saved.page !== 'mock') return
+    if (!saved || saved.page !== 'mock' || !originals) return
     const paper = dummyMockTests.find(t => t.id === saved.testId)
     setActiveTest({
       ...(paper || { id: saved.testId, title: saved.title }),
@@ -1204,6 +1217,17 @@ export default function MockTestsPage() {
                   {(() => {
                     const inProgress = session?.page === 'mock' && session.testId === test.id
                     const done = !inProgress && findMockAttempt(test.id)
+                    if (!done && lockFor(test.id)) {
+                      return (
+                        <button
+                          onClick={() => startTest(test)}
+                          title="Part of a coaching-centre test series. Join your centre in Profile to unlock it."
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-btn transition-all active:scale-95 cursor-pointer text-slate-700 dark:text-slate-200 border border-border-light dark:border-border-dark hover:border-primary hover:text-primary"
+                        >
+                          <Lock size={13} /> Coaching only
+                        </button>
+                      )
+                    }
                     return (
                       <button
                         onClick={() => startTest(test)}

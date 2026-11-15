@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "dev:admin": "vite --config admin/vite.config.js",
+    "build": "vite build && vite build --config admin/vite.config.js",
+    "build:site": "vite build",
+    "build:admin": "vite build --config admin/vite.config.js",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "start": "node server/server.js"

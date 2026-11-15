@@ -10,10 +10,10 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, initStorage, flushStorage, storageHealth } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, seriesDb, initStorage, flushStorage, storageHealth } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
-import { findMockTest } from '../shared/mockTests.js'
-import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../shared/pyqPapers.js'
+import { findMockTest, mockTests } from '../shared/mockTests.js'
+import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes, pyqPaperTitle } from '../shared/pyqPapers.js'
 import { scoreAnswers, compareAttempt, isValidAttempt, MIN_VALID_SECONDS } from '../shared/testAnalytics.js'
 import { BADGES, findBadge, potdCandidates, problemOfTheDay } from '../shared/engagement.js'
 import { requiredBadgeFor } from '../shared/avatars.js'
@@ -28,6 +28,7 @@ import {
   verifyGoogleCredential,
   requireAuth,
   requireAdmin,
+  requireInstituteAdmin,
   isAdminEmail,
   adminEmails,
   loginLockedFor,
@@ -38,6 +39,10 @@ import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
 import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscussionStats } from './services/discussions.js'
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
+import { studentReport, batchSummary } from './services/institutes.js'
+import { canTakeTest, centreSeat } from './services/access.js'
+import { registerSeriesRoutes } from './routes/series.js'
+import { registerAdminRoutes } from './routes/admin.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
 dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
@@ -59,7 +64,13 @@ app.set('trust proxy', 1)
 const sanitizeUser = (user) => {
   if (!user) return null
   const { passwordHash, salt, rank, ...safeUser } = user
-  return { ...safeUser, hasPassword: !!passwordHash, isAdmin: isAdminEmail(user.email) }
+  return {
+    ...safeUser,
+    hasPassword: !!passwordHash,
+    isAdmin: isAdminEmail(user.email),
+    // Admin of at least one coaching centre (shows the Coaching Dashboard link)
+    isInstituteAdmin: instituteDb.findByAdmin(user.email).length > 0
+  }
 }
 
 const isValidTimeZone = (tz) => {
@@ -170,7 +181,7 @@ app.use(helmet({
 // The site calls its own API (same origin), so cross-origin requests are only
 // allowed from the exact addresses listed here
 const allowedOrigins = new Set(
-  [process.env.CORS_ORIGIN, process.env.APP_URL, process.env.RENDER_EXTERNAL_URL, 'https://examprep-platform.onrender.com']
+  [process.env.CORS_ORIGIN, process.env.APP_URL, process.env.ADMIN_APP_URL, process.env.RENDER_EXTERNAL_URL, 'https://examprep-platform.onrender.com']
     .flatMap(v => String(v || '').split(','))
     .map(v => v.trim().replace(/\/$/, '').toLowerCase())
     .filter(Boolean)
@@ -901,6 +912,9 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
   try {
     const test = resolveTest(req.params.testId)
     if (!test) return res.status(404).json({ error: 'Test not found.' })
+    if (!canTakeTest(req.user, test.id)) {
+      return res.status(403).json({ error: "This test is part of a test series you haven't unlocked." })
+    }
 
     const timeTaken = Math.round(Number(req.body?.timeTaken))
     if (!Number.isFinite(timeTaken) || timeTaken < 0 || timeTaken > test.durationMinutes * 60 + 120) {
@@ -1012,7 +1026,209 @@ app.post('/api/badges/seen', requireAuth, (req, res) => {
   res.status(200).json({ user: sanitizeUser(updated) })
 })
 
+// --- REST API: COACHING CENTRES (INSTITUTES) ---
+// Site admins (ADMIN_EMAILS) create a centre and name its admins. Students join with
+// the centre's invite code, agreeing to share their progress (services/institutes.js
+// lists exactly what is shared), and can leave at any time.
+const MAX_INSTITUTE_ADMINS = 10
+const instituteName = (name) => {
+  const trimmed = typeof name === 'string' ? name.trim().replace(/\s+/g, ' ') : ''
+  return trimmed.length >= 2 && trimmed.length <= 80 ? trimmed : null
+}
+// Comma/space separated string or array -> { emails } (unique, lower case) or { error }
+const parseAdminEmails = (value) => {
+  const list = (Array.isArray(value) ? value : String(value || '').split(/[\s,;]+/))
+    .map(normalizeEmail).filter(Boolean)
+  const emails = Array.from(new Set(list))
+  if (!emails.length) return { error: 'Add at least one admin email.' }
+  if (emails.length > MAX_INSTITUTE_ADMINS) return { error: `A centre can have at most ${MAX_INSTITUTE_ADMINS} admins.` }
+  const bad = emails.find(e => !EMAIL_RE.test(e))
+  if (bad) return { error: `"${bad}" is not a valid email.` }
+  return { emails }
+}
+const publicInstitute = (i) => ({
+  id: i.id, name: i.name, code: i.code, adminEmails: i.adminEmails,
+  memberCount: (i.members || []).length, createdAt: i.createdAt,
+  // Seats: how many students get the centre's test series (the centre pays for these)
+  seats: i.seats || 0,
+  seriesIds: i.seriesIds || [],
+  series: (i.seriesIds || []).map(id => ({ id, title: seriesDb.findById(id)?.title || 'Deleted series' }))
+})
+const MAX_SEATS = 5000
+// Seats and series are set by site admins only: { seats, seriesIds } or { error }
+const parseSeatsAndSeries = (body) => {
+  const out = {}
+  if (body?.seats !== undefined) {
+    const n = Math.round(Number(body.seats))
+    if (!Number.isFinite(n) || n < 0 || n > MAX_SEATS) return { error: `Seats must be 0 to ${MAX_SEATS}.` }
+    out.seats = n
+  }
+  if (body?.seriesIds !== undefined) {
+    const known = new Set(seriesDb.getAll().map(s => s.id))
+    out.seriesIds = Array.from(new Set(Array.isArray(body.seriesIds) ? body.seriesIds : [])).filter(id => known.has(id))
+  }
+  return { value: out }
+}
+const questionSubjects = new Map([...questions, ...originalQuestions].map(q => [q.id, q.subject || 'General Aptitude']))
+const testTitle = (id) => findMockTest(id)?.title || (isPyqPaperId(id) ? `${pyqPaperTitle(id)} (full paper)` : id)
+
+// Centres the signed-in user manages (every centre, for a site admin)
+app.get('/api/institutes', requireAuth, (req, res) => {
+  const list = req.user.isAdmin ? instituteDb.getAll() : instituteDb.findByAdmin(req.user.email)
+  res.status(200).json({ institutes: list.map(publicInstitute), canCreate: req.user.isAdmin })
+})
+
+app.post('/api/institutes', requireAuth, requireAdmin, (req, res) => {
+  const name = instituteName(req.body?.name)
+  if (!name) return res.status(400).json({ error: 'Centre name must be 2 to 80 characters.' })
+  const admins = parseAdminEmails(req.body?.adminEmails)
+  if (admins.error) return res.status(400).json({ error: admins.error })
+  const extra = parseSeatsAndSeries(req.body)
+  if (extra.error) return res.status(400).json({ error: extra.error })
+  const institute = instituteDb.create({ name, adminEmails: admins.emails, ...extra.value, createdBy: req.user.id })
+  res.status(201).json({ institute: publicInstitute(institute) })
+})
+
+// Rename, change admins, or issue a new invite code (the old one stops working)
+app.patch('/api/institutes/:id', requireAuth, requireInstituteAdmin, (req, res) => {
+  const updates = {}
+  if (req.body?.name !== undefined) {
+    updates.name = instituteName(req.body.name)
+    if (!updates.name) return res.status(400).json({ error: 'Centre name must be 2 to 80 characters.' })
+  }
+  if (req.body?.adminEmails !== undefined) {
+    const admins = parseAdminEmails(req.body.adminEmails)
+    if (admins.error) return res.status(400).json({ error: admins.error })
+    // A centre admin can't lock themselves out (a site admin can fix any centre)
+    if (!req.user.isAdmin && !admins.emails.includes(normalizeEmail(req.user.email))) {
+      return res.status(400).json({ error: 'You cannot remove yourself as an admin.' })
+    }
+    updates.adminEmails = admins.emails
+  }
+  if (req.body?.regenerateCode) updates.regenerateCode = true
+  if (req.body?.seats !== undefined || req.body?.seriesIds !== undefined) {
+    if (!req.user.isAdmin) return res.status(403).json({ error: 'Only site admins can change seats and test series.' })
+    const extra = parseSeatsAndSeries(req.body)
+    if (extra.error) return res.status(400).json({ error: extra.error })
+    Object.assign(updates, extra.value)
+  }
+  const updated = instituteDb.update(req.institute.id, updates)
+  res.status(200).json({ institute: publicInstitute(updated) })
+})
+
+app.delete('/api/institutes/:id', requireAuth, requireAdmin, (req, res) => {
+  if (!instituteDb.delete(req.params.id)) return res.status(404).json({ error: 'Coaching centre not found.' })
+  res.status(200).json({ ok: true })
+})
+
+// Every linked student's progress, plus batch totals
+app.get('/api/institutes/:id/dashboard', requireAuth, requireInstituteAdmin, (req, res) => {
+  try {
+    const now = Date.now()
+    const allPractice = attemptDb.getAll()
+    const mocksByUser = new Map()
+    mockAttemptDb.getAll().forEach(a => {
+      if (!mocksByUser.has(a.userId)) mocksByUser.set(a.userId, [])
+      mocksByUser.get(a.userId).push(a)
+    })
+    const students = (req.institute.members || []).map(m => {
+      const user = refreshPracticeStats(userDb.findById(m.userId))
+      if (!user) return null
+      const report = studentReport({
+        user,
+        joinedAt: m.joinedAt,
+        practice: allPractice[user.id] || { attempts: {}, days: {}, timeZone: null },
+        mocks: mocksByUser.get(user.id) || [],
+        streak: user.streak,
+        subjectOf: (id) => questionSubjects.get(Number(id)),
+        testTitle,
+        now
+      })
+      return { ...report, hasSeat: !!centreSeat(user.id, req.institute) }
+    }).filter(Boolean)
+    res.status(200).json({
+      institute: publicInstitute(req.institute),
+      summary: batchSummary(students, now),
+      students,
+      generatedAt: now
+    })
+  } catch (err) {
+    console.error('Institute dashboard error:', err)
+    res.status(500).json({ error: 'Failed to load the dashboard.' })
+  }
+})
+
+app.delete('/api/institutes/:id/members/:userId', requireAuth, requireInstituteAdmin, (req, res) => {
+  if (!instituteDb.removeMember(req.institute.id, req.params.userId)) return res.status(404).json({ error: 'That student is not in this centre.' })
+  res.status(200).json({ ok: true })
+})
+
+// The signed-in student's own centre
+const membershipFor = (userId) => {
+  const institute = instituteDb.findByMember(userId)
+  if (!institute) return null
+  const member = institute.members.find(m => m.userId === userId)
+  const seat = centreSeat(userId, institute)
+  return {
+    id: institute.id, name: institute.name, joinedAt: member.joinedAt,
+    series: seat ? seat.seriesIds.map(id => seriesDb.findById(id)?.title).filter(Boolean) : []
+  }
+}
+
+app.get('/api/me/institute', requireAuth, (req, res) => {
+  res.status(200).json({ institute: membershipFor(req.user.id) })
+})
+
+// The centre behind a code, shown before the student agrees to join
+app.get('/api/me/institute/lookup', requireAuth, postLimiter, (req, res) => {
+  const institute = instituteDb.findByCode(req.query.code)
+  if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
+  const series = (institute.seriesIds || []).map(id => seriesDb.findById(id)?.title).filter(Boolean)
+  res.status(200).json({ institute: { name: institute.name, series } })
+})
+
+// Joining needs explicit consent; it leaves any other centre (one at a time)
+app.post('/api/me/institute', requireAuth, postLimiter, (req, res) => {
+  const institute = instituteDb.findByCode(req.body?.code)
+  if (!institute) return res.status(404).json({ error: 'No coaching centre has that code. Please check it with your centre.' })
+  if (req.body?.consent !== true) return res.status(400).json({ error: 'Please agree to share your progress with the centre.' })
+  // A centre that gives students a test series has a fixed number of seats
+  const already = (institute.members || []).some(m => m.userId === req.user.id)
+  if (!already && (institute.seriesIds || []).length && (institute.members || []).length >= (institute.seats || 0)) {
+    return res.status(409).json({ error: 'This centre has no free seats right now. Please ask your centre to add more.' })
+  }
+  instituteDb.addMember(institute.id, req.user.id)
+  res.status(200).json({ institute: membershipFor(req.user.id) })
+})
+
+// Leaving stops sharing straight away
+app.delete('/api/me/institute', requireAuth, (req, res) => {
+  const current = instituteDb.findByMember(req.user.id)
+  if (current) instituteDb.removeMember(current.id, req.user.id)
+  res.status(200).json({ institute: null })
+})
+
+// --- TEST SERIES AND THE ADMIN APP'S API ---
+registerSeriesRoutes(app, { mockTests, originalQuestions, optionalUser, isAdminEmail })
+registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle })
+
 // --- STATIC ASSETS & PRODUCTION SERVING ---
+// The admin app (admin/, built with `npm run build:admin` into dist-admin) is a
+// separate site. Point a second domain at this server and set ADMIN_HOST to it
+// (e.g. admin.example.com); requests for that host get the admin app instead.
+const adminDistPath = path.join(__dirname, '..', 'dist-admin')
+const adminHost = String(process.env.ADMIN_HOST || '').trim().toLowerCase()
+if (adminHost && fs.existsSync(adminDistPath)) {
+  // Built files have content hashes in their names, so they can be cached for a year
+  const adminAssets = express.static(adminDistPath, { maxAge: '1y', immutable: true, index: false })
+  const adminStatic = express.static(adminDistPath)
+  app.use((req, res, next) => {
+    if (req.hostname.toLowerCase() !== adminHost || req.path.startsWith('/api')) return next()
+    if (req.path.startsWith('/assets/')) return adminAssets(req, res, () => res.status(404).end())
+    adminStatic(req, res, () => res.sendFile(path.join(adminDistPath, 'index.html')))
+  })
+}
+
 const publicPath = path.join(__dirname, '..', 'public')
 app.use(express.static(publicPath))
 app.use('/diagrams', express.static(path.join(publicPath, 'diagrams')))
@@ -1062,7 +1278,7 @@ function checkProductionConfig() {
   if (!process.env.TURNSTILE_SITE_KEY || !process.env.TURNSTILE_SECRET_KEY) warnings.push('TURNSTILE_SITE_KEY/TURNSTILE_SECRET_KEY missing: the bot check on sign-up and password reset is OFF')
   if (!canSendEmail()) warnings.push('No email settings (BREVO_API_KEY + MAIL_FROM, or SMTP_USER + SMTP_PASS): sign-up codes and password resets cannot be sent')
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push('GOOGLE_CLIENT_ID missing: Google sign-in is hidden')
-  if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports')
+  if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports or use the admin app')
   warnings.forEach(w => console.error(`[config] WARNING: ${w}`))
 }
 checkProductionConfig()
