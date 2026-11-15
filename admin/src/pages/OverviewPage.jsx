@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { LayoutDashboard, Users, UserPlus, Activity, IndianRupee, ShoppingBag, School, Package, RefreshCw, AlertTriangle } from 'lucide-react'
+import { LayoutDashboard, Users, Activity, ClipboardList, School, Package, RefreshCw, Armchair } from 'lucide-react'
 import { api } from '../lib/api'
-import { card, btnGhost, th, td, PageHeader, SectionTitle, StatTile, DailyBars, Spinner, ErrorBox, Pill, rupees, fmtDateTime } from '../components/ui'
+import { card, btnGhost, th, td, PageHeader, SectionTitle, StatTile, DailyBars, Spinner, ErrorBox } from '../components/ui'
 import { timeAgo } from '../../../src/utils/practiceStats'
 
 export default function OverviewPage() {
@@ -34,20 +34,14 @@ export default function OverviewPage() {
         right={<button className={btnGhost} onClick={load} disabled={loading}><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh</button>}
       />
       <ErrorBox>{error}</ErrorBox>
-      {!data.paymentsLive && (
-        <div className="p-3 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
-          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-          <span>Razorpay keys aren&apos;t set on the server, so students can&apos;t pay online yet. Add RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET.</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <StatTile icon={Users} label="Students" value={t.students.toLocaleString('en-IN')} sub={`${t.newLast30} joined in 30 days`} />
         <StatTile icon={Activity} label="Active this week" value={t.activeLast7} sub={`${t.activeToday} active today`} />
-        <StatTile icon={IndianRupee} label="Revenue (30 days)" value={rupees(t.revenueLast30Paise)} sub={`${rupees(t.revenuePaise)} all time`} />
-        <StatTile icon={ShoppingBag} label="Paid orders" value={t.paidOrders} sub={`${t.buyers} buyer${t.buyers === 1 ? '' : 's'}${t.refundedPaise ? ` · ${rupees(t.refundedPaise)} refunded` : ''}`} />
+        <StatTile icon={ClipboardList} label="Mock attempts" value={t.mockAttempts} sub={`${t.mockAttemptsLast30} in 30 days`} />
         <StatTile icon={School} label="Centres" value={t.centres} sub={`${t.centreStudents} students linked`} />
-        <StatTile icon={Package} label="Test series" value={t.publishedSeries} sub={`${t.series - t.publishedSeries} draft${t.series - t.publishedSeries === 1 ? '' : 's'}`} />
+        <StatTile icon={Armchair} label="Series seats" value={t.seats} sub="Across all centres" />
+        <StatTile icon={Package} label="Test series" value={t.publishedSeries} sub={`${t.series - t.publishedSeries} not live`} />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -60,48 +54,27 @@ export default function OverviewPage() {
           <DailyBars days={data.daily} valueKey="signups" detail={d => `${d.signups} sign-up${d.signups === 1 ? '' : 's'}`} />
         </div>
         <div className={`${card} p-6`}>
-          <SectionTitle title="Revenue" subtitle="Paid orders per day (refunds removed)" />
-          <DailyBars days={data.daily} valueKey="revenuePaise" detail={d => `${rupees(d.revenuePaise)} from ${d.orders} order${d.orders === 1 ? '' : 's'}`} />
+          <SectionTitle title="Mock tests taken" subtitle="Submitted mock tests per day" />
+          <DailyBars days={data.daily} valueKey="mocks" detail={d => `${d.mocks} test${d.mocks === 1 ? '' : 's'}`} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className={`${card} p-6`}>
-          <SectionTitle title="Best-selling series" right={<Link to="/series" className="text-xs font-bold text-primary">All series →</Link>} />
-          {data.topSeries.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">No sales yet.</p> : (
-            <table className="w-full text-xs">
-              <thead><tr><th className={`${th} pl-0`}>Series</th><th className={`${th} text-right`}>Sales</th><th className={`${th} text-right pr-0`}>Revenue</th></tr></thead>
-              <tbody className="divide-y divide-border-light dark:divide-border-dark">
-                {data.topSeries.map(s => (
-                  <tr key={s.seriesId}>
-                    <td className={`${td} pl-0 font-semibold text-slate-800 dark:text-slate-200`}>{s.title}</td>
-                    <td className={`${td} text-right tabular-nums`}>{s.sales}</td>
-                    <td className={`${td} text-right tabular-nums font-bold pr-0`}>{rupees(s.revenuePaise)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <div className={`${card} p-6`}>
-          <SectionTitle title="Latest orders" right={<Link to="/sales" className="text-xs font-bold text-primary">All sales →</Link>} />
-          {data.recentOrders.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">No orders yet.</p> : (
-            <ul className="divide-y divide-border-light dark:divide-border-dark">
-              {data.recentOrders.map(o => (
-                <li key={o.id} className="py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div className="min-w-0">
-                    <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{o.userName}</p>
-                    <p className="text-slate-500 truncate">{o.seriesTitle} · {fmtDateTime(o.paidAt)}</p>
-                  </div>
-                  <span className="flex items-center gap-2 shrink-0">
-                    <span className="font-bold tabular-nums">{o.amountPaise ? rupees(o.amountPaise) : o.source === 'admin' ? 'Granted' : 'Free'}</span>
-                    {o.status === 'refunded' && <Pill tone="muted">Refunded</Pill>}
-                  </span>
-                </li>
+      <div className={`${card} p-6`}>
+        <SectionTitle title="Coaching centres" subtitle="Largest first" right={<Link to="/centres" className="text-xs font-bold text-primary">All centres →</Link>} />
+        {data.centres.length === 0 ? <p className="text-xs text-slate-400 py-6 text-center">No centres yet.</p> : (
+          <table className="w-full text-xs">
+            <thead><tr><th className={`${th} pl-0`}>Centre</th><th className={`${th} text-right`}>Students</th><th className={`${th} text-right pr-0`}>Seats</th></tr></thead>
+            <tbody className="divide-y divide-border-light dark:divide-border-dark">
+              {data.centres.map(c => (
+                <tr key={c.id}>
+                  <td className={`${td} pl-0`}><Link to={`/centres/${c.id}`} className="font-semibold text-slate-800 dark:text-slate-200 hover:text-primary">{c.name}</Link></td>
+                  <td className={`${td} text-right tabular-nums font-bold`}>{c.students}</td>
+                  <td className={`${td} text-right tabular-nums pr-0`}>{c.series ? c.seats : <span className="text-slate-400">Progress only</span>}</td>
+                </tr>
               ))}
-            </ul>
-          )}
-        </div>
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

@@ -41,7 +41,7 @@ import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 import { studentReport, batchSummary } from './services/institutes.js'
 import { canTakeTest, centreSeat } from './services/access.js'
-import { registerStoreRoutes, handleRazorpayWebhook } from './routes/store.js'
+import { registerSeriesRoutes } from './routes/series.js'
 import { registerAdminRoutes } from './routes/admin.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
@@ -157,21 +157,19 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", ...(NODE_ENV === 'development' ? ["'unsafe-eval'"] : []), "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com", "https://checkout.razorpay.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", ...(NODE_ENV === 'development' ? ["'unsafe-eval'"] : []), "https://apis.google.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       // The confetti animation draws in a worker created from a blob: URL
       workerSrc: ["'self'", "blob:"],
       // data: covers fonts bundled into the CSS (KaTeX's maths fonts)
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "https://lh3.googleusercontent.com"],
-      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+      frameSrc: ["'self'", "https://www.youtube.com", "https://youtube.com", "https://accounts.google.com", "https://challenges.cloudflare.com"],
       connectSrc: [
         "'self'",
         "https://accounts.google.com",
         "https://apis.google.com",
         "https://challenges.cloudflare.com",
-        "https://api.razorpay.com",
-        "https://lumberjack.razorpay.com",
         "https://examprep-platform.onrender.com",
         ...(NODE_ENV === 'development' ? ["http://localhost:*", "ws://localhost:*"] : [])
       ]
@@ -249,9 +247,6 @@ const postLimiter = limiter(10 * 60 * 1000, 30, 'You are posting very fast. Plea
 
 // Parse JSON request bodies: 1 MB normally, 10 MB only for routes that carry
 // images (scratchpad notes and discussion posts)
-// Razorpay signs the raw body, so its webhook is read before JSON parsing
-app.post('/api/payments/webhook', express.raw({ type: '*/*', limit: '1mb' }), handleRazorpayWebhook)
-
 const smallJson = express.json({ limit: '1mb' })
 const largeJson = express.json({ limit: '10mb' })
 const LARGE_BODY_ROUTES = /^\/api\/(sync\/notes|discussions\/[^/]+\/posts)\/?$/
@@ -1213,9 +1208,9 @@ app.delete('/api/me/institute', requireAuth, (req, res) => {
   res.status(200).json({ institute: null })
 })
 
-// --- TEST SERIES, PAYMENTS AND THE ADMIN APP'S API ---
-registerStoreRoutes(app, { mockTests, originalQuestions, optionalUser, isAdminEmail, postLimiter, isProduction: NODE_ENV === 'production' })
-registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle, postLimiter })
+// --- TEST SERIES AND THE ADMIN APP'S API ---
+registerSeriesRoutes(app, { mockTests, originalQuestions, optionalUser, isAdminEmail })
+registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---
 // The admin app (admin/, built with `npm run build:admin` into dist-admin) is a
@@ -1284,8 +1279,6 @@ function checkProductionConfig() {
   if (!canSendEmail()) warnings.push('No email settings (BREVO_API_KEY + MAIL_FROM, or SMTP_USER + SMTP_PASS): sign-up codes and password resets cannot be sent')
   if (!process.env.GOOGLE_CLIENT_ID) warnings.push('GOOGLE_CLIENT_ID missing: Google sign-in is hidden')
   if (!adminEmails().length) warnings.push('ADMIN_EMAILS empty: nobody can manage issue reports or use the admin app')
-  if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) warnings.push('RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET missing: test series cannot be bought online')
-  else if (!process.env.RAZORPAY_WEBHOOK_SECRET) warnings.push('RAZORPAY_WEBHOOK_SECRET missing: payments are confirmed only while the student keeps the checkout open')
   warnings.forEach(w => console.error(`[config] WARNING: ${w}`))
 }
 checkProductionConfig()

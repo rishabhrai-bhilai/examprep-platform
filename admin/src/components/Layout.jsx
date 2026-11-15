@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { LayoutDashboard, Users, IndianRupee, Package, School, LogOut, Menu, X, Moon, Sun, ExternalLink } from 'lucide-react'
+import { LayoutDashboard, Users, Package, School, LogOut, Menu, X, Moon, Sun, ExternalLink } from 'lucide-react'
 import { useAdminAuth } from '../lib/api'
 
 const SITE_NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/students', label: 'Students', icon: Users },
-  { to: '/sales', label: 'Sales', icon: IndianRupee },
   { to: '/series', label: 'Test series', icon: Package },
   { to: '/centres', label: 'Coaching centres', icon: School }
 ]

@@ -25,7 +25,6 @@ import BookletPage from './pages/BookletPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import PrototypeAnalyticsPage from './pages/PrototypeAnalyticsPage'
 import ResourcesPage from './pages/ResourcesPage'
-import TestSeriesPage from './pages/TestSeriesPage'
 
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
@@ -93,8 +92,6 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/settings" element={<ProfilePage />} />
           <Route path="/report" element={<ReportPage />} />
-          <Route path="/test-series" element={<TestSeriesPage />} />
-          <Route path="/test-series/:id" element={<TestSeriesPage />} />
         </Route>
 
         {/* Fallback Redirect */}

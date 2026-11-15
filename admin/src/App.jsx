@@ -7,7 +7,6 @@ import LoginPage from './pages/LoginPage'
 import OverviewPage from './pages/OverviewPage'
 import StudentsPage from './pages/StudentsPage'
 import StudentDetailPage from './pages/StudentDetailPage'
-import SalesPage from './pages/SalesPage'
 import SeriesPage from './pages/SeriesPage'
 import CentresPage from './pages/CentresPage'
 import CentreDashboard from './pages/CentreDashboard'
@@ -43,7 +42,6 @@ export default function App() {
               <Route path="/" element={<OverviewPage />} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/students/:id" element={<StudentDetailPage />} />
-              <Route path="/sales" element={<SalesPage />} />
               <Route path="/series" element={<SeriesPage />} />
             </>
           ) : (

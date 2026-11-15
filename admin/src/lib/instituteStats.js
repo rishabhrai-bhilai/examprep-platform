@@ -22,13 +22,12 @@ const CSV_COLUMNS = [
   ['Weakest subjects', s => s.weakestSubjects.join('; ')]
 ]
 
-// Every student (site admins): sign-up, centre and purchases instead of the centre join date
+// Every student (site admins): sign-up date and centre instead of the centre join date
 export const SITE_CSV_COLUMNS = [
   ...CSV_COLUMNS.slice(0, 3),
   ['Signed up', s => isoDate(s.signedUpAt)],
   ['Coaching centre', s => s.centre || ''],
-  ['Active test series', s => s.activeSeries],
-  ['Paid (INR)', s => ((s.spentPaise || 0) / 100).toFixed(2)],
+  ['Test series seat', s => (s.hasSeat ? 'Yes' : 'No')],
   ...CSV_COLUMNS.slice(4)
 ]
 
@@ -67,7 +66,7 @@ export const STUDENT_SORTS = {
   mocks: { label: 'Mock avg', value: s => s.avgMockPercent ?? -1 },
   lastActive: { label: 'Last active', value: s => s.lastActive || 0 },
   signedUp: { label: 'Signed up', value: s => s.signedUpAt || 0 },
-  spent: { label: 'Paid', value: s => s.spentPaise || 0 }
+  centre: { label: 'Centre', value: s => (s.centre || '').toLowerCase(), asc: true }
 }
 
 export const sortStudents = (students, key, desc) => {

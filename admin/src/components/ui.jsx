@@ -24,11 +24,6 @@ export const fmtPct = (v) => (v === null || v === undefined ? '–' : `${v}%`)
 export const fmtDate = (t) => (t ? new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '–')
 export const fmtDateTime = (t) => (t ? new Date(t).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '–')
 export const shortDay = (key) => new Date(`${key}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-// ₹499, or ₹99.50 when there are paise
-export const rupees = (paise) => {
-  const p = paise || 0
-  return `₹${(p / 100).toLocaleString('en-IN', { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 })}`
-}
 
 export function Pill({ tone = 'muted', children }) {
   return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold whitespace-nowrap ${TONES[tone]}`}>{children}</span>

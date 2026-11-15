@@ -34,7 +34,7 @@ function CreateCentre({ onCreated }) {
       <div className="grid gap-3 md:grid-cols-[1fr_1.4fr_7rem]">
         <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="Centre name, e.g. Ace Academy Bhilai" aria-label="Centre name" />
         <input className={inputCls} value={emails} onChange={e => setEmails(e.target.value)} placeholder="Admin emails, comma separated" aria-label="Admin emails" />
-        <input className={inputCls} type="number" min="0" value={seats} onChange={e => setSeats(e.target.value)} aria-label="Paid seats" title="Paid seats" />
+        <input className={inputCls} type="number" min="0" value={seats} onChange={e => setSeats(e.target.value)} aria-label="Seats" title="Seats for the test series" />
       </div>
       <div className="space-y-1">
         <p className="text-[11px] font-bold text-slate-500">Test series the seats unlock (optional: leave empty for progress tracking only)</p>

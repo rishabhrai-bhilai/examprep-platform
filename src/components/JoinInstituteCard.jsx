@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { School, Loader2, Check, X, LogOut, AlertCircle, ShieldCheck, EyeOff, Package } from 'lucide-react'
 import { useInstituteStore } from '../store/useInstituteStore'
 import { useSeriesStore } from '../store/useSeriesStore'
@@ -31,6 +31,14 @@ export default function JoinInstituteCard() {
   useEffect(() => {
     fetchMembership().catch(() => {})
   }, [fetchMembership])
+
+  // A locked mock test links to /profile#coaching-centre: bring this box into view
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash === '#coaching-centre' && membership !== undefined) {
+      document.getElementById('coaching-centre')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [hash, membership])
 
   const run = async (fn) => {
     setBusy(true)
@@ -124,7 +132,7 @@ export default function JoinInstituteCard() {
 
   return (
     <div className={shell} id="coaching-centre">
-      {header('Studying with a coaching centre on ExamPrep? Enter the code they gave you so they can follow your progress.')}
+      {header('Studying with a coaching centre on ExamPrep? Enter the code they gave you: they can follow your progress, and their test series unlock for you.')}
 
       {!found ? (
         <form onSubmit={checkCode} className="flex flex-col sm:flex-row gap-2">
@@ -146,7 +154,7 @@ export default function JoinInstituteCard() {
           {found.series?.length > 0 && (
             <p className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
               <Package size={13} className="mt-0.5 shrink-0 text-primary" />
-              <span>Includes <strong>{found.series.join(', ')}</strong>, paid for by your centre.</span>
+              <span>Unlocks <strong>{found.series.join(', ')}</strong> for you.</span>
             </p>
           )}
           <div className="space-y-1.5">

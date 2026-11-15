@@ -56,7 +56,7 @@ export default function SeatsAndSeries({ institute, onSaved }) {
   const over = institute.memberCount > Number(seats) && seriesIds.length > 0
   return (
     <div className="space-y-3 rounded-2xl border border-border-light dark:border-border-dark p-4">
-      <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200"><Armchair size={14} className="text-primary" /> Paid seats (site admins only)</div>
+      <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200"><Armchair size={14} className="text-primary" /> Test series seats (site admins only)</div>
       <div className="grid gap-3 md:grid-cols-[8rem_1fr]">
         <label className="space-y-1">
           <span className="text-[11px] font-bold text-slate-500">Seats</span>
@@ -68,7 +68,7 @@ export default function SeatsAndSeries({ institute, onSaved }) {
         </div>
       </div>
       <p className="text-[11px] text-slate-500">
-        With series picked, students can join only while seats are free, and every member gets those series without paying.
+        With series picked, students can join only while seats are free, and every member gets those series.
         {over && <span className="text-amber-700"> {institute.memberCount} students are already in: the last {institute.memberCount - Number(seats)} to join lose access.</span>}
       </p>
       <div className="flex items-center gap-2">

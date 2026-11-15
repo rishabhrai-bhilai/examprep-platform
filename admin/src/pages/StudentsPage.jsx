@@ -3,21 +3,21 @@ import { useNavigate } from 'react-router-dom'
 import { Users, Search, Download, ChevronDown, ChevronUp, Flame, RefreshCw } from 'lucide-react'
 import { api } from '../lib/api'
 import { studentsCsv, SITE_CSV_COLUMNS, downloadText, STUDENT_SORTS, sortStudents, activityStatus } from '../lib/instituteStats'
-import { card, inputCls, btnPrimary, btnGhost, th, td, PageHeader, Spinner, ErrorBox, Pill, accuracyTone, fmtPct, fmtDate, rupees } from '../components/ui'
+import { card, inputCls, btnPrimary, btnGhost, th, td, PageHeader, Spinner, ErrorBox, Pill, accuracyTone, fmtPct, fmtDate } from '../components/ui'
 import { timeAgo } from '../../../src/utils/practiceStats'
 
 const FILTERS = [
   ['all', 'Everyone'],
-  ['paid', 'Has a series'],
-  ['free', 'Free only'],
   ['centre', 'In a centre'],
+  ['seat', 'Has a series seat'],
+  ['solo', 'No centre'],
   ['active', 'Active this week'],
   ['inactive', 'Inactive 30+ days']
 ]
 const WEEK = 7 * 24 * 3600 * 1000
 const matches = (s, filter, now) => {
-  if (filter === 'paid') return s.activeSeries > 0
-  if (filter === 'free') return !s.activeSeries
+  if (filter === 'seat') return s.hasSeat
+  if (filter === 'solo') return !s.centre
   if (filter === 'centre') return !!s.centre
   if (filter === 'active') return s.lastActive && now - s.lastActive <= WEEK
   if (filter === 'inactive') return !s.lastActive || now - s.lastActive > 30 * 24 * 3600 * 1000
@@ -26,7 +26,7 @@ const matches = (s, filter, now) => {
 
 const COLUMNS = [
   ['name', 'Student'], ['signedUp', 'Signed up'], ['solved', 'Solved'], ['accuracy', 'Accuracy'], ['streak', 'Streak'],
-  ['mocks', 'Mocks'], [null, 'Weakest'], ['spent', 'Paid'], ['lastActive', 'Last active']
+  ['mocks', 'Mocks'], [null, 'Weakest'], ['centre', 'Centre'], ['lastActive', 'Last active']
 ]
 
 export default function StudentsPage() {
@@ -114,7 +114,7 @@ export default function StudentsPage() {
                       {s.avatar ? <img src={s.avatar} alt="" className="h-8 w-8 rounded-full bg-slate-100 object-cover" /> : <div className="h-8 w-8 rounded-full bg-slate-200" />}
                       <div className="min-w-0">
                         <div className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[14rem]">{s.name}</div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-[14rem]">{s.email}{s.centre ? ` · ${s.centre}` : ''}</div>
+                        <div className="text-[10px] text-slate-400 truncate max-w-[14rem]">{s.email}</div>
                       </div>
                     </div>
                   </td>
@@ -125,7 +125,7 @@ export default function StudentsPage() {
                   <td className={`${td} text-right tabular-nums`}>{s.mockCount ? <>{s.mockCount} <span className="text-slate-400">· {fmtPct(s.avgMockPercent)}</span></> : <span className="text-slate-400">–</span>}</td>
                   <td className={`${td} text-slate-600 dark:text-slate-300 max-w-[12rem] truncate`}>{s.weakestSubjects.length ? s.weakestSubjects.join(', ') : <span className="text-slate-400">–</span>}</td>
                   <td className={`${td} text-right tabular-nums`}>
-                    {s.spentPaise ? <span className="font-bold">{rupees(s.spentPaise)}</span> : s.activeSeries ? <Pill tone="info">Access</Pill> : <span className="text-slate-400">–</span>}
+                    {s.centre ? <span className="inline-flex items-center gap-1.5 justify-end"><span className="truncate max-w-[9rem]">{s.centre}</span>{s.hasSeat && <Pill tone="info">Seat</Pill>}</span> : <span className="text-slate-400">–</span>}
                   </td>
                   <td className={`${td} text-right whitespace-nowrap pr-6`}>
                     <span className="text-slate-500 mr-2">{s.lastActive ? timeAgo(s.lastActive) : ''}</span>

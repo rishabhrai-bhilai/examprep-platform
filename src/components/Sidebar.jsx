@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink, useLocation } from 'react-router-dom'
-import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library, Package } from 'lucide-react'
+import { LayoutDashboard, FileText, Bookmark, BookOpen, User, Settings, X, ChevronLeft, ChevronRight, Clock, MessageSquare, NotebookPen, Flag, BookText, BarChart2, TrendingUp, Library } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 
@@ -75,7 +75,6 @@ export default function Sidebar() {
     { name: 'Practice PYQs', path: '/pyq', icon: FileText },
     { name: 'PYQ Mock Tests', path: '/pyq-mock', icon: Clock },
     { name: 'Mock Tests', path: '/mock-tests', icon: BookOpen },
-    { name: 'Test Series', path: '/test-series', icon: Package },
     { name: 'PYQ Booklet', path: '/booklet', icon: BookText },
     { name: 'Analytics', path: '/analytics', icon: BarChart2 },
     ...(isAdmin ? [{ name: 'Analytics (Beta)', path: '/analytics-prototype', icon: TrendingUp }] : []),

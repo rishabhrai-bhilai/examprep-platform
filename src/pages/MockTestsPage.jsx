@@ -272,7 +272,7 @@ export function buildDummyGlobalComparison(reportData) {
 
 export default function MockTestsPage() {
   const { questions, calculatorOpen, setCalculatorOpen, setIsPracticeActive, recordAttempts } = useAppStore()
-  // Tests inside a paid test series are locked until the student unlocks the series.
+  // Tests inside a test series are locked unless the student's coaching centre gives them that series.
   // Original questions come from the server (only those this student may see).
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
@@ -426,8 +426,7 @@ export default function MockTestsPage() {
   const startTest = (test) => {
     const done = findMockAttempt(test.id)
     if (done) return handleOpenMockReport(done, 'list')
-    const lock = lockFor(test.id)
-    if (lock) return navigate(`/test-series/${lock[0]}`)
+    if (lockFor(test.id)) return navigate('/profile#coaching-centre')
     if (!originals) return // questions still loading
     const saved = loadSession()
     if (saved && saved.page === 'mock' && saved.testId === test.id) return resumeTest(saved)
@@ -1222,10 +1221,10 @@ export default function MockTestsPage() {
                       return (
                         <button
                           onClick={() => startTest(test)}
-                          title="Part of a paid test series"
+                          title="Part of a coaching-centre test series. Join your centre in Profile to unlock it."
                           className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-btn transition-all active:scale-95 cursor-pointer text-slate-700 dark:text-slate-200 border border-border-light dark:border-border-dark hover:border-primary hover:text-primary"
                         >
-                          <Lock size={13} /> Unlock
+                          <Lock size={13} /> Coaching only
                         </button>
                       )
                     }

@@ -24,15 +24,13 @@ const FILES = {
   mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
   potd: path.join(DATA_DIR, 'potd.json'),
   institutes: path.join(DATA_DIR, 'institutes.json'),
-  testSeries: path.join(DATA_DIR, 'test_series.json'),
-  orders: path.join(DATA_DIR, 'orders.json'),
-  coupons: path.join(DATA_DIR, 'coupons.json')
+  testSeries: path.join(DATA_DIR, 'test_series.json')
 }
 
 // How each file is shaped, for MongoDB: a list of records with ids, or an object by key
 const FILE_KINDS = {
   users: 'array', reports: 'array', mockAttempts: 'array', institutes: 'array',
-  testSeries: 'array', orders: 'array', coupons: 'array',
+  testSeries: 'array',
   bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
 }
 const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file]) => [file, name]))
@@ -443,29 +441,9 @@ const listStore = (file, prefix) => ({
   }
 })
 
-// --- TEST SERIES (what students buy) ---
-// [{ id, title, description, pricePaise, mrpPaise, validityDays (null = no expiry),
-//   testIds: string[] (ids from shared/mockTests.js), published, createdAt, updatedAt }]
+// --- TEST SERIES ---
+// Bundles of mock tests that coaching centres give their students (see centre
+// seats in instituteDb). A test in any series is locked for everyone else.
+// [{ id, title, description, testIds: string[] (ids from shared/mockTests.js),
+//   published, createdBy, createdAt, updatedAt }]
 export const seriesDb = listStore(FILES.testSeries, 'ser')
-
-// --- ORDERS (purchases and access grants) ---
-// [{ id, userId, seriesId, seriesTitle, amountPaise, discountPaise, couponCode,
-//   status: 'created' | 'paid' | 'failed' | 'refunded' | 'revoked',
-//   source: 'razorpay' | 'admin' | 'coupon' | 'dev', razorpayOrderId, razorpayPaymentId,
-//   paidAt, expiresAt, refundId, refundedAt, grantedBy, createdAt, updatedAt }]
-export const orderDb = {
-  ...listStore(FILES.orders, 'ord'),
-  getByUser: (userId) => readJson(FILES.orders, []).filter(o => o.userId === userId),
-  findByRazorpayOrder: (rzpOrderId) => readJson(FILES.orders, []).find(o => o.razorpayOrderId === rzpOrderId) || null
-}
-
-// --- COUPONS ---
-// [{ id, code (upper case), percentOff, seriesIds: [] (empty = every series),
-//   maxUses (null = unlimited), uses, expiresAt (null = never), active, createdAt, updatedAt }]
-export const couponDb = {
-  ...listStore(FILES.coupons, 'cpn'),
-  findByCode: (code) => {
-    const wanted = String(code || '').trim().toUpperCase()
-    return wanted ? readJson(FILES.coupons, []).find(c => c.code === wanted) || null : null
-  }
-}
