@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { userDb } from '../db/index.js'
+import { userDb, instituteDb } from '../db/index.js'
 
 // Read on use: this module loads before server.js runs dotenv.config()
 // The development fallback is public in the repo, so anyone could forge a login
@@ -264,5 +264,18 @@ export function isAdminEmail(email) {
 
 export function requireAdmin(req, res, next) {
   if (!req.user?.isAdmin) return res.status(403).json({ error: 'Only admins can do this.' })
+  next()
+}
+
+// Coaching-centre routes (/api/institutes/:id/...): the centre's own admins, or a
+// site admin. Run after requireAuth; puts the centre on req.institute.
+export function requireInstituteAdmin(req, res, next) {
+  const institute = instituteDb.findById(req.params.id)
+  if (!institute) return res.status(404).json({ error: 'Coaching centre not found.' })
+  const email = req.user?.email?.toLowerCase()
+  if (!req.user?.isAdmin && !(institute.adminEmails || []).includes(email)) {
+    return res.status(403).json({ error: "Only this centre's admins can do this." })
+  }
+  req.institute = institute
   next()
 }
