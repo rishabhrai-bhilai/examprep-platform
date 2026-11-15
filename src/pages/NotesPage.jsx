@@ -11,10 +11,12 @@ import QuestionText from '../components/QuestionText'
 import AnswerProvenance from '../components/AnswerProvenance'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
 import FilterDropdown from '../components/FilterDropdown'
-import { exportQuestionNotePdf, exportBulkNotesPdf, renderSheetToDataUrl } from '../utils/notesPdfExport'
 import { compareSubjects } from '../utils/subjects'
 import { getTags, hasTopicName } from '../utils/topics'
 import { matchesQuestionRef } from '../../shared/questionCodes.js'
+
+// The PDF libraries (~1 MB) load the first time something is exported or drawn
+const pdfExport = () => import('../utils/notesPdfExport')
 
 export default function NotesPage() {
   const { 
@@ -137,7 +139,7 @@ export default function NotesPage() {
           if (sheet.dataUrl) {
             imageMap[sheet.id || idx] = sheet.dataUrl
           } else if (sheet.strokes) {
-            const url = await renderSheetToDataUrl(sheet.strokes, 900, 580)
+            const url = await (await pdfExport()).renderSheetToDataUrl(sheet.strokes, 900, 580)
             imageMap[sheet.id || idx] = url
           }
         }
@@ -200,7 +202,7 @@ export default function NotesPage() {
     if (!activeQuestion || !currentNote) return
     setIsExporting(true)
     try {
-      await exportQuestionNotePdf(activeQuestion, currentNote)
+      await (await pdfExport()).exportQuestionNotePdf(activeQuestion, currentNote)
     } catch (err) {
       console.error('Failed to export PDF:', err)
       alert('Failed to generate PDF. Please try again.')
@@ -214,7 +216,7 @@ export default function NotesPage() {
     if (questionsToExport.length === 0) return
     setIsExporting(true)
     try {
-      await exportBulkNotesPdf(
+      await (await pdfExport()).exportBulkNotesPdf(
         questionsToExport, 
         questionNotes, 
         `GATE-Selected-${questionsToExport.length}-Notes.pdf`
@@ -231,7 +233,7 @@ export default function NotesPage() {
     if (questionsWithNotes.length === 0) return
     setIsExporting(true)
     try {
-      await exportBulkNotesPdf(
+      await (await pdfExport()).exportBulkNotesPdf(
         questionsWithNotes, 
         questionNotes, 
         `GATE-All-Scratchpad-Notes.pdf`

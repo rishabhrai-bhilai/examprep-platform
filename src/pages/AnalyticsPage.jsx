@@ -9,7 +9,7 @@ import { useAppStore } from '../store/useAppStore'
 import { LoginToCompare } from '../components/GlobalComparison'
 import { fetchPeerAnalytics, fetchMockComparison, isSignedIn } from '../utils/engagementApi'
 import { readHistory, buildPersonal, buildPyqCoverage, buildHeatmap, buildHistoryRows } from '../utils/analyticsData'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useOriginalQuestionsState, fetchTestAnswers, hasRevealedAnswer } from '../utils/originalQuestions'
 
 // Analytics for students: their own tests and practice (Personal), and how they
 // compare with everyone else on ExamPrep (Global). Every number is real; sections
@@ -96,10 +96,21 @@ export default function AnalyticsPage() {
 
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
   const { questions, practice } = useAppStore()
-  const questionsById = useMemo(() => new Map([...(questions || []), ...originalQuestions].map(q => [q.id, q])), [questions])
+  // Questions written for the mock tests come from the server without answers;
+  // a test's answers are fetched only for tests this student has submitted
+  const { list: originalQuestions } = useOriginalQuestionsState(isAuthenticated)
+  const questionsById = useMemo(() => new Map([...(questions || []), ...originalQuestions].map(q => [q.id, q])), [questions, originalQuestions])
 
   // Finished tests in this browser (the account's history when signed in)
   const mockHistory = useMemo(() => readHistory('mock'), [])
+  useEffect(() => {
+    if (!isAuthenticated || !originalQuestions.length) return
+    const byId = new Map(originalQuestions.map(q => [q.id, q]))
+    const needed = [...new Set(mockHistory
+      .filter(h => (h.questions || []).some(id => byId.get(id)?.original && !hasRevealedAnswer(id)))
+      .map(h => h.testId))]
+    needed.forEach(testId => fetchTestAnswers(testId).catch(() => {}))
+  }, [isAuthenticated, originalQuestions, mockHistory])
   const pyqHistory = useMemo(() => readHistory('pyq'), [])
   const spaceHistory = activeSpace === 'mock' ? mockHistory : pyqHistory
   const personal = useMemo(() => buildPersonal(spaceHistory, questionsById), [spaceHistory, questionsById])

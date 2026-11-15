@@ -1,7 +1,8 @@
 import fs from 'fs'
+import crypto from 'crypto'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { connectMongo, isMongoEnabled, mongoRead, mongoWrite, flushMongo, mongoHealth } from './mongoStore.js'
+import { connectMongo, isMongoEnabled, mongoPeek, mongoSaveRecord, flushMongo, mongoHealth } from './mongoStore.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,15 +22,17 @@ const FILES = {
   reports: path.join(DATA_DIR, 'reports.json'),
   attempts: path.join(DATA_DIR, 'attempts.json'),
   mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
-  potd: path.join(DATA_DIR, 'potd.json')
+  potd: path.join(DATA_DIR, 'potd.json'),
+  institutes: path.join(DATA_DIR, 'institutes.json'),
+  testSeries: path.join(DATA_DIR, 'test_series.json')
 }
 
 // How each file is shaped, for MongoDB: a list of records with ids, or an object by key
 const FILE_KINDS = {
-  users: 'array', reports: 'array', mockAttempts: 'array',
+  users: 'array', reports: 'array', mockAttempts: 'array', institutes: 'array',
+  testSeries: 'array',
   bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
 }
-const NAME_BY_PATH = Object.fromEntries(Object.entries(FILES).map(([name, file]) => [file, name]))
 
 // With MONGODB_URI set, data lives in MongoDB (Render's disk is wiped on every
 // deploy and sleep); otherwise in the JSON files in server/data. Call before serving.
@@ -50,29 +53,23 @@ export async function initStorage() {
 export const flushStorage = () => (isMongoEnabled() ? flushMongo() : Promise.resolve())
 export const storageHealth = () => (isMongoEnabled() ? mongoHealth() : { backend: 'files', ok: true })
 
-// Safely read JSON file with default fallback
-function readJson(filePath, defaultValue = {}) {
-  if (isMongoEnabled()) {
-    const value = mongoRead(NAME_BY_PATH[filePath])
-    return value === undefined ? defaultValue : value
-  }
-  try {
-    if (!fs.existsSync(filePath)) {
-      writeJsonAtomic(filePath, defaultValue)
-      return defaultValue
-    }
-    const raw = fs.readFileSync(filePath, 'utf8')
-    if (!raw.trim()) return defaultValue
-    return JSON.parse(raw)
-  } catch (err) {
-    console.error(`[DB Read Error] on ${filePath}:`, err.message)
-    return defaultValue
-  }
-}
+// --- STORAGE PRIMITIVES ---
+// Every collection is held in memory (MongoDB's cache, or the parsed JSON file).
+// Requests read and write single records: one user, one user's notes, one
+// question's posts. Nothing on a request path copies a whole collection.
+//
+//   peek(name)                 the live value, read-only (never change or keep it)
+//   getRecord(name, key)       a private copy of one record, or undefined
+//   putRecord(name, key, rec)  saves one record (MongoDB: one upsert)
+//   deleteRecord(name, key)    removes one record
 
-// Write JSON atomically via temporary file and rename to prevent corruption
+const emptyOf = (name) => (FILE_KINDS[name] === 'array' ? [] : {})
+
+// JSON files: parsed once and kept, re-read only if the file changes on disk
+// (someone edited it by hand). Writes go to a temporary file, then a rename.
+const fileCache = new Map() // name -> { mtimeMs, size, value }
+
 function writeJsonAtomic(filePath, data) {
-  if (isMongoEnabled()) return mongoWrite(NAME_BY_PATH[filePath], data)
   const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).substr(2, 6)}.tmp`
   try {
     fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8')
@@ -86,25 +83,115 @@ function writeJsonAtomic(filePath, data) {
   }
 }
 
+function filePeek(name) {
+  const filePath = FILES[name]
+  try {
+    if (!fs.existsSync(filePath)) saveFile(name, emptyOf(name))
+    const stat = fs.statSync(filePath)
+    const cached = fileCache.get(name)
+    if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.value
+    const raw = fs.readFileSync(filePath, 'utf8')
+    const value = raw.trim() ? JSON.parse(raw) : emptyOf(name)
+    fileCache.set(name, { mtimeMs: stat.mtimeMs, size: stat.size, value })
+    return value
+  } catch (err) {
+    console.error(`[DB Read Error] on ${filePath}:`, err.message)
+    return fileCache.get(name)?.value || emptyOf(name)
+  }
+}
+
+function saveFile(name, value) {
+  writeJsonAtomic(FILES[name], value)
+  const stat = fs.statSync(FILES[name])
+  fileCache.set(name, { mtimeMs: stat.mtimeMs, size: stat.size, value })
+}
+
+export const peek = (name) => (isMongoEnabled() ? mongoPeek(name) : filePeek(name)) || emptyOf(name)
+
+// Array collections: id -> position, rebuilt whenever the array itself is replaced
+// (loaded from MongoDB, or re-read from disk)
+const positions = new WeakMap()
+function positionOf(list, id) {
+  let index = positions.get(list)
+  if (!index) {
+    index = new Map()
+    list.forEach((r, i) => { if (r && r.id !== undefined) index.set(String(r.id), i) })
+    positions.set(list, index)
+  }
+  const i = index.get(String(id))
+  return i === undefined ? -1 : i
+}
+
+const rawRecord = (name, key) => {
+  const value = peek(name)
+  if (FILE_KINDS[name] === 'array') {
+    const i = positionOf(value, key)
+    return i === -1 ? undefined : value[i]
+  }
+  return Object.prototype.hasOwnProperty.call(value, key) ? value[key] : undefined
+}
+
+export const getRecord = (name, key) => {
+  const record = rawRecord(name, key)
+  return record === undefined ? undefined : structuredClone(record)
+}
+
+// Stored records are never changed in place, only replaced, so a copy handed out
+// earlier (or one waiting to be sent to MongoDB) can't change underneath anyone
+export function putRecord(name, key, record) {
+  const value = peek(name)
+  const copy = structuredClone(record)
+  if (FILE_KINDS[name] === 'array') {
+    const i = positionOf(value, key)
+    if (i === -1) {
+      value.push(copy)
+      positions.get(value).set(String(key), value.length - 1)
+    } else {
+      value[i] = copy
+    }
+  } else {
+    value[key] = copy
+  }
+  if (isMongoEnabled()) mongoSaveRecord(name, key, copy)
+  else saveFile(name, value)
+  return structuredClone(copy)
+}
+
+export function deleteRecord(name, key) {
+  const value = peek(name)
+  if (FILE_KINDS[name] === 'array') {
+    const i = positionOf(value, key)
+    if (i === -1) return
+    value.splice(i, 1)
+    positions.delete(value) // positions after it moved
+  } else {
+    if (!Object.prototype.hasOwnProperty.call(value, key)) return
+    delete value[key]
+  }
+  if (isMongoEnabled()) mongoSaveRecord(name, key, undefined)
+  else saveFile(name, value)
+}
+
+// Copies of every record that matches (for small result sets)
+const findAll = (name, predicate) => peek(name).filter(predicate).map(r => structuredClone(r))
+
 // --- USERS DB ---
 export const userDb = {
-  getAll: () => readJson(FILES.users, []),
-  
+  getAll: () => structuredClone(peek('users')),
+
   findByEmail: (email) => {
     if (!email) return null
-    const users = readJson(FILES.users, [])
     const normalized = email.trim().toLowerCase()
-    return users.find(u => u.email.toLowerCase() === normalized) || null
+    const user = peek('users').find(u => u.email.toLowerCase() === normalized)
+    return user ? structuredClone(user) : null
   },
 
   findById: (id) => {
     if (!id) return null
-    const users = readJson(FILES.users, [])
-    return users.find(u => u.id === id) || null
+    return getRecord('users', id) || null
   },
 
   create: (userData) => {
-    const users = readJson(FILES.users, [])
     const newUser = {
       id: userData.id || `usr-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       name: userData.name.trim(),
@@ -119,35 +206,27 @@ export const userDb = {
       solvedQuestions: 0,
       ...userData
     }
-    users.push(newUser)
-    writeJsonAtomic(FILES.users, users)
-    return newUser
+    return putRecord('users', newUser.id, newUser)
   },
 
   update: (id, updates) => {
-    const users = readJson(FILES.users, [])
-    const index = users.findIndex(u => u.id === id)
-    if (index === -1) return null
-    
+    const user = rawRecord('users', id)
+    if (!user) return null
+
     // Disallow overwriting id or salt directly via update
     const safeUpdates = { ...updates }
     delete safeUpdates.id
     delete safeUpdates.salt
 
-    users[index] = { ...users[index], ...safeUpdates, updatedAt: Date.now() }
-    writeJsonAtomic(FILES.users, users)
-    return users[index]
+    return putRecord('users', id, { ...user, ...safeUpdates, updatedAt: Date.now() })
   },
 
   // The only way to change a password hash and its salt (update() refuses salt)
   setPassword: (id, passwordHash, salt) => {
-    const users = readJson(FILES.users, [])
-    const index = users.findIndex(u => u.id === id)
-    if (index === -1) return null
+    const user = rawRecord('users', id)
+    if (!user) return null
     // A new password signs out every other session (see tokenFor in services/auth.js)
-    users[index] = { ...users[index], passwordHash, salt, tokenVersion: (users[index].tokenVersion || 0) + 1, updatedAt: Date.now() }
-    writeJsonAtomic(FILES.users, users)
-    return users[index]
+    return putRecord('users', id, { ...user, passwordHash, salt, tokenVersion: (user.tokenVersion || 0) + 1, updatedAt: Date.now() })
   }
 }
 
@@ -155,12 +234,11 @@ export const userDb = {
 // Stored as Report[]: { id, userId, userName, userEmail, category, questionId, page,
 //   message, status: 'open' | 'in_progress' | 'resolved', adminNote, createdAt, updatedAt }
 export const reportDb = {
-  getAll: () => readJson(FILES.reports, []),
+  getAll: () => structuredClone(peek('reports')),
 
-  getByUser: (userId) => readJson(FILES.reports, []).filter(r => r.userId === userId),
+  getByUser: (userId) => findAll('reports', r => r.userId === userId),
 
   create: (report) => {
-    const reports = readJson(FILES.reports, [])
     const newReport = {
       id: `rep-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       status: 'open',
@@ -169,18 +247,13 @@ export const reportDb = {
       updatedAt: Date.now(),
       ...report
     }
-    reports.push(newReport)
-    writeJsonAtomic(FILES.reports, reports)
-    return newReport
+    return putRecord('reports', newReport.id, newReport)
   },
 
   update: (id, updates) => {
-    const reports = readJson(FILES.reports, [])
-    const index = reports.findIndex(r => r.id === id)
-    if (index === -1) return null
-    reports[index] = { ...reports[index], ...updates, id, updatedAt: Date.now() }
-    writeJsonAtomic(FILES.reports, reports)
-    return reports[index]
+    const report = rawRecord('reports', id)
+    if (!report) return null
+    return putRecord('reports', id, { ...report, ...updates, id, updatedAt: Date.now() })
   }
 }
 
@@ -189,20 +262,19 @@ export const reportDb = {
 export const bookmarkDb = {
   getUserBookmarks: (userId) => {
     if (!userId) return { bookmarks: [], bookmarkFolders: { "General": [] } }
-    const all = readJson(FILES.bookmarks, {})
-    return all[userId] || { bookmarks: [], bookmarkFolders: { "General": [] } }
+    return getRecord('bookmarks', userId) || { bookmarks: [], bookmarkFolders: { "General": [] } }
   },
+
+  // How many questions the user has bookmarked, without copying the list
+  countUserBookmarks: (userId) => (userId ? (rawRecord('bookmarks', userId)?.bookmarks || []).length : 0),
 
   saveUserBookmarks: (userId, { bookmarks = [], bookmarkFolders = {} }) => {
     if (!userId) return null
-    const all = readJson(FILES.bookmarks, {})
-    all[userId] = {
+    return putRecord('bookmarks', userId, {
       bookmarks: Array.isArray(bookmarks) ? bookmarks : [],
       bookmarkFolders: typeof bookmarkFolders === 'object' && bookmarkFolders !== null ? bookmarkFolders : { "General": [] },
       updatedAt: Date.now()
-    }
-    writeJsonAtomic(FILES.bookmarks, all)
-    return all[userId]
+    })
   }
 }
 
@@ -211,19 +283,15 @@ export const bookmarkDb = {
 export const noteDb = {
   getUserNotes: (userId) => {
     if (!userId) return { questionNotes: {} }
-    const all = readJson(FILES.notes, {})
-    return all[userId] || { questionNotes: {} }
+    return getRecord('notes', userId) || { questionNotes: {} }
   },
 
   saveUserNotes: (userId, questionNotes = {}) => {
     if (!userId) return null
-    const all = readJson(FILES.notes, {})
-    all[userId] = {
+    return putRecord('notes', userId, {
       questionNotes: typeof questionNotes === 'object' && questionNotes !== null ? questionNotes : {},
       updatedAt: Date.now()
-    }
-    writeJsonAtomic(FILES.notes, all)
-    return all[userId]
+    })
   }
 }
 
@@ -232,20 +300,16 @@ export const noteDb = {
 export const testRecordDb = {
   getUserRecords: (userId) => {
     if (!userId) return { mockHistory: [], pyqHistory: [] }
-    const all = readJson(FILES.testRecords, {})
-    return all[userId] || { mockHistory: [], pyqHistory: [] }
+    return getRecord('testRecords', userId) || { mockHistory: [], pyqHistory: [] }
   },
 
   saveUserRecords: (userId, { mockHistory = [], pyqHistory = [] }) => {
     if (!userId) return null
-    const all = readJson(FILES.testRecords, {})
-    all[userId] = {
+    return putRecord('testRecords', userId, {
       mockHistory: Array.isArray(mockHistory) ? mockHistory : [],
       pyqHistory: Array.isArray(pyqHistory) ? pyqHistory : [],
       updatedAt: Date.now()
-    }
-    writeJsonAtomic(FILES.testRecords, all)
-    return all[userId]
+    })
   }
 }
 
@@ -253,32 +317,36 @@ export const testRecordDb = {
 // Stored as { [userId]: { attempts: { [questionId]: Attempt }, days: { 'YYYY-MM-DD': DayTotals },
 //   timeZone: string | null, updatedAt: number } } (shapes in shared/practice.js)
 export const attemptDb = {
-  // Everyone's practice records ({ [userId]: { attempts, days } }), for peer comparisons
-  getAll: () => readJson(FILES.attempts, {}),
+  // Every user's record at once ({ [userId]: ... }): peer comparisons and reading many users in one pass
+  getAll: () => structuredClone(peek('attempts')),
 
   getUserAttempts: (userId) => {
     if (!userId) return { attempts: {}, days: {}, timeZone: null }
-    const all = readJson(FILES.attempts, {})
-    return all[userId] || { attempts: {}, days: {}, timeZone: null }
+    return getRecord('attempts', userId) || { attempts: {}, days: {}, timeZone: null }
   },
+
+  // Just the saved time zone, without copying the attempts
+  getUserTimeZone: (userId) => (userId ? rawRecord('attempts', userId)?.timeZone || null : null),
 
   saveUserAttempts: (userId, { attempts = {}, days = {}, timeZone = null }) => {
     if (!userId) return null
-    const all = readJson(FILES.attempts, {})
-    all[userId] = { attempts, days, timeZone, updatedAt: Date.now() }
-    writeJsonAtomic(FILES.attempts, all)
-    return all[userId]
+    return putRecord('attempts', userId, { attempts, days, timeZone, updatedAt: Date.now() })
   }
 }
 
 // --- DISCUSSIONS DB ---
-// Stored as { [questionId]: Solution[] }
+// Stored as { [questionId]: Solution[] }; each question's posts are one record
 export const discussionDb = {
-  getAll: () => readJson(FILES.discussions, {}),
-  
-  saveAll: (discussions) => {
-    writeJsonAtomic(FILES.discussions, discussions)
-    return discussions
+  getAll: () => structuredClone(peek('discussions')),
+
+  // The live object, read-only: for building the per-question summary and stats
+  peekAll: () => peek('discussions'),
+
+  getQuestion: (questionId) => getRecord('discussions', String(questionId)) || [],
+
+  saveQuestion: (questionId, posts) => {
+    if (Array.isArray(posts) && posts.length) putRecord('discussions', String(questionId), posts)
+    else deleteRecord('discussions', String(questionId))
   }
 }
 
@@ -287,31 +355,139 @@ export const discussionDb = {
 // submittedAt, timeTaken, score, maxScore, correct, incorrect, unanswered, subjects }].
 // attemptNo 1 is the one used for global comparison.
 export const mockAttemptDb = {
-  getAll: () => readJson(FILES.mockAttempts, []),
-  getByUser: (userId) => readJson(FILES.mockAttempts, []).filter(a => a.userId === userId),
+  getAll: () => structuredClone(peek('mockAttempts')),
+  getByUser: (userId) => findAll('mockAttempts', a => a.userId === userId),
   // First attempts of everyone at one test
-  getFirstAttempts: (testId) => readJson(FILES.mockAttempts, []).filter(a => a.testId === testId && a.attemptNo === 1),
+  getFirstAttempts: (testId) => findAll('mockAttempts', a => a.testId === testId && a.attemptNo === 1),
   create: (attempt) => {
-    const all = readJson(FILES.mockAttempts, [])
-    const attemptNo = all.filter(a => a.userId === attempt.userId && a.testId === attempt.testId).length + 1
+    const attemptNo = peek('mockAttempts').filter(a => a.userId === attempt.userId && a.testId === attempt.testId).length + 1
     const saved = { id: `ma-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...attempt, attemptNo }
-    all.push(saved)
-    writeJsonAtomic(FILES.mockAttempts, all)
-    return saved
+    return putRecord('mockAttempts', saved.id, saved)
   }
 }
 
 // --- PROBLEM OF THE DAY ---
 // { [userId]: { [dateKey]: { questionId, correct, at } } }; one entry per day
 export const potdDb = {
-  getUserDays: (userId) => readJson(FILES.potd, {})[userId] || {},
+  getUserDays: (userId) => getRecord('potd', userId) || {},
   // Records the day's first attempt; later attempts the same day change nothing
   record: (userId, dateKey, entry) => {
-    const all = readJson(FILES.potd, {})
-    const days = all[userId] || (all[userId] = {})
-    if (days[dateKey]) return { entry: days[dateKey], isNew: false }
-    days[dateKey] = entry
-    writeJsonAtomic(FILES.potd, all)
+    const days = rawRecord('potd', userId) || {}
+    if (days[dateKey]) return { entry: structuredClone(days[dateKey]), isNew: false }
+    putRecord('potd', userId, { ...days, [dateKey]: entry })
     return { entry, isNew: true }
   }
 }
+
+// --- COACHING CENTRES (INSTITUTES) ---
+// [{ id, name, code, adminEmails: string[], seats, seriesIds, members: [{ userId, joinedAt }],
+//   createdBy, createdAt, updatedAt }]. Site admins (ADMIN_EMAILS) create centres;
+// students join with the centre's code and can belong to one centre at a time.
+const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no 0/O or 1/I
+const newInviteCode = (taken) => {
+  for (;;) {
+    const code = Array.from(crypto.randomBytes(6), b => INVITE_ALPHABET[b % INVITE_ALPHABET.length]).join('')
+    if (!taken.has(code)) return code
+  }
+}
+const normalizeCode = (code) => String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+export const instituteDb = {
+  getAll: () => structuredClone(peek('institutes')),
+  findById: (id) => getRecord('institutes', id) || null,
+  findByCode: (code) => {
+    const wanted = normalizeCode(code)
+    const found = wanted ? peek('institutes').find(i => i.code === wanted) : null
+    return found ? structuredClone(found) : null
+  },
+  // Centres where this email is an admin
+  findByAdmin: (email) => {
+    const e = String(email || '').toLowerCase()
+    return e ? findAll('institutes', i => (i.adminEmails || []).includes(e)) : []
+  },
+  findByMember: (userId) => {
+    const found = peek('institutes').find(i => (i.members || []).some(m => m.userId === userId))
+    return found ? structuredClone(found) : null
+  },
+
+  create: ({ name, adminEmails, seats = 0, seriesIds = [], createdBy }) => {
+    const institute = {
+      id: `ins-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+      name,
+      code: newInviteCode(new Set(peek('institutes').map(i => i.code))),
+      adminEmails,
+      seats,
+      seriesIds,
+      members: [],
+      createdBy,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    return putRecord('institutes', institute.id, institute)
+  },
+
+  update: (id, { name, adminEmails, seats, seriesIds, regenerateCode } = {}) => {
+    const current = rawRecord('institutes', id)
+    if (!current) return null
+    const next = { ...current, updatedAt: Date.now() }
+    if (name !== undefined) next.name = name
+    if (adminEmails !== undefined) next.adminEmails = adminEmails
+    if (seats !== undefined) next.seats = seats
+    if (seriesIds !== undefined) next.seriesIds = seriesIds
+    if (regenerateCode) next.code = newInviteCode(new Set(peek('institutes').map(i => i.code)))
+    return putRecord('institutes', id, next)
+  },
+
+  // Joining one centre leaves any other (one centre at a time)
+  addMember: (id, userId) => {
+    const target = rawRecord('institutes', id)
+    if (!target) return null
+    peek('institutes')
+      .filter(i => i.id !== id && (i.members || []).some(m => m.userId === userId))
+      .forEach(i => putRecord('institutes', i.id, { ...i, members: i.members.filter(m => m.userId !== userId) }))
+    if ((target.members || []).some(m => m.userId === userId)) return structuredClone(target)
+    return putRecord('institutes', id, { ...target, members: [...(target.members || []), { userId, joinedAt: Date.now() }] })
+  },
+
+  removeMember: (id, userId) => {
+    const target = rawRecord('institutes', id)
+    if (!target || !(target.members || []).some(m => m.userId === userId)) return null
+    return putRecord('institutes', id, { ...target, members: target.members.filter(m => m.userId !== userId) })
+  },
+
+  delete: (id) => {
+    if (!rawRecord('institutes', id)) return false
+    deleteRecord('institutes', id)
+    return true
+  }
+}
+
+// A simple list store: records with ids in one collection
+const listStore = (name, prefix) => ({
+  getAll: () => structuredClone(peek(name)),
+  findById: (id) => getRecord(name, id) || null,
+  create: (data) => {
+    const now = Date.now()
+    const record = { id: `${prefix}-${now}-${crypto.randomBytes(3).toString('hex')}`, ...data, createdAt: now, updatedAt: now }
+    return putRecord(name, record.id, record)
+  },
+  update: (id, updates) => {
+    const current = rawRecord(name, id)
+    if (!current) return null
+    const safe = { ...updates }
+    delete safe.id
+    return putRecord(name, id, { ...current, ...safe, updatedAt: Date.now() })
+  },
+  delete: (id) => {
+    if (!rawRecord(name, id)) return false
+    deleteRecord(name, id)
+    return true
+  }
+})
+
+// --- TEST SERIES ---
+// Bundles of mock tests that coaching centres give their students (see centre
+// seats in instituteDb). A test in any series is locked for everyone else.
+// [{ id, title, description, testIds: string[] (ids from shared/mockTests.js),
+//   published, createdBy, createdAt, updatedAt }]
+export const seriesDb = listStore('testSeries', 'ser')

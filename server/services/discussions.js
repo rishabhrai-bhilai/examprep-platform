@@ -140,3 +140,93 @@ export const userDiscussionStats = (all, userId) => {
   }))
   return stats
 }
+
+// --- CACHED INDEX ---
+// userDiscussionStats walks every post on the site. Every signed-in request needs a
+// user's stats (streaks, badges), so instead each question's contribution is worked
+// out once and kept, and redone only for the question that changed.
+//
+// index.byQuestion: qid -> { summary: { posts, replies }, users: Map(userId -> partial stats) }
+// index.userQuestions: userId -> Set(qid) where they have stats
+// index.source is the stored object it was built from; if storage replaces it
+// (re-read from disk, reloaded), the index is rebuilt.
+let index = null
+
+const emptyStats = () => ({ solutionsPosted: 0, repliesPosted: 0, upvotesReceived: 0, repliesReceived: 0, postTimes: [] })
+
+// Same counting as userDiscussionStats, for every user at once
+const questionEntry = (list) => {
+  const users = new Map()
+  const of = (id) => {
+    if (!users.has(id)) users.set(id, emptyStats())
+    return users.get(id)
+  }
+  walk(list, (post, parent) => {
+    if (post.authorId !== undefined && post.authorId !== null) {
+      const s = of(post.authorId)
+      if (parent) s.repliesPosted++
+      else s.solutionsPosted++
+      s.upvotesReceived += Object.values(post.voters || {}).filter(v => v === 'up').length
+      if (post.timestamp) s.postTimes.push(post.timestamp)
+    }
+    if (parent && parent.authorId !== undefined && parent.authorId !== null && parent.authorId !== post.authorId) {
+      of(parent.authorId).repliesReceived++
+    }
+    return false
+  })
+  const posts = Array.isArray(list) ? list : []
+  return { summary: { posts: posts.length, replies: posts.reduce((n, p) => n + (p.replies?.length || 0), 0) }, users }
+}
+
+const setQuestion = (qid, list) => {
+  const old = index.byQuestion.get(qid)
+  if (old) old.users.forEach((_, userId) => index.userQuestions.get(userId)?.delete(qid))
+  if (!Array.isArray(list) || !list.length) {
+    index.byQuestion.delete(qid)
+    return
+  }
+  const entry = questionEntry(list)
+  index.byQuestion.set(qid, entry)
+  entry.users.forEach((_, userId) => {
+    if (!index.userQuestions.has(userId)) index.userQuestions.set(userId, new Set())
+    index.userQuestions.get(userId).add(qid)
+  })
+}
+
+const ensureIndex = (all) => {
+  if (index && index.source === all) return index
+  index = { source: all, byQuestion: new Map(), userQuestions: new Map() }
+  Object.entries(all || {}).forEach(([qid, list]) => setQuestion(qid, list))
+  return index
+}
+
+// Call after saving one question's posts
+export const reindexQuestion = (all, questionId) => {
+  if (!index || index.source !== all) return ensureIndex(all)
+  setQuestion(String(questionId), all[String(questionId)])
+}
+
+// Same result as userDiscussionStats(all, userId), from the index
+export const cachedDiscussionStats = (all, userId) => {
+  const idx = ensureIndex(all)
+  const stats = emptyStats()
+  idx.userQuestions.get(userId)?.forEach(qid => {
+    const s = idx.byQuestion.get(qid)?.users.get(userId)
+    if (!s) return
+    stats.solutionsPosted += s.solutionsPosted
+    stats.repliesPosted += s.repliesPosted
+    stats.upvotesReceived += s.upvotesReceived
+    stats.repliesReceived += s.repliesReceived
+    stats.postTimes.push(...s.postTimes)
+  })
+  return stats
+}
+
+// { [questionId]: { posts, replies } } for every question with posts: top-level
+// posts, and the direct replies to them (what the question lists show)
+export const discussionSummary = (all) => {
+  const idx = ensureIndex(all)
+  const out = {}
+  idx.byQuestion.forEach((entry, qid) => { out[qid] = entry.summary })
+  return out
+}

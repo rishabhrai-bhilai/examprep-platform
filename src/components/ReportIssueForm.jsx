@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { FileQuestion, Bug, Lightbulb, HelpCircle, Send, CheckCircle2, AlertCircle, Loader2, LogIn } from 'lucide-react'
 import { useReportStore } from '../store/useReportStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import QuestionText from './QuestionText'
-import originalQuestions from '../../shared/originalQuestions.json'
+import { useSeriesStore } from '../store/useSeriesStore'
 import { findQuestionByRef, describeQuestionCode } from '../../shared/questionCodes.js'
 
 const MIN_LENGTH = 10
@@ -42,11 +42,15 @@ export default function ReportIssueForm({ initialQuestionId = null, initialCateg
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  // Original mock questions come from the server (paid ones only for students who unlocked them)
+  const originalQuestions = useSeriesStore(s => s.originals)
+  const fetchOriginals = useSeriesStore(s => s.fetchOriginals)
+  useEffect(() => { if (!originalQuestions) fetchOriginals().catch(() => {}) }, [originalQuestions, fetchOriginals])
   const trimmedId = questionIdInput.trim()
   // A code (01-CS-261-OS-2N-047, or just 01-CS-261-047) or the numeric id, from
   // past papers or the original mock questions
   const resolvedQuestion = trimmedId
-    ? findQuestionByRef(questions, trimmedId) || findQuestionByRef(originalQuestions, trimmedId)
+    ? findQuestionByRef(questions, trimmedId) || findQuestionByRef(originalQuestions || [], trimmedId)
     : null
   const trimmedLength = message.trim().length
   const needsQuestion = category === 'question'
