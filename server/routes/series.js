@@ -21,6 +21,8 @@ export function registerSeriesRoutes(app, { mockTests, originalQuestions, option
 
   // Original (non-PYQ) questions this visitor may see: those in free tests or in
   // tests they've unlocked. They aren't bundled into the site, so locked ones stay locked.
+  // They come without answers and explanations, which a student gets only after
+  // submitting the test (see /api/mock-tests/:testId/answers in server.js).
   app.get('/api/mock-tests/originals', (req, res) => {
     const user = viewer(req)
     const locked = lockedTests()

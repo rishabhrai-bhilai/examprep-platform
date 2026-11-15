@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, Clock, Calculator, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, ArrowLeft, Flag, HelpCircle, Send, Award, RefreshCw, TrendingUp, Target, BarChart2, Zap, AlertTriangle, FileText, Brain, RotateCcw, Grid, X, Users, Sparkles, Layers, Search, Filter, Lock } from 'lucide-react'
 import { dummyMockTests } from '../utils/dummyData'
+import { useOriginalQuestions, revealAnswers, withRevealedAnswer, hasRevealedAnswer, fetchTestAnswers } from '../utils/originalQuestions'
 import { useNavigate } from 'react-router-dom'
 import { useSeriesStore } from '../store/useSeriesStore'
 import { useAuthStore } from '../store/useAuthStore'
@@ -281,6 +282,10 @@ export default function MockTestsPage() {
   const refreshAccess = useSeriesStore(s => s.refreshAccess)
   useEffect(() => { refreshAccess() }, [isAuthenticated, refreshAccess])
   const lockFor = (testId) => (seriesAccess.locked[testId] && !seriesAccess.unlocked.includes(testId) ? seriesAccess.locked[testId] : null)
+  const openAuthPrompt = useAuthStore(s => s.openAuthPrompt)
+  // The originals above, with answers and explanations merged in once a test is
+  // submitted (the server sends them without; see utils/originalQuestions)
+  const originalQuestions = useOriginalQuestions()
   const [view, setView] = useState('list') // 'list' | 'testing' | 'report' | 'history'
   const [selectedCategoryId, setSelectedCategoryId] = useState(null)
   const [categorySearchQuery, setCategorySearchQuery] = useState('')
@@ -312,6 +317,10 @@ export default function MockTestsPage() {
     })
   }
   const activeQuestionIdRef = useRef(null)
+  // Submitting waits for the server, which replies with the answers
+  const submittingRef = useRef(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [timerKick, setTimerKick] = useState(0) // restarts the clock after a failed submit
 
   // Report State variables
   const [reportData, setReportData] = useState(null)
@@ -328,13 +337,30 @@ export default function MockTestsPage() {
     return [...stored, ...dummies]
   }, [questions])
 
-  const handleOpenMockReport = (attempt, returnTo = 'history') => {
-    setReportData(attempt)
+  const handleOpenMockReport = async (attempt, returnTo = 'history') => {
     // Attempts store the paper's question ids; older ones fall back to the paper itself
     const paper = dummyMockTests.find(t => t.id === attempt.testId)
     const testQs = attempt.questions && attempt.questions.length > 0
       ? attempt.questions
       : (paper?.questions || (questions || []).slice(0, attempt.questionsCount || 65))
+    // Original questions' answers come from the server, for tests this user submitted
+    const needsAnswers = testQs.some((item) => {
+      const q = typeof item === 'object' && item !== null ? item : questionById.get(item)
+      return q?.original && !hasRevealedAnswer(q.id)
+    })
+    if (needsAnswers) {
+      if (!isSignedIn()) {
+        openAuthPrompt('see your mock test analysis', 'Please sign in to see the analysis of your mock tests.')
+        return
+      }
+      try {
+        await fetchTestAnswers(attempt.testId)
+      } catch (err) {
+        window.alert(err.message)
+        return
+      }
+    }
+    setReportData(attempt)
     setActiveTest({ id: attempt.testId, title: attempt.testTitle, durationMinutes: paper?.durationMinutes, questions: testQs })
     setAnswers(attempt.answers || {})
     setTimeSpent(attempt.timeSpentMap || {})
@@ -368,7 +394,7 @@ export default function MockTestsPage() {
   // Initialize questions inside a test
   // Papers mix past-paper questions and original ones (served by /api/mock-tests/originals),
   // in the paper's own order
-  const questionById = useMemo(() => new Map([...(questions || []), ...(originals || [])].map(q => [q.id, q])), [questions, originals])
+  const questionById = useMemo(() => new Map([...(questions || []), ...originalQuestions].map(q => [q.id, q])), [questions, originalQuestions])
   const testQuestions = activeTest
     ? (Array.isArray(activeTest.questions)
         ? activeTest.questions.map(item => (typeof item === 'object' && item !== null ? item : questionById.get(item))).filter(Boolean)
@@ -411,7 +437,7 @@ export default function MockTestsPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [view, timeLeft])
+  }, [view, timeLeft, timerKick])
 
   const enterFullscreen = () => {
     if (document.documentElement.requestFullscreen) {
@@ -423,7 +449,16 @@ export default function MockTestsPage() {
 
   // Each paper can be taken once: a submitted one opens its analysis, and one
   // in progress resumes instead of starting over
+  // Mock tests are for signed-in users: the server records each submission before
+  // it reveals the answers, so the key can't be read ahead of a ranked attempt
+  const requireSignIn = () => {
+    if (isSignedIn()) return true
+    openAuthPrompt('take mock tests', 'Please sign in or create a free account to take mock tests. Your score, answers and analysis are saved to your account.')
+    return false
+  }
+
   const startTest = (test) => {
+    if (!requireSignIn()) return
     const done = findMockAttempt(test.id)
     if (done) return handleOpenMockReport(done, 'list')
     if (lockFor(test.id)) return navigate('/profile#coaching-centre')
@@ -450,6 +485,7 @@ export default function MockTestsPage() {
 
   const resumeTest = (saved = loadSession()) => {
     if (!saved || saved.page !== 'mock' || !originals) return
+    if (!requireSignIn()) return
     const paper = dummyMockTests.find(t => t.id === saved.testId)
     setActiveTest({
       ...(paper || { id: saved.testId, title: saved.title }),
@@ -603,8 +639,29 @@ export default function MockTestsPage() {
     syncTestRecordsToServer()
   }
 
-  const handleSubmitTest = () => {
+  const handleSubmitTest = async () => {
+    if (submittingRef.current || !activeTest) return
+    submittingRef.current = true
     if (timerRef.current) clearInterval(timerRef.current)
+    setSubmitting(true)
+
+    // The server records the submission first and replies with the answers to the
+    // original questions, which the analysis below needs. If that fails nothing is
+    // lost: the test stays open and saved, and Submit can be pressed again.
+    let serverResult
+    try {
+      serverResult = await submitMockAttempt(activeTest.id, answers, activeTest.durationMinutes * 60 - timeLeft)
+      revealAnswers(serverResult.answers)
+    } catch (err) {
+      submittingRef.current = false
+      setSubmitting(false)
+      setTimerKick(k => k + 1)
+      window.alert(`Could not submit the test: ${err.message}\n\nYour answers are saved. Check your connection and press Submit again.`)
+      return
+    }
+    submittingRef.current = false
+    setSubmitting(false)
+    const scoredQuestions = testQuestions.map(withRevealedAnswer)
     clearSession()
 
     // Auto-exit fullscreen mode
@@ -631,7 +688,7 @@ export default function MockTestsPage() {
     const totalDuration = activeTest.durationMinutes * 60
     const panicThreshold = totalDuration * 0.15 // final 15% of time
 
-    testQuestions.forEach((q) => {
+    scoredQuestions.forEach((q) => {
       const selected = answers[q.id]
       const qMarks = q.marks || 1
       const qType = q.type || 'MCQ'
@@ -721,7 +778,7 @@ export default function MockTestsPage() {
     // Accuracy percentage (based on attempts)
     const totalAttempted = correct + incorrect
     const accuracy = totalAttempted > 0 ? ((correct / totalAttempted) * 100).toFixed(1) : 0
-    const attemptRate = ((totalAttempted / testQuestions.length) * 100).toFixed(1)
+    const attemptRate = ((totalAttempted / scoredQuestions.length) * 100).toFixed(1)
     const timeTaken = totalDuration - timeLeft
     const timeUtilizationRate = ((timeTaken / totalDuration) * 100).toFixed(1)
 
@@ -740,7 +797,8 @@ export default function MockTestsPage() {
 
     // Under a minute isn't a real attempt: it is kept (the paper is used up and
     // its analysis stays viewable) but doesn't count toward stats or comparison
-    const counted = isValidAttempt(timeTaken)
+    // (the server decides: it also refuses to rank a test whose answers were seen)
+    const counted = serverResult.alreadyAttempted ? isValidAttempt(timeTaken) : !!serverResult.counted
 
     // Save to local storage history
     const existingHistory = JSON.parse(localStorage.getItem('gate_mock_history') || '[]')
@@ -753,10 +811,11 @@ export default function MockTestsPage() {
       displayName: `Mock Test ${testNum}`,
       attemptNo,
       counted,
+      ...(!counted && serverResult.answersSeen ? { notCountedReason: serverResult.reason } : {}),
       date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
       timestamp: Date.now(),
-      questionsCount: testQuestions.length,
+      questionsCount: scoredQuestions.length,
       correct,
       incorrect,
       unanswered,
@@ -780,7 +839,7 @@ export default function MockTestsPage() {
       timeSpentMap: timeSpent, // save raw time per question
       // so the analysis can be reopened later with every response
       answers,
-      questions: testQuestions.map(q => q.id)
+      questions: scoredQuestions.map(q => q.id)
     }
 
     setReportData(data)
@@ -799,7 +858,7 @@ export default function MockTestsPage() {
 
     // Every answered past-paper question also counts toward the user's practice
     // record (original mock questions aren't part of the PYQ bank)
-    recordAttempts(testQuestions
+    recordAttempts(scoredQuestions
       .filter(q => !q.original)
       .filter(q => {
         const a = answers[q.id]
@@ -807,10 +866,10 @@ export default function MockTestsPage() {
       })
       .map(q => ({ questionId: q.id, correct: isAnswerCorrect(q, answers[q.id]), timeSpentSec: timeSpent[q.id] || 0 })))
 
-    // Signed in: the server scores it too and compares it with other students
+    // The server scored it too and compared it with other students
     if (isSignedIn()) {
       setComparisonState({ status: 'loading' })
-      submitMockAttempt(activeTest.id, answers, timeTaken)
+      Promise.resolve(serverResult)
         .then((result) => {
           // Already taken (e.g. on another device): show that attempt's comparison
           if (result.alreadyAttempted && result.comparison) return setComparisonState({ status: 'ready', comparison: result.comparison })
@@ -1286,10 +1345,11 @@ export default function MockTestsPage() {
 
             <button
               onClick={handleSubmitTest}
-              className="px-4 py-2 bg-success text-white text-xs font-bold rounded-btn hover:bg-success/90 flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+              disabled={submitting}
+              className="px-4 py-2 bg-success text-white text-xs font-bold rounded-btn hover:bg-success/90 flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-wait"
             >
               <Send size={12} />
-              <span>Submit Test</span>
+              <span>{submitting ? 'Submitting…' : 'Submit Test'}</span>
             </button>
           </div>
         </header>
@@ -1704,7 +1764,9 @@ export default function MockTestsPage() {
         {reportData.counted === false && (
           <div className="p-3 rounded-btn border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2 no-print">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-            <span>You finished in under {MIN_VALID_SECONDS} seconds, so this attempt doesn't count toward your analytics or rank. Each test can be taken once, so this analysis is what the test will show from now on.</span>
+            <span>{reportData.notCountedReason
+              ? `${reportData.notCountedReason} Each test can be taken once, so this analysis is what the test will show from now on.`
+              : `You finished in under ${MIN_VALID_SECONDS} seconds, so this attempt doesn't count toward your analytics or rank. Each test can be taken once, so this analysis is what the test will show from now on.`}</span>
           </div>
         )}
         {reportData.counted !== false && reportData.attemptNo > 1 && (

@@ -36,7 +36,7 @@ import {
   clearFailedLogins
 } from './services/auth.js'
 import { issueOtp, verifyOtp, OTP_MINUTES } from './services/otp.js'
-import { publicDiscussions, publicPost, addPost, deletePost, votePost, userDiscussionStats } from './services/discussions.js'
+import { publicDiscussions, publicPost, addPost, deletePost, votePost, cachedDiscussionStats, discussionSummary, reindexQuestion } from './services/discussions.js'
 import { sendOtpMail, sendReportMail, canSendEmail } from './services/mailer.js'
 import { requireHuman, turnstileSiteKey } from './services/turnstile.js'
 import { studentReport, batchSummary } from './services/institutes.js'
@@ -90,7 +90,7 @@ const isValidTimeZone = (tz) => {
 // includes tests, the Problem of the Day, or posting in discussions); signing in
 // alone never counts. Days are the user's own calendar days (their saved time zone).
 // Badges are awarded once and kept even if a streak later breaks.
-const userTimeZone = (userId) => attemptDb.getUserAttempts(userId).timeZone || null
+const userTimeZone = (userId) => attemptDb.getUserTimeZone(userId)
 
 const activityStats = (user) => {
   const saved = attemptDb.getUserAttempts(user.id)
@@ -98,7 +98,7 @@ const activityStats = (user) => {
   const today = dayKey(Date.now(), timeZone)
   const practice = practiceSummary(saved, today)
   const potdDays = potdDb.getUserDays(user.id)
-  const discussion = userDiscussionStats(discussionDb.getAll(), user.id)
+  const discussion = cachedDiscussionStats(discussionDb.peekAll(), user.id)
 
   // Streak helpers count a day when it has attempts > 0
   const active = { attempts: 1 }
@@ -114,7 +114,7 @@ const activityStats = (user) => {
     potdStreak: currentStreak(potdActive, today),
     longestPotdStreak: longestStreak(potdActive),
     contributions: discussion.solutionsPosted + discussion.repliesPosted,
-    bookmarks: (bookmarkDb.getUserBookmarks(user.id).bookmarks || []).length,
+    bookmarks: bookmarkDb.countUserBookmarks(user.id),
     discussion
   }
 }
@@ -801,9 +801,20 @@ app.put('/api/sync/attempts', requireAuth, (req, res) => {
 })
 
 // 6. Discussion Forum Synchronization & Persistence
+// Everything at once. The app no longer calls this (it loads one question at a time,
+// below); it stays for pages still open from before that change.
 app.get('/api/discussions', (req, res) => {
   try {
-    res.status(200).json(publicDiscussions(discussionDb.getAll()))
+    res.status(200).json(publicDiscussions(discussionDb.peekAll()))
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve discussions.' })
+  }
+})
+
+// How many posts each question has ({ [questionId]: { posts, replies } }), for lists
+app.get('/api/discussions/summary', (req, res) => {
+  try {
+    res.status(200).json(discussionSummary(discussionDb.peekAll()))
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve discussions.' })
   }
@@ -821,15 +832,32 @@ const knownQuestion = (req, res) => {
   return String(qid)
 }
 
+// One question's posts
+app.get('/api/discussions/:questionId', (req, res) => {
+  try {
+    const qid = knownQuestion(req, res)
+    if (!qid) return
+    res.status(200).json(publicDiscussions({ [qid]: discussionDb.getQuestion(qid) })[qid] || [])
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve discussions.' })
+  }
+})
+
+// Saves one question's posts and updates the cached counts and stats
+const saveDiscussion = (qid, posts) => {
+  discussionDb.saveQuestion(qid, posts)
+  reindexQuestion(discussionDb.peekAll(), qid)
+}
+
 app.post('/api/discussions/:questionId/posts', requireAuth, postLimiter, (req, res) => {
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const author = { ...req.user, avatar: /^https:\/\/\S+$/.test(req.user.avatar || '') ? req.user.avatar : null }
     const result = addPost(all, qid, author, req.body)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     const user = refreshPracticeStats(userDb.findById(req.user.id))
     res.status(201).json({ post: publicPost(result.post), user: sanitizeUser(user) })
   } catch (err) {
@@ -842,10 +870,10 @@ app.delete('/api/discussions/:questionId/posts/:postId', requireAuth, (req, res)
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const result = deletePost(all, qid, req.params.postId, req.user, req.user.isAdmin)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     res.status(200).json({ success: true })
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete the comment.' })
@@ -856,11 +884,11 @@ app.put('/api/discussions/:questionId/posts/:postId/vote', requireAuth, postLimi
   try {
     const qid = knownQuestion(req, res)
     if (!qid) return
-    const all = discussionDb.getAll()
+    const all = { [qid]: discussionDb.getQuestion(qid) }
     const vote = req.body?.vote === undefined ? null : req.body.vote
     const result = votePost(all, qid, req.params.postId, req.user.id, vote)
     if (result.error) return res.status(result.status).json({ error: result.error })
-    discussionDb.saveAll(all)
+    saveDiscussion(qid, all[qid])
     const { upvotes, downvotes } = publicPost(result.post)
     res.status(200).json({ upvotes, downvotes })
   } catch (err) {
@@ -877,7 +905,7 @@ const optionalUser = (req) => {
 
 // 7. Discussion statistics for the dashboard
 app.get('/api/discussions/stats/me', requireAuth, (req, res) => {
-  const { postTimes, ...stats } = userDiscussionStats(discussionDb.getAll(), req.user.id)
+  const { postTimes, ...stats } = cachedDiscussionStats(discussionDb.peekAll(), req.user.id)
   res.status(200).json(stats)
 })
 
@@ -890,6 +918,29 @@ const publicAttempt = ({ userId, ...attempt }) => attempt
 // Questions written for the mock tests (not past papers), scored like any other
 const originalQuestions = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'shared', 'originalQuestions.json'), 'utf8'))
 const originalById = new Map(originalQuestions.map(q => [q.id, q]))
+
+// The browser gets these without their answers and explanations. A user sees
+// those for a test only after submitting it (with the submission's reply, or later
+// from /api/mock-tests/:testId/answers), so the key can't be read before a ranked
+// first attempt.
+// (/api/mock-tests/originals, in routes/series.js, serves this stripped list)
+const publicOriginals = originalQuestions.map(({ answer, explanation, ...q }) => q)
+
+// { [questionId]: { answer, explanation } } for a test's original questions
+const answersFor = (test) => Object.fromEntries(test.questions
+  .map(id => originalById.get(id))
+  .filter(Boolean)
+  .map(q => [q.id, { answer: q.answer, explanation: q.explanation }]))
+
+// A user has seen a test's answers once they submitted it: a counted attempt, or
+// one under a minute (not counted, but the paper is used up and its answers shown)
+const hasSubmittedTest = (user, testId) => !!user &&
+  (!!user.mockAnswersSeen?.[testId] || mockAttemptDb.getByUser(user.id).some(a => a.testId === testId))
+
+const markAnswersSeen = (userId, testId) => {
+  const user = userDb.findById(userId)
+  if (user && !user.mockAnswersSeen?.[testId]) userDb.update(userId, { mockAnswersSeen: { ...(user.mockAnswersSeen || {}), [testId]: Date.now() } })
+}
 
 // A comparable test: a mock test, or a full year PYQ paper (pyq-2025-s1)
 const resolveTest = (id) => {
@@ -926,11 +977,26 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
         counted: false,
         alreadyAttempted: true,
         reason: 'You have already taken this test. Only your first attempt counts.',
-        comparison: comparisonFor(test.id, req.user.id)
+        comparison: comparisonFor(test.id, req.user.id),
+        answers: answersFor(test)
+      })
+    }
+    // Answers already shown (an earlier attempt under a minute): this one can't rank
+    if (userDb.findById(req.user.id)?.mockAnswersSeen?.[test.id]) {
+      return res.status(200).json({
+        counted: false,
+        answersSeen: true,
+        reason: "You have already seen this test's answers, so this attempt isn't counted.",
+        answers: answersFor(test)
       })
     }
     if (!isValidAttempt(timeTaken)) {
-      return res.status(200).json({ counted: false, reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.` })
+      markAnswersSeen(req.user.id, test.id)
+      return res.status(200).json({
+        counted: false,
+        reason: `Finished in under ${MIN_VALID_SECONDS} seconds, so this attempt isn't counted.`,
+        answers: answersFor(test)
+      })
     }
 
     const testQuestions = test.questions.map(id => questions.find(q => q.id === id) || originalById.get(id)).filter(Boolean)
@@ -954,12 +1020,21 @@ app.post('/api/mock-tests/:testId/attempts', requireAuth, postLimiter, (req, res
     res.status(201).json({
       counted: true,
       attempt: publicAttempt(attempt),
-      comparison: comparisonFor(test.id, req.user.id)
+      comparison: comparisonFor(test.id, req.user.id),
+      answers: answersFor(test)
     })
   } catch (err) {
     console.error('Mock attempt error:', err)
     res.status(500).json({ error: 'Failed to save the attempt.' })
   }
+})
+
+// The answers of a test the user has submitted, to reopen its analysis
+app.get('/api/mock-tests/:testId/answers', requireAuth, (req, res) => {
+  const test = resolveTest(req.params.testId)
+  if (!test) return res.status(404).json({ error: 'Test not found.' })
+  if (!hasSubmittedTest(userDb.findById(req.user.id), test.id)) return res.status(403).json({ error: 'Submit the test to see its answers.' })
+  res.status(200).json({ answers: answersFor(test) })
 })
 
 app.get('/api/mock-tests/attempts/me', requireAuth, (req, res) => {
@@ -1209,7 +1284,7 @@ app.delete('/api/me/institute', requireAuth, (req, res) => {
 })
 
 // --- TEST SERIES AND THE ADMIN APP'S API ---
-registerSeriesRoutes(app, { mockTests, originalQuestions, optionalUser, isAdminEmail })
+registerSeriesRoutes(app, { mockTests, originalQuestions: publicOriginals, optionalUser, isAdminEmail })
 registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---

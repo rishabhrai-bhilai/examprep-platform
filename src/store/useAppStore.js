@@ -1,9 +1,19 @@
 import { create } from 'zustand'
-import initialQuestions from '../data/questions.json'
 import { dummyDiscussions } from '../utils/dummyData'
 import { useAuthStore } from './useAuthStore'
 import { addAttempt, mergePractice, sanitizePractice } from '../../shared/practice.js'
 import { timeAgo } from '../utils/practiceStats'
+
+// The question bank (~4 MB) is its own chunk, loaded after the first render so the
+// app's code doesn't wait for it. Pages that need it wait behind <QuestionsGate>.
+let questionsPromise = null
+const loadQuestionBank = () => {
+  if (!questionsPromise) {
+    questionsPromise = import('../data/questions.json').then(m => m.default || [])
+    questionsPromise.catch(() => { questionsPromise = null }) // let a retry try again
+  }
+  return questionsPromise
+}
 
 const getInitialTheme = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -47,15 +57,44 @@ const getInitialBookmarkFolders = () => {
   }
 }
 
-const getInitialDiscussions = () => {
-  try {
-    const stored = localStorage.getItem('discussions')
-    if (stored) return { ...getDummyDiscussions(), ...JSON.parse(stored) }
-  } catch (e) {
-    // fall through to the examples
-  }
-  return getDummyDiscussions()
+// Discussions are loaded one question at a time (loadDiscussion); lists of
+// questions only need how many posts each has (discussionCounts, from
+// /api/discussions/summary). The browser used to keep a copy of every post on the
+// site in localStorage; that copy is dropped.
+try { localStorage.removeItem('discussions') } catch (e) { /* storage unavailable */ }
+
+const DISCUSSION_COUNTS_KEY = 'discussionCounts'
+const NO_POSTS = Object.freeze({ posts: 0, replies: 0 })
+// { posts, replies } as the question lists show them: top-level posts, and the
+// direct replies to them
+const countPosts = (list) => ({
+  posts: (list || []).length,
+  replies: (list || []).reduce((n, p) => n + (p.replies?.length || 0), 0)
+})
+export const discussionCountFor = (counts, questionId) => (counts && counts[questionId]) || NO_POSTS
+
+// Example posts plus the server's counts
+const addServerCounts = (serverCounts) => {
+  const counts = Object.fromEntries(Object.entries(getDummyDiscussions()).map(([qId, list]) => [qId, countPosts(list)]))
+  Object.entries(serverCounts || {}).forEach(([qId, c]) => {
+    const base = counts[qId] || NO_POSTS
+    counts[qId] = { posts: base.posts + (c?.posts || 0), replies: base.replies + (c?.replies || 0) }
+  })
+  return counts
 }
+
+// The last counts seen, shown until the summary arrives
+const getInitialDiscussionCounts = () => {
+  try {
+    return addServerCounts(JSON.parse(localStorage.getItem(DISCUSSION_COUNTS_KEY) || '{}'))
+  } catch (e) {
+    return addServerCounts({})
+  }
+}
+
+// Questions whose posts have come from the server (their counts come from the list)
+const loadedDiscussions = new Set()
+const discussionLoads = new Map() // questionId -> request in flight
 
 const getInitialSolutionVotes = () => {
   try {
@@ -157,13 +196,8 @@ const discussionRequest = async (method, path, body) => {
   return data
 }
 
-const saveDiscussionsLocally = (discussions) => {
-  try {
-    localStorage.setItem('discussions', JSON.stringify(discussions))
-  } catch (e) {
-    console.warn('Could not persist discussions to localStorage', e)
-  }
-}
+// After a question's list changes here: its count follows the list
+const withListCount = (counts, qId, list) => ({ ...counts, [qId]: countPosts(list) })
 
 export const getClientUserId = () => {
   if (typeof window === 'undefined' || !window.localStorage) {
@@ -316,7 +350,9 @@ export const useAppStore = create((set, get) => ({
   bookmarkFolders: getInitialBookmarkFolders(),
   bookmarkSelectorQuestionId: null,
   votes: JSON.parse(localStorage.getItem('votes') || '{}'),
-  discussions: getInitialDiscussions(),
+  discussions: getDummyDiscussions(),
+  discussionCounts: getInitialDiscussionCounts(),
+  discussionLoading: {},
   solutionVotes: getInitialSolutionVotes(),
   myCommentIds: getInitialMyCommentIds(),
   questionNotes: JSON.parse(localStorage.getItem('questionNotes') || '{}'),
@@ -329,8 +365,9 @@ export const useAppStore = create((set, get) => ({
   scratchpadOpenQuestionId: null,
   sidebarOpen: false,
   sidebarCollapsed: true,
-  questions: initialQuestions || [],
-  loadingQuestions: false,
+  questions: [],
+  loadingQuestions: true,
+  questionsError: null,
   isPracticeActive: false,
 
   setIsPracticeActive: (isPracticeActive) => set({ isPracticeActive }),
@@ -602,19 +639,13 @@ export const useAppStore = create((set, get) => ({
 
   fetchQuestions: async () => {
     if (get().questions.length > 0) return
-    set({ loadingQuestions: true })
+    set({ loadingQuestions: true, questionsError: null })
     try {
-      const res = await fetch('/api/questions')
-      const data = await res.json()
-      const sanitized = Array.isArray(data) ? data.map(q => ({
-        ...q,
-        likes: typeof q.likes === 'number' ? q.likes : 0,
-        commentsCount: typeof q.commentsCount === 'number' ? q.commentsCount : 0
-      })) : []
-      set({ questions: sanitized, loadingQuestions: false })
+      const questions = await loadQuestionBank()
+      set({ questions, loadingQuestions: false })
     } catch (e) {
-      console.error("Failed to fetch questions:", e)
-      set({ loadingQuestions: false })
+      console.error('Failed to load questions:', e)
+      set({ loadingQuestions: false, questionsError: 'Could not load the questions. Check your connection and try again.' })
     }
   },
 
@@ -643,21 +674,59 @@ export const useAppStore = create((set, get) => ({
   },
 
   // --- DISCUSSIONS (GATED FOR LOGGED-IN USERS) ---
-  // The server holds everyone's posts; localStorage is only an offline copy
+  // The server holds everyone's posts. This loads how many each question has; the
+  // posts themselves come one question at a time from loadDiscussion.
   fetchDiscussions: async () => {
     try {
-      const res = await fetch('/api/discussions')
+      const res = await fetch('/api/discussions/summary')
       if (!res.ok) return
-      const serverPosts = await res.json()
-      const merged = getDummyDiscussions()
-      Object.entries(serverPosts || {}).forEach(([qId, list]) => {
-        merged[qId] = [...(merged[qId] || []), ...list.map(withCreatedAt)]
-      })
-      set({ discussions: merged })
-      saveDiscussionsLocally(merged)
+      const serverCounts = (await res.json()) || {}
+      try { localStorage.setItem(DISCUSSION_COUNTS_KEY, JSON.stringify(serverCounts)) } catch (e) { /* only a cache */ }
+      const counts = addServerCounts(serverCounts)
+      // Questions already open count what they show
+      const { discussions } = get()
+      loadedDiscussions.forEach(qId => { counts[qId] = countPosts(discussions[qId]) })
+      set({ discussionCounts: counts })
     } catch (e) {
       console.warn('Could not load discussions:', e.message)
     }
+  },
+
+  // One question's posts (examples first, then the server's)
+  loadDiscussion: (questionId) => {
+    if (questionId === null || questionId === undefined) return Promise.resolve()
+    const qId = String(questionId)
+    if (discussionLoads.has(qId)) return discussionLoads.get(qId)
+    if (!loadedDiscussions.has(qId)) set({ discussionLoading: { ...get().discussionLoading, [qId]: true } })
+    const done = () => {
+      discussionLoads.delete(qId)
+      const rest = { ...get().discussionLoading }
+      delete rest[qId]
+      set({ discussionLoading: rest })
+    }
+    const request = fetch(`/api/discussions/${encodeURIComponent(qId)}`)
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((serverList) => {
+        const fromServer = (Array.isArray(serverList) ? serverList : []).map(withCreatedAt)
+        const serverIds = new Set(fromServer.map(p => String(p.id)))
+        // A post made here moments ago may not have reached the server yet
+        const mine = get().myCommentIds || []
+        const pending = (get().discussions[qId] || []).filter(p =>
+          !serverIds.has(String(p.id)) && mine.includes(p.id) && Date.now() - (p.timestamp || 0) < 60000)
+        const list = [...(getDummyDiscussions()[qId] || []), ...fromServer, ...pending]
+        loadedDiscussions.add(qId)
+        set({
+          discussions: { ...get().discussions, [qId]: list },
+          discussionCounts: withListCount(get().discussionCounts, qId, list)
+        })
+        done()
+      })
+      .catch((e) => {
+        console.warn('Could not load the discussion:', e.message)
+        done()
+      })
+    discussionLoads.set(qId, request)
+    return request
   },
 
   // Undo an optimistic post the server refused
@@ -704,9 +773,8 @@ export const useAppStore = create((set, get) => ({
 
     const nextMyCommentIds = Array.from(new Set([...(get().myCommentIds || []), newSolution.id]))
 
-    set({ discussions: currentDiscussions, myCommentIds: nextMyCommentIds })
+    set({ discussions: currentDiscussions, discussionCounts: withListCount(get().discussionCounts, qId, qList), myCommentIds: nextMyCommentIds })
     try {
-      localStorage.setItem('discussions', JSON.stringify(currentDiscussions))
       localStorage.setItem('discussion_my_comment_ids', JSON.stringify(nextMyCommentIds))
     } catch (e) {
       console.warn('Could not persist discussions to localStorage', e)
@@ -787,9 +855,8 @@ export const useAppStore = create((set, get) => ({
       targetSol.replies = targetSol.replies ? [...targetSol.replies, newReply] : [newReply]
       qList[targetIdx] = targetSol
       currentDiscussions[qId] = qList
-      set({ discussions: currentDiscussions, myCommentIds: nextMyCommentIds })
+      set({ discussions: currentDiscussions, discussionCounts: withListCount(get().discussionCounts, qId, qList), myCommentIds: nextMyCommentIds })
       try {
-        localStorage.setItem('discussions', JSON.stringify(currentDiscussions))
         localStorage.setItem('discussion_my_comment_ids', JSON.stringify(nextMyCommentIds))
       } catch (e) {
         console.warn('Could not persist discussions to localStorage', e)
@@ -813,9 +880,8 @@ export const useAppStore = create((set, get) => ({
 
     if (inserted) {
       currentDiscussions[qId] = qList
-      set({ discussions: currentDiscussions, myCommentIds: nextMyCommentIds })
+      set({ discussions: currentDiscussions, discussionCounts: withListCount(get().discussionCounts, qId, qList), myCommentIds: nextMyCommentIds })
       try {
-        localStorage.setItem('discussions', JSON.stringify(currentDiscussions))
         localStorage.setItem('discussion_my_comment_ids', JSON.stringify(nextMyCommentIds))
       } catch (e) {
         console.warn('Could not persist discussions to localStorage', e)
@@ -878,10 +944,13 @@ export const useAppStore = create((set, get) => ({
     }
 
     const currentMyCommentIds = (get().myCommentIds || []).filter(id => id !== cId)
-    set({ discussions: currentDiscussions, myCommentIds: currentMyCommentIds })
+    set({
+      discussions: currentDiscussions,
+      ...(modified ? { discussionCounts: withListCount(get().discussionCounts, qId, currentDiscussions[qId]) } : {}),
+      myCommentIds: currentMyCommentIds
+    })
 
     try {
-      localStorage.setItem('discussions', JSON.stringify(currentDiscussions))
       localStorage.setItem('discussion_my_comment_ids', JSON.stringify(currentMyCommentIds))
     } catch (e) {
       console.warn('Could not persist after deleting comment', e)
@@ -893,7 +962,7 @@ export const useAppStore = create((set, get) => ({
       discussionRequest('DELETE', `${qId}/posts/${encodeURIComponent(cId)}`)
         .catch((err) => {
           if (!/not found/i.test(err.message)) alert(`Could not delete the comment: ${err.message}`)
-          get().fetchDiscussions()
+          get().loadDiscussion(qId)
         })
     }
 
@@ -969,7 +1038,6 @@ export const useAppStore = create((set, get) => ({
     set({ solutionVotes: currentVotes, discussions: currentDiscussions })
     try {
       localStorage.setItem('solutionVotes', JSON.stringify(currentVotes))
-      localStorage.setItem('discussions', JSON.stringify(currentDiscussions))
     } catch (e) {
       console.warn('Could not persist votes to localStorage', e)
     }
@@ -982,7 +1050,6 @@ export const useAppStore = create((set, get) => ({
         latest[qId] = [...latest[qId]]
         latest[qId][idx] = { ...latest[qId][idx], upvotes, downvotes }
         set({ discussions: latest })
-        saveDiscussionsLocally(latest)
       })
       .catch(() => {}) // example posts aren't on the server; the local count stays
   },

@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react'
+import React, { Suspense, useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 import BottomNav from '../components/BottomNav'
 import { useAppStore } from '../store/useAppStore'
+import { PageLoader } from '../components/QuestionsGate'
 
 // <main> is the one scrolling area for every page in here. Full-height pages
 // (PYQ practice, Notes, Discussions) use h-full and scroll inside themselves.
@@ -25,7 +26,10 @@ export default function DashboardLayout() {
         <Sidebar />
         {/* Room for the phone bottom bar, which practice mode hides */}
         <main ref={mainRef} className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden ${isPracticeActive ? '' : 'pb-16 md:pb-0'}`}>
-          <Outlet />
+          {/* Pages are loaded on demand; the header and sidebar stay while one loads */}
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <BottomNav />

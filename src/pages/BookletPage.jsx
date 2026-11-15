@@ -8,7 +8,7 @@ import {
   Send, Reply, Play, ArrowUpDown, X, ListTree, ArrowLeft,
   Maximize2, Minimize2, HelpCircle, FileText, Hash, ExternalLink
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { discussionCountFor, useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { topicList, getTags, hasTag } from '../utils/topics'
 import { useTopicScheme } from '../store/useTopicScheme'
@@ -30,8 +30,11 @@ export default function BookletPage() {
   const { 
     questions, 
     loadingQuestions, 
-    fetchQuestions, 
-    discussions, 
+    fetchQuestions,
+    discussions,
+    discussionCounts,
+    discussionLoading,
+    loadDiscussion,
     fetchDiscussions, 
     bookmarks, 
     toggleQuestionInFolder,
@@ -238,6 +241,13 @@ export default function BookletPage() {
     if (!activeQuestion) return []
     return discussions[activeQuestion.id] || []
   }, [discussions, activeQuestion])
+
+  // The open question's posts load when it's picked
+  const activeQuestionKey = activeQuestion?.id
+  useEffect(() => {
+    if (activeQuestionKey !== undefined) loadDiscussion(activeQuestionKey)
+  }, [activeQuestionKey, loadDiscussion])
+  const activeDiscussionLoading = activeQuestionKey !== undefined && !!discussionLoading[activeQuestionKey]
 
   const handlePostComment = async (e) => {
     e.preventDefault()
@@ -649,7 +659,7 @@ export default function BookletPage() {
                 {oneMarkQuestions.map((q, idx) => {
                   const isCurrentActive = activeQuestion?.id === q.id
                   const isBookmarked = (bookmarks || []).includes(q.id)
-                  const commentsCount = (discussions[q.id] || []).length || q.commentsCount || 0
+                  const commentsCount = discussionCountFor(discussionCounts, q.id).posts || q.commentsCount || 0
                   const qNumberStr = String(idx + 1).padStart(2, '0')
 
                   return (
@@ -809,7 +819,7 @@ export default function BookletPage() {
                 {twoMarkQuestions.map((q, idx) => {
                   const isCurrentActive = activeQuestion?.id === q.id
                   const isBookmarked = (bookmarks || []).includes(q.id)
-                  const commentsCount = (discussions[q.id] || []).length || q.commentsCount || 0
+                  const commentsCount = discussionCountFor(discussionCounts, q.id).posts || q.commentsCount || 0
                   // Numbering continues after 1-mark questions or sequential
                   const qNumberStr = String(oneMarkQuestions.length + idx + 1).padStart(2, '0')
 
@@ -1108,7 +1118,12 @@ export default function BookletPage() {
 
                   {/* Comments List */}
                   <div className="space-y-3">
-                    {activeDiscussionsList.length === 0 ? (
+                    {activeDiscussionLoading && activeDiscussionsList.length === 0 ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-[11px] font-semibold text-slate-400" role="status">
+                        <span className="h-4 w-4 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+                        <span>Loading discussion…</span>
+                      </div>
+                    ) : activeDiscussionsList.length === 0 ? (
                       <div className="text-center py-8 text-slate-400 space-y-1.5">
                         <MessageSquare size={24} className="mx-auto text-slate-300 dark:text-slate-600" />
                         <p className="text-xs font-semibold">No discussions yet on this question.</p>

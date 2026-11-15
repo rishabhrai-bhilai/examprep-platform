@@ -39,6 +39,20 @@ export async function connectMongo(uri, files, { dbName = process.env.MONGODB_DB
 // Callers change what they read and write it back, so hand out copies
 export const mongoRead = (name) => structuredClone(cache.get(name))
 
+// The cached value itself, for db/index.js's per-record helpers. Never hand it to
+// route code: anything that changes it must go through mongoSaveRecord.
+export const mongoPeek = (name) => cache.get(name)
+
+// Saves one record (or deletes it, with record === undefined). The caller has
+// already updated the cached value from mongoPeek; this only sends the change.
+export function mongoSaveRecord(name, id, record) {
+  const _id = String(id)
+  const op = record === undefined
+    ? { deleteOne: { filter: { _id } } }
+    : { replaceOne: { filter: { _id }, replacement: { _id, data: record }, upsert: true } }
+  queue = queue.then(() => writeWithRetry(name, [op]))
+}
+
 const entriesOf = (name, value) => (kinds.get(name) === 'array'
   ? new Map((value || []).filter(r => r && r.id !== undefined).map(r => [String(r.id), r]))
   : new Map(Object.entries(value || {})))
