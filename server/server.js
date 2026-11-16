@@ -10,7 +10,7 @@ import fs from 'fs'
 import rateLimit from 'express-rate-limit'
 
 // Database and Auth Services
-import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, seriesDb, initStorage, flushStorage, storageHealth } from './db/index.js'
+import { userDb, bookmarkDb, noteDb, testRecordDb, discussionDb, reportDb, attemptDb, mockAttemptDb, potdDb, instituteDb, seriesDb, coachingDb, initStorage, flushStorage, storageHealth } from './db/index.js'
 import { mergePractice, sanitizePractice, practiceSummary, dayKey, currentStreak, longestStreak } from '../shared/practice.js'
 import { findMockTest, mockTests } from '../shared/mockTests.js'
 import { isPyqPaperId, pyqPaperQuestions, pyqPaperMinutes, pyqPaperTitle } from '../shared/pyqPapers.js'
@@ -44,6 +44,7 @@ import { studentReport, batchSummary } from './services/institutes.js'
 import { canTakeTest, centreSeat } from './services/access.js'
 import { registerSeriesRoutes } from './routes/series.js'
 import { registerAdminRoutes } from './routes/admin.js'
+import { registerCoachingRoutes } from './coaching/routes.js'
 
 // Load environment variables from server/.env, whichever folder the server is started from
 dotenv.config({ path: fileURLToPath(new URL('.env', import.meta.url)) })
@@ -1224,6 +1225,7 @@ app.patch('/api/institutes/:id', requireAuth, requireInstituteAdmin, (req, res) 
 
 app.delete('/api/institutes/:id', requireAuth, requireAdmin, (req, res) => {
   if (!instituteDb.delete(req.params.id)) return res.status(404).json({ error: 'Coaching centre not found.' })
+  coachingDb.delete(req.params.id) // its batches, tests, notices and so on
   res.status(200).json({ ok: true })
 })
 
@@ -1317,6 +1319,7 @@ app.delete('/api/me/institute', requireAuth, (req, res) => {
 // --- TEST SERIES AND THE ADMIN APP'S API ---
 registerSeriesRoutes(app, { mockTests, originalQuestions: publicOriginals, optionalUser, isAdminEmail })
 registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle })
+registerCoachingRoutes(app, { questions, testTitle })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---
 // The admin app (admin/, built with `npm run build:admin` into dist-admin) is a

@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useMatch } from 'react-router-dom'
 import { LayoutDashboard, Users, Package, School, LogOut, Menu, X, Moon, Sun, ExternalLink } from 'lucide-react'
 import { useAdminAuth } from '../lib/api'
+import { COACHING_NAV } from '../coaching/CoachingLayout'
+import { useWorkspace } from '../coaching/api'
 
 const SITE_NAV = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -22,6 +24,10 @@ export default function Layout() {
   const { user, signOut } = useAdminAuth()
   const [open, setOpen] = useState(false)
   const nav = user?.isAdmin ? SITE_NAV : CENTRE_NAV
+  const inCentre = useMatch('/c/:cid/*')
+  const cid = inCentre?.params.cid
+  const centreName = useWorkspace(s => (s.cid === cid ? s.info?.centre.name : null))
+  const linkCls = ({ isActive }) => `flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`
 
   const sidebar = (
     <nav className="flex flex-col h-full">
@@ -32,10 +38,25 @@ export default function Layout() {
           <p className="text-[10px] text-slate-500">{user?.isAdmin ? 'Site admin' : 'Centre admin'}</p>
         </div>
       </div>
-      <div className="flex-1 p-3 space-y-1">
+      <div className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {cid && (
+          <div className="pb-3 mb-2 border-b border-border-light dark:border-border-dark space-y-3">
+            <p className="px-3 text-[10px] font-black uppercase tracking-wider text-primary truncate" title={centreName || ''}>{centreName || 'Centre'}</p>
+            {COACHING_NAV.map(g => (
+              <div key={g.group} className="space-y-0.5">
+                <p className="px-3 text-[9px] font-bold uppercase tracking-wider text-slate-400">{g.group}</p>
+                {g.items.map(item => (
+                  <NavLink key={item.to} to={`/c/${cid}${item.to ? `/${item.to}` : ''}`} end={item.end} onClick={() => setOpen(false)}
+                    className={({ isActive }) => `block px-3 py-1.5 rounded-lg text-[13px] font-semibold ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
         {nav.map(({ to, label, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)}
-            className={({ isActive }) => `flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-semibold ${isActive ? 'bg-primary/10 text-primary' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+          <NavLink key={to} to={to} end={end} onClick={() => setOpen(false)} className={linkCls}>
             <Icon size={17} /> {label}
           </NavLink>
         ))}
@@ -55,7 +76,7 @@ export default function Layout() {
       {open && (
         <div className="lg:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-card-light dark:bg-card-dark">{sidebar}</aside>
+          <aside className="absolute inset-y-0 left-0 w-64 bg-card-light dark:bg-card-dark overflow-y-auto">{sidebar}</aside>
         </div>
       )}
       <div className="lg:pl-60">
