@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { School, Plus, Loader2, Trash2, ChevronRight } from 'lucide-react'
+import { School, Plus, Loader2, Trash2, ChevronRight, FlaskConical } from 'lucide-react'
 import { api, useAdminAuth } from '../lib/api'
 import { card, inputCls, btnPrimary, th, td, PageHeader, SectionTitle, Spinner, ErrorBox, Confirm, fmtDate } from '../components/ui'
 import { SeriesPicker } from '../components/SeatsAndSeries'
+import { DemoBadge } from '../coaching/kit'
 
 function CreateCentre({ onCreated }) {
   const [name, setName] = useState('')
@@ -52,8 +53,12 @@ export default function CentresPage() {
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(null)
 
+  const [demo, setDemo] = useState(false)
   const load = () => api('/api/institutes').then(d => setCentres(d.institutes)).catch(err => { setError(err.message); setCentres([]) })
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    api('/api/coaching').then(d => setDemo(d.demoEnabled)).catch(() => setDemo(false))
+  }, [])
 
   const remove = async (id) => {
     try {
@@ -70,6 +75,18 @@ export default function CentresPage() {
     <div className="space-y-6">
       <PageHeader icon={School} title="Coaching centres" subtitle={isSiteAdmin ? `${centres.length} centre${centres.length === 1 ? '' : 's'}` : 'The centres you manage'} />
       <ErrorBox>{error}</ErrorBox>
+      {demo && (
+        <Link to="/c/demo" className={`${card} p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-amber-500/40 hover:border-amber-500`}>
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 shrink-0 rounded-2xl bg-amber-400/15 text-amber-600 flex items-center justify-center"><FlaskConical size={22} /></div>
+            <div>
+              <p className="font-extrabold text-sm text-slate-900 dark:text-slate-100 flex flex-wrap items-center gap-2">Demo Coaching Centre <DemoBadge /></p>
+              <p className="text-xs text-slate-500">64 made-up students in 3 batches with tests, assignments, notices and activity: every feature, for showing to coaching centres. Never mixed with real data.</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-0.5 text-xs font-bold text-primary whitespace-nowrap">Open demo <ChevronRight size={13} /></span>
+        </Link>
+      )}
       {isSiteAdmin && <CreateCentre onCreated={() => load()} />}
       <div className={`${card} overflow-x-auto`}>
         <table className="w-full text-xs min-w-[720px]">
@@ -82,7 +99,7 @@ export default function CentresPage() {
           <tbody className="divide-y divide-border-light dark:divide-border-dark">
             {centres.map(c => (
               <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                <td className={`${td} pl-6`}><Link to={`/centres/${c.id}`} className="font-bold text-slate-900 dark:text-slate-100 hover:text-primary">{c.name}</Link></td>
+                <td className={`${td} pl-6`}><Link to={`/c/${c.id}`} className="font-bold text-slate-900 dark:text-slate-100 hover:text-primary">{c.name}</Link></td>
                 <td className={`${td} font-mono`}>{c.code}</td>
                 <td className={`${td} text-slate-500 max-w-[14rem] truncate`} title={c.adminEmails.join(', ')}>{c.adminEmails.join(', ')}</td>
                 <td className={`${td} text-right tabular-nums font-bold`}>{c.memberCount}</td>
@@ -94,7 +111,8 @@ export default function CentresPage() {
                   ) : (
                     <span className="inline-flex items-center gap-3">
                       {isSiteAdmin && <button onClick={() => setConfirmDelete(c.id)} className="text-slate-400 hover:text-rose-600" aria-label={`Delete ${c.name}`}><Trash2 size={14} /></button>}
-                      <Link to={`/centres/${c.id}`} className="inline-flex items-center gap-0.5 font-bold text-primary">Open <ChevronRight size={13} /></Link>
+                      <Link to={`/centres/${c.id}`} className="font-bold text-slate-500 hover:text-primary">Members</Link>
+                      <Link to={`/c/${c.id}`} className="inline-flex items-center gap-0.5 font-bold text-primary">Open <ChevronRight size={13} /></Link>
                     </span>
                   )}
                 </td>

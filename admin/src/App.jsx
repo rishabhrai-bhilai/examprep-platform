@@ -10,6 +10,24 @@ import StudentDetailPage from './pages/StudentDetailPage'
 import SeriesPage from './pages/SeriesPage'
 import CentresPage from './pages/CentresPage'
 import CentreDashboard from './pages/CentreDashboard'
+import CoachingLayout from './coaching/CoachingLayout'
+import CDashboard from './coaching/pages/Dashboard'
+import CStudents from './coaching/pages/Students'
+import CStudentReport from './coaching/pages/StudentReport'
+import CTests from './coaching/pages/Tests'
+import CTestDetail from './coaching/pages/TestDetail'
+import CQuestionBank from './coaching/pages/QuestionBank'
+import CLeaderboard from './coaching/pages/Leaderboard'
+import CSyllabus from './coaching/pages/Syllabus'
+import CAnalytics from './coaching/pages/Analytics'
+import CWeaknesses from './coaching/pages/Weaknesses'
+import CCompare from './coaching/pages/Compare'
+import CFaculty, { FacultyDashboard as CFacultyDashboard } from './coaching/pages/Faculty'
+import CAssignments from './coaching/pages/Assignments'
+import CActivity from './coaching/pages/Activity'
+import CInsights from './coaching/pages/Insights'
+import CNotices from './coaching/pages/Notices'
+import CReports from './coaching/pages/Reports'
 
 function NotAdmin() {
   const { user, signOut } = useAdminAuth()
@@ -49,6 +67,26 @@ export default function App() {
           )}
           <Route path="/centres" element={<CentresPage />} />
           <Route path="/centres/:id" element={<CentreDashboard />} />
+          <Route path="/c/:cid" element={<CoachingLayout />}>
+            <Route index element={<CDashboard />} />
+            <Route path="students" element={<CStudents />} />
+            <Route path="students/:sid" element={<CStudentReport />} />
+            <Route path="tests" element={<CTests />} />
+            <Route path="tests/:tid" element={<CTestDetail />} />
+            <Route path="questions" element={<CQuestionBank />} />
+            <Route path="leaderboard" element={<CLeaderboard />} />
+            <Route path="syllabus" element={<CSyllabus />} />
+            <Route path="analytics" element={<CAnalytics />} />
+            <Route path="weaknesses" element={<CWeaknesses />} />
+            <Route path="compare" element={<CCompare />} />
+            <Route path="faculty" element={<CFaculty />} />
+            <Route path="faculty/:fid" element={<CFacultyDashboard />} />
+            <Route path="assignments" element={<CAssignments />} />
+            <Route path="activity" element={<CActivity />} />
+            <Route path="insights" element={<CInsights />} />
+            <Route path="notices" element={<CNotices />} />
+            <Route path="reports" element={<CReports />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

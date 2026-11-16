@@ -24,14 +24,16 @@ const FILES = {
   mockAttempts: path.join(DATA_DIR, 'mock_attempts.json'),
   potd: path.join(DATA_DIR, 'potd.json'),
   institutes: path.join(DATA_DIR, 'institutes.json'),
-  testSeries: path.join(DATA_DIR, 'test_series.json')
+  testSeries: path.join(DATA_DIR, 'test_series.json'),
+  coaching: path.join(DATA_DIR, 'coaching.json')
 }
 
 // How each file is shaped, for MongoDB: a list of records with ids, or an object by key
 const FILE_KINDS = {
   users: 'array', reports: 'array', mockAttempts: 'array', institutes: 'array',
   testSeries: 'array',
-  bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object'
+  bookmarks: 'object', notes: 'object', testRecords: 'object', discussions: 'object', attempts: 'object', potd: 'object',
+  coaching: 'object'
 }
 
 // With MONGODB_URI set, data lives in MongoDB (Render's disk is wiped on every
@@ -491,3 +493,13 @@ const listStore = (name, prefix) => ({
 // [{ id, title, description, testIds: string[] (ids from shared/mockTests.js),
 //   published, createdBy, createdAt, updatedAt }]
 export const seriesDb = listStore('testSeries', 'ser')
+
+// --- COACHING WORKSPACES ---
+// { [centreId]: { batches, faculty, questions, tests, assignments, notices, syllabus,
+//   batchOf: { [userId]: batchId } } }: what a coaching centre manages in the admin
+// app (see server/coaching/). The demo centre is never stored here.
+export const coachingDb = {
+  get: (centreId) => getRecord('coaching', centreId) || null,
+  put: (centreId, doc) => putRecord('coaching', centreId, doc),
+  delete: (centreId) => deleteRecord('coaching', centreId)
+}
