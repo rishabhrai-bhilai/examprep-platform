@@ -15,6 +15,7 @@ import JoinInstituteCard from '../components/JoinInstituteCard'
 import { BadgeGrid } from '../components/Badges'
 import { practiceSummary, formatDuration, subjectProgress } from '../utils/practiceStats'
 import { ageFromDob, dobInputRange, dobProblem } from '../../shared/profile.js'
+import { gateCountdown } from '../utils/gateExamDate'
 
 const PHONE_RE = /^\+?[0-9][0-9\s-]{6,15}$/
 
@@ -23,25 +24,14 @@ const getTargetYearOptions = () => {
   return [currentYear, currentYear + 1, currentYear + 2, currentYear + 3]
 }
 
-// Calculate days remaining until first Saturday of February of target year
+// Days to the exam in the target year (shared with the dashboard)
 const getGateCountdown = (targetYear) => {
-  const now = new Date()
-  const yr = Number(targetYear) || (now.getMonth() > 1 ? now.getFullYear() + 1 : now.getFullYear())
-  
-  // First Saturday of February in yr
-  const febFirst = new Date(yr, 1, 1)
-  const dayOfWeek = febFirst.getDay() // 0 = Sun, 6 = Sat
-  const firstSaturdayDate = 1 + ((6 - dayOfWeek + 7) % 7)
-  const gateExamDate = new Date(yr, 1, firstSaturdayDate, 9, 0, 0)
-  
-  const diffTime = gateExamDate - now
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  
+  const { year, date, daysRemaining } = gateCountdown(targetYear)
   return {
-    year: yr,
-    dateString: `Feb ${firstSaturdayDate}, ${yr}`,
-    daysRemaining: diffDays,
-    isPast: diffDays <= 0
+    year,
+    dateString: `${date.toLocaleString('en-US', { month: 'short' })} ${date.getDate()}, ${year}`,
+    daysRemaining,
+    isPast: daysRemaining <= 0
   }
 }
 

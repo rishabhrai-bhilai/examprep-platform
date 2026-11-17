@@ -8,6 +8,10 @@
 
   --color-primary: #6366F1;
   --color-primary-hover: #4F46E5;
+
+  /* In-between slate shades the components use (dark maths blocks, borders) */
+  --color-slate-850: #172033;
+  --color-slate-750: #283548;
   
   /* Background and Surface Colors */
   --color-bg-light: #F8FAFC;
@@ -155,4 +159,11 @@
   font-weight: 700 !important;
   -webkit-text-stroke: 0.4px currentColor;
   text-shadow: 0 0 0.2px currentColor;
+}
+
+/* Cards and rows that act as buttons show where keyboard focus is */
+[role="button"]:focus-visible,
+[role="option"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

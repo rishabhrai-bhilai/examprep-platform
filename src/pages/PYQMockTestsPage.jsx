@@ -22,9 +22,10 @@ import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js
 import { isSignedIn, submitMockAttempt, fetchMockComparison } from '../utils/engagementApi'
 import { pyqPaperId, pyqPaperQuestions } from '../../shared/pyqPapers.js'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findPaperAttempt, canStartNewTest } from '../utils/testSession'
+import { clickableProps } from '../utils/a11y'
 
 
 
@@ -501,6 +502,16 @@ export default function PYQMockTestsPage() {
     startMockTestSession(filtered, title, modeInfo, paperId)
   }
 
+  // "Start Paper" on the dashboard or analytics opens that paper straight away
+  const location = useLocation()
+  const navigate = useNavigate()
+  useEffect(() => {
+    const paper = location.state?.startPaper
+    if (!paper || !questions.length) return
+    navigate(location.pathname, { replace: true, state: null })
+    handleStartYearMock(paper.year, paper.set ?? null)
+  }, [location.state, questions.length])
+
   // wizardConfig.topics holds topicKey(subject, topic) strings
   const matchesWizardTopics = q =>
     getTags(q).some(t => wizardConfig.topics.includes(topicKey(t.subject, t.topic)))
@@ -936,13 +947,13 @@ export default function PYQMockTestsPage() {
                 <Clock className="text-primary" size={32} />
                 <span>PYQ Mock Exams</span>
               </h1>
-              <p className="text-sm text-slate-500 mt-1">Select a mock configurations to launch a timed, realistic exam experience.</p>
+              <p className="text-sm text-slate-500 mt-1">Pick a mock type to launch a timed, realistic exam experience.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* Year-wise card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => setSubView('year')}
                 className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
               >
@@ -956,7 +967,7 @@ export default function PYQMockTestsPage() {
               </div>
 
               {/* Subject-wise card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => {
                   setSubView('subject')
                   setSelectedSubjects([])
@@ -973,7 +984,7 @@ export default function PYQMockTestsPage() {
               </div>
 
               {/* Topic-wise card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => {
                   setSubView('topic')
                   setSelectedTopics([])
@@ -990,7 +1001,7 @@ export default function PYQMockTestsPage() {
               </div>
 
               {/* Random Mode card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => {
                   const total = questions.length
                   setMaxAvailableQuestions(total)
@@ -1010,7 +1021,7 @@ export default function PYQMockTestsPage() {
               </div>
 
               {/* Custom Builder card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => {
                   setWizardStep(1)
                   setWizardConfig({ topics: [], types: ['MCQ', 'MSQ', 'NAT'], marks: [1, 2], limit: 15 })
@@ -1029,7 +1040,7 @@ export default function PYQMockTestsPage() {
               </div>
 
               {/* Test Analytics & History card */}
-              <div 
+              <div {...clickableProps} 
                 onClick={() => setSubView('history')}
                 className="p-6 rounded-card border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-950/20 shadow-soft hover:border-emerald-500 dark:hover:border-emerald-500 hover:shadow-md cursor-pointer transition-all flex gap-4"
               >
@@ -1348,7 +1359,7 @@ export default function PYQMockTestsPage() {
               {yearPapers.map(paper => {
                 const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={paper.key}
                     onClick={() => handleStartYearMock(paper.year, paper.set)}
                     className="group relative p-4.5 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:border-primary/50 dark:hover:border-primary/50 hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col justify-between gap-4 overflow-hidden"
@@ -1449,7 +1460,7 @@ export default function PYQMockTestsPage() {
                 const SubjectIcon = config.icon
                 const isSelected = selectedSubjects.includes(sub)
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={sub}
                     onClick={() => {
                       setSelectedSubjects(prev => 
@@ -1640,7 +1651,7 @@ export default function PYQMockTestsPage() {
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 const isEmpty = questionCount === 0
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={`${subjectName}-${topicName}`}
                     aria-disabled={isEmpty}
                     title={isEmpty ? 'No questions tagged with this topic yet' : undefined}
@@ -1784,7 +1795,7 @@ export default function PYQMockTestsPage() {
                               const count = topicsMap[sub][topic]
                               const isEmpty = count === 0
                               return (
-                                <div
+                                <div {...clickableProps}
                                   key={topic}
                                   aria-disabled={isEmpty}
                                   onClick={() => { if (!isEmpty) handleToggleWizardItem('topics', key) }}

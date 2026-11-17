@@ -63,7 +63,7 @@ export default function OnboardingModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const validationError = validateProfileFields({ name, dob, phone, targetYear })
+    const validationError = validateProfileFields({ name, dob, phone, targetYear }, { requireDob: false })
     if (validationError) {
       setError(validationError)
       return
@@ -140,7 +140,10 @@ export default function OnboardingModal() {
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="onboarding-dob" className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="onboarding-dob" className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</label>
+                <span className="text-[10px] font-semibold text-slate-400">Optional</span>
+              </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                   <Cake size={16} />
@@ -148,7 +151,6 @@ export default function OnboardingModal() {
                 <input
                   id="onboarding-dob"
                   type="date"
-                  required
                   {...dobInputRange()}
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}

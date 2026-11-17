@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X, Folder, Plus, Check } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { questionPreview } from '../utils/questionPreview'
+import { clickableProps } from '../utils/a11y'
 
 export default function BookmarkSelectorModal() {
   const { 
@@ -24,7 +25,10 @@ export default function BookmarkSelectorModal() {
   const handleCreateFolder = (e) => {
     e.preventDefault()
     if (!newFolderName.trim()) return
-    createBookmarkFolder(newFolderName.trim())
+    const folder = newFolderName.trim()
+    if (!bookmarkFolders[folder]) createBookmarkFolder(folder)
+    // Making a folder from here is a way of saving the question into it
+    if (!(bookmarkFolders[folder] || []).includes(targetQuestion.id)) toggleQuestionInFolder(folder, targetQuestion.id)
     setNewFolderName('')
   }
 
@@ -40,6 +44,7 @@ export default function BookmarkSelectorModal() {
           </h3>
           <button
             onClick={() => setBookmarkSelectorQuestionId(null)}
+            aria-label="Close"
             className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 transition-colors"
           >
             <X size={18} />
@@ -67,7 +72,7 @@ export default function BookmarkSelectorModal() {
             Object.keys(bookmarkFolders).map(folderName => {
               const isSaved = bookmarkFolders[folderName].includes(targetQuestion.id)
               return (
-                <div
+                <div {...clickableProps}
                   key={folderName}
                   onClick={() => toggleQuestionInFolder(folderName, targetQuestion.id)}
                   className={`p-3 rounded-btn border text-xs font-bold cursor-pointer transition-all flex items-center justify-between ${
@@ -99,12 +104,15 @@ export default function BookmarkSelectorModal() {
             <input
               type="text"
               placeholder="e.g. Weak Topics, Revision..."
+              aria-label="New folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               className="flex-1 h-9 px-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary text-xs text-slate-800 dark:text-slate-100"
             />
             <button
               type="submit"
+              aria-label="Create folder and save the question in it"
+              title="Create folder and save the question in it"
               disabled={!newFolderName.trim()}
               className="h-9 px-3.5 bg-primary hover:bg-primary-hover text-white rounded-btn disabled:opacity-40 transition-all shadow-sm shrink-0 flex items-center justify-center"
             >

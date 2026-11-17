@@ -615,8 +615,7 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
     if (completeProfile) {
       const current = userDb.findById(req.user.id)
       const finalName = updates.name ?? current?.name
-      const finalDob = updates.dob ?? current?.dob
-      if (!finalName || !finalDob) return res.status(400).json({ error: 'Name and date of birth are required.' })
+      if (!finalName) return res.status(400).json({ error: 'Name is required.' })
       updates.profileCompleted = true
     }
 

@@ -22,6 +22,7 @@ import { isSignedIn, submitMockAttempt, fetchMockComparison } from '../utils/eng
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findMockAttempt, canStartNewTest } from '../utils/testSession'
+import { clickableProps } from '../utils/a11y'
 
 // The list page groups tests by kind (see shared/mockTests.js). Sectional
 // categories show the chapter-based papers, or the classic ones (built before
@@ -46,7 +47,7 @@ const MOCK_CATEGORIES = [
     badge: 'Original • 45 Mins',
     description: 'Subject-focused mock exams with fresh questions. 15 questions in 45 minutes.',
     match: (t, scheme) => t.id.startsWith('orig-sectional-') && Boolean(t.classic) === (scheme === 'topics'),
-    classicDescription: 'Original sectionals before chapter rebuild: 15 fresh questions per subject in 45 minutes.',
+    classicDescription: 'Original sectionals: 15 fresh questions per subject in 45 minutes.',
     classicMeta: '6 Subject Mocks • 45 Mins • Classic Set',
     icon: Layers,
     colorClass: 'text-sky-500 bg-sky-500/10 dark:bg-sky-500/20 border-sky-500/20',
@@ -72,7 +73,7 @@ const MOCK_CATEGORIES = [
     badge: 'Past Papers • 45 Mins',
     description: 'Targeted past GATE questions curated by individual subject with chapter weightage.',
     match: (t, scheme) => (scheme === 'topics' ? t.id.startsWith('sectional-') : t.id.startsWith('pyq-sectional-')),
-    classicDescription: 'PYQ sectionals before chapter rebuild: past GATE questions picked by subject.',
+    classicDescription: 'PYQ sectionals: past GATE questions picked by subject.',
     classicMeta: '24 Subject Mocks • 45 Mins • Classic Set',
     icon: Brain,
     colorClass: 'text-teal-500 bg-teal-500/10 dark:bg-teal-500/20 border-teal-500/20',
@@ -922,7 +923,7 @@ export default function MockTestsPage() {
                 : dummyMockTests.filter(t => !t.retired && cat.match(t, topicScheme)).length
 
               return (
-                <div
+                <div {...clickableProps}
                   key={cat.id}
                   onClick={() => {
                     if (cat.isHistory) {

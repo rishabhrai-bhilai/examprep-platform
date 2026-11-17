@@ -10,14 +10,12 @@ import { dayKey } from '../../shared/practice.js'
 import { parseSet, pyqPaperId } from '../../shared/pyqPapers.js'
 import { findPaperAttempt } from '../utils/testSession'
 import { practiceSummary, subjectProgress, topicProgress, weakestTopics, recentActivity, formatDuration, timeAgo } from '../utils/practiceStats'
+import { gateCountdown } from '../utils/gateExamDate'
 
 
 // Every card below is drawn from the signed-in user's own data: practice
 // records (useAppStore().practice) and finished tests (local test history).
 
-// GATE CSE 2027 exam day. Update when the official schedule is announced.
-const GATE_EXAM_DATE = new Date(2027, 1, 14) // 14 Feb 2027
-const GATE_EXAM_LABEL = 'GATE CSE 2027'
 // Questions a day the daily goal asks for
 const DAILY_TARGET = 30
 // GATE gives 180 minutes for 65 questions: about 2m 45s each
@@ -31,10 +29,9 @@ const fmtMarks = (n) => `${Number(n.toFixed(2))}`
 // ==========================================
 // EXAM COUNTDOWN & FOCUS CARD
 // ==========================================
-function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper }) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const daysLeft = Math.ceil((GATE_EXAM_DATE - today) / 864e5)
+function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper, targetYear }) {
+  // Counts down to the student's own target year
+  const { year: examYear, date: examDate, daysRemaining: daysLeft } = gateCountdown(targetYear)
   const solvedPct = bankSize ? (solved / bankSize) * 100 : 0
 
   // Up to three suggestions: the weakest topics first, then the next paper and a mock
@@ -44,10 +41,11 @@ function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper }) {
     title: t.topic,
     note: `${t.solved}/${t.attempted} solved`,
     to: '/pyq',
+    state: { startTopic: { subject: t.subject, topic: t.topic } },
     tone: 'text-rose-500'
   }))
   if (focus.length < 3 && nextPaper) {
-    focus.push({ key: 'paper', label: 'Full PYQ paper', title: nextPaper.title, note: 'Next unattempted', to: '/pyq-mock', tone: 'text-purple-500' })
+    focus.push({ key: 'paper', label: 'Full PYQ paper', title: nextPaper.title, note: 'Next unattempted', to: '/pyq-mock', state: { startPaper: { year: nextPaper.year, set: nextPaper.set } }, tone: 'text-purple-500' })
   }
   if (focus.length < 3) {
     focus.push({ key: 'mock', label: 'Mock tests', title: 'Sectional or full mock', note: 'Test yourself', to: '/mock-tests', tone: 'text-teal-500' })
@@ -65,14 +63,14 @@ function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper }) {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
               Exam Countdown
             </span>
-            <span className="text-xs text-slate-400 font-semibold">{GATE_EXAM_LABEL}</span>
+            <span className="text-xs text-slate-400 font-semibold">GATE CSE {examYear}</span>
           </div>
 
           <h3 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-baseline gap-2 flex-wrap">
             {daysLeft > 0 ? (
               <>
                 <span>{daysLeft} {daysLeft === 1 ? 'Day' : 'Days'}</span>
-                <span className="text-xs font-semibold text-slate-400">until {fmtDate(GATE_EXAM_DATE)}</span>
+                <span className="text-xs font-semibold text-slate-400">until {fmtDate(examDate)}</span>
               </>
             ) : daysLeft === 0 ? (
               <span>Exam day</span>
@@ -104,6 +102,7 @@ function GateExamTargetFocusCard({ solved, bankSize, weakTopics, nextPaper }) {
               <Link
                 key={f.key}
                 to={f.to}
+                state={f.state}
                 className="p-3 rounded-xl border border-border-light dark:border-border-dark bg-card-light/60 dark:bg-card-dark/60 hover:border-primary/50 hover:bg-primary/5 transition-all group block"
               >
                 <span className={`text-[10px] uppercase font-bold block truncate ${f.tone}`}>{f.label}</span>
@@ -263,7 +262,7 @@ function OfficialPyqCoverageCard({ papers }) {
             ? <>Next recommended: <strong className="text-slate-700 dark:text-slate-300">{next.title}</strong></>
             : 'Every paper taken. Review them on the PYQ mock page.'}
         </span>
-        <Link to="/pyq-mock" className="text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0">
+        <Link to="/pyq-mock" state={next ? { startPaper: { year: next.year, set: next.set } } : undefined} className="text-primary font-bold hover:underline inline-flex items-center gap-1 cursor-pointer shrink-0">
           <span>{next ? 'Start Paper' : 'Open'}</span>
           <ArrowRight size={13} />
         </Link>
@@ -645,6 +644,8 @@ export default function DashboardPage() {
   const longestStreak = Math.max(summary.longestStreak, user?.longestStreak || 0)
   const hasPractice = attempted > 0
   const answeredToday = practice.days[dayKey()]?.attempts || 0
+  // Someone with no practice and no tests yet is here for the first time
+  const isReturning = hasPractice || testHistory.mock.length + testHistory.pyq.length > 0 || streak > 0
 
   // Find bookmarked questions details
   const bookmarkedItems = questions.filter(q => bookmarks.some(id => String(id) === String(q.id)))
@@ -663,7 +664,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft">
         <div>
           <h1 className="text-2xl font-extrabold text-text-primary-light dark:text-text-primary-dark">
-            Welcome back, {user?.name || 'Aspirant'}!
+            {isReturning ? 'Welcome back' : 'Welcome'}, {user?.name || 'Aspirant'}!
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             {!hasPractice
@@ -718,6 +719,7 @@ export default function DashboardPage() {
         bankSize={questions.length}
         weakTopics={weakTopics}
         nextPaper={nextPaperToTake(yearPapers)}
+        targetYear={user?.targetYear}
       />
 
       {/* Full PYQ papers taken */}

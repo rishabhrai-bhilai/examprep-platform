@@ -22,6 +22,7 @@ import { useTopicScheme } from '../store/useTopicScheme'
 import TopicSchemeSwitch from '../components/TopicSchemeSwitch'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
+import { clickableProps } from '../utils/a11y'
 
 export default function PYQPage() {
   const {
@@ -433,6 +434,14 @@ export default function PYQPage() {
     }
   }, [location.state, setActiveQuestionIndex, questions])
 
+  // A weak-topic shortcut on the dashboard opens practice for that topic
+  useEffect(() => {
+    const t = location.state?.startTopic
+    if (!t || !questions.length) return
+    navigate(location.pathname, { replace: true, state: null })
+    startReelsSession(q => hasTag(q, t.subject, t.topic), `Topic: ${t.topic}`)
+  }, [location.state, questions.length])
+
   // Keyboard navigation
   useEffect(() => {
     if (view !== 'reels') return
@@ -673,7 +682,7 @@ export default function PYQPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Year-wise card */}
-            <div 
+            <div {...clickableProps} 
               onClick={() => setView('year')}
               className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:border-primary dark:hover:border-primary hover:shadow-md cursor-pointer transition-all flex gap-4"
             >
@@ -687,7 +696,7 @@ export default function PYQPage() {
             </div>
 
             {/* Subject-wise card */}
-            <div 
+            <div {...clickableProps} 
               onClick={() => {
                 setView('subject')
                 setSelectedSubjects([])
@@ -704,7 +713,7 @@ export default function PYQPage() {
             </div>
 
             {/* Topic-wise card */}
-            <div 
+            <div {...clickableProps} 
               onClick={() => {
                 setView('topic')
                 setSelectedTopics([])
@@ -721,7 +730,7 @@ export default function PYQPage() {
             </div>
 
             {/* Random Mode card */}
-            <div 
+            <div {...clickableProps} 
               onClick={() => {
                 const total = questions.length
                 setMaxAvailableQuestions(total)
@@ -741,7 +750,7 @@ export default function PYQPage() {
             </div>
 
             {/* Custom Builder card */}
-            <div 
+            <div {...clickableProps} 
               onClick={() => {
                 setWizardStep(1)
                 setWizardConfig({ topics: [], types: ['MCQ', 'MSQ', 'NAT'], marks: [1, 2], limit: 15 })
@@ -878,7 +887,7 @@ export default function PYQPage() {
                 const hasMultipleSets = yearPapers.filter(p => p.year === paper.year).length > 1
                 const title = hasMultipleSets ? `GATE ${paper.year} • Set ${paper.set}` : `GATE ${paper.year}`
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={paper.key}
                     onClick={() => startReelsSession(
                       q => String(q.year) === String(paper.year) && parseSet(q.set) === parseSet(paper.set),
@@ -980,7 +989,7 @@ export default function PYQPage() {
               const SubjectIcon = config.icon
               const isSelected = selectedSubjects.includes(sub)
               return (
-                <div
+                <div {...clickableProps}
                   key={sub}
                   onClick={() => {
                     setSelectedSubjects(prev => 
@@ -1142,7 +1151,7 @@ export default function PYQPage() {
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 const isEmpty = questionCount === 0
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={`${subjectName}-${topicName}`}
                     aria-disabled={isEmpty}
                     title={isEmpty ? 'No questions tagged with this topic yet' : undefined}
@@ -1292,7 +1301,7 @@ export default function PYQPage() {
                             const count = topicsMap[sub][topic]
                             const isEmpty = count === 0
                             return (
-                              <div
+                              <div {...clickableProps}
                                 key={topic}
                                 aria-disabled={isEmpty}
                                 onClick={() => { if (!isEmpty) handleToggleWizardItem('topics', key) }}
