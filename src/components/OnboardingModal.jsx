@@ -63,7 +63,7 @@ export default function OnboardingModal() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const validationError = validateProfileFields({ name, dob, phone, targetYear }, { requireDob: false })
+    const validationError = validateProfileFields({ name, dob, phone, targetYear })
     if (validationError) {
       setError(validationError)
       return
@@ -141,8 +141,10 @@ export default function OnboardingModal() {
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label htmlFor="onboarding-dob" className="text-xs font-semibold text-slate-500 uppercase">Date of Birth</label>
-                <span className="text-[10px] font-semibold text-slate-400">Optional</span>
+                <label htmlFor="onboarding-dob" className="text-xs font-semibold text-slate-500 uppercase">
+                  Date of Birth <span className="text-rose-500" aria-hidden="true">*</span>
+                </label>
+                <span className="text-[10px] font-semibold text-rose-500">Required</span>
               </div>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
@@ -151,12 +153,18 @@ export default function OnboardingModal() {
                 <input
                   id="onboarding-dob"
                   type="date"
+                  required
+                  aria-required="true"
+                  aria-describedby="onboarding-dob-hint"
                   {...dobInputRange()}
                   value={dob}
                   onChange={(e) => setDob(e.target.value)}
                   className={inputClass}
                 />
               </div>
+              {!dob && (
+                <p id="onboarding-dob-hint" className="text-[11px] text-slate-400">Needed to work out your age. Pick it from the calendar or type it as shown.</p>
+              )}
               {dob && ageFromDob(dob) !== null && !dobProblem(dob) && (
                 <p className="text-[11px] text-slate-400">You are {ageFromDob(dob)}. This updates by itself on your birthday.</p>
               )}
