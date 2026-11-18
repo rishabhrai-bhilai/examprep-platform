@@ -214,9 +214,7 @@ export default function DiscussionPage() {
     toggleBookmark, 
     votes, 
     upvoteQuestion, 
-    downvoteQuestion,
-    setActiveVideoSolutionUrl,
-    scratchpadOpenQuestionId,
+    downvoteQuestion,    scratchpadOpenQuestionId,
     setScratchpadOpenQuestionId,
     questionNotes,
     discussions,
@@ -1024,7 +1022,7 @@ export default function DiscussionPage() {
                           }`}>
                             {isCorrect ? <Check size={12} strokeWidth={3} /> : String.fromCharCode(65 + idx)}
                           </span>
-                          <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                          <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                           {isCorrect && (
                             <span className="text-[8px] uppercase tracking-wide font-black bg-success/20 px-1.5 py-0.5 rounded">
                               Correct Answer
@@ -1054,7 +1052,7 @@ export default function DiscussionPage() {
                           }`}>
                             {isCorrect ? <Check size={12} strokeWidth={3} /> : null}
                           </span>
-                          <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                          <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                           {isCorrect && (
                             <span className="text-[8px] uppercase tracking-wide font-black bg-success/20 px-1.5 py-0.5 rounded">
                               Key
@@ -1157,17 +1155,6 @@ export default function DiscussionPage() {
                 )}
                 <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10 z-20">
                   Scratchpad
-                </span>
-              </button>
-
-              {/* Video Solution Link */}
-              <button
-                onClick={() => setActiveVideoSolutionUrl(selectedQuestion.videoSolutionUrl, selectedQuestion)}
-                className="group relative h-9 w-9 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-md md:shadow-sm text-slate-500 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-90"
-              >
-                <Play size={14} className="fill-slate-500 text-slate-500 group-hover:fill-red-600 group-hover:text-red-600 dark:group-hover:fill-red-400 dark:group-hover:text-red-400 transition-colors" />
-                <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10 z-20">
-                  Video Solution
                 </span>
               </button>
             </div>

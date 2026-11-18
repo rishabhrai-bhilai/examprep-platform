@@ -7,6 +7,7 @@ import {
   Settings2, ArrowLeft, ArrowRight, Check, X, RotateCcw, Grid, Search, Filter, Lock, Users
 } from 'lucide-react'
 import { useAppStore, syncTestRecordsToServer } from '../store/useAppStore'
+import { useAuthStore } from '../store/useAuthStore'
 import confetti from 'canvas-confetti'
 import QuestionImage from '../components/QuestionImage'
 import QuestionText from '../components/QuestionText'
@@ -20,12 +21,15 @@ import { formatAnswer, formatResponse, isAnswerCorrect } from '../utils/answers'
 import useReelGestures, { isAtBottom, isAtTop } from '../hooks/useReelGestures'
 import { isValidAttempt, MIN_VALID_SECONDS } from '../../shared/testAnalytics.js'
 import { isSignedIn, submitMockAttempt, fetchMockComparison } from '../utils/engagementApi'
-import { pyqPaperId, pyqPaperQuestions } from '../../shared/pyqPapers.js'
+import { pyqPaperId, pyqPaperQuestions, pyqPaperMinutes } from '../../shared/pyqPapers.js'
 import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import ResumeTestBanner from '../components/ResumeTestBanner'
+import ResultSummary from '../components/ResultSummary'
 import { loadSession, saveSession, clearSession, findPaperAttempt, canStartNewTest } from '../utils/testSession'
 import { clickableProps } from '../utils/a11y'
+import { hasAnswer } from '../utils/testAnswers'
+import SubmitConfirmModal from '../components/SubmitConfirmModal'
 
 
 
@@ -115,6 +119,7 @@ export default function PYQMockTestsPage() {
   const [activeTestModeInfo, setActiveTestModeInfo] = useState('')
   // Set for full year papers, the only PYQ tests compared with other students
   const [activePaperId, setActivePaperId] = useState(null)
+  const userStreak = useAuthStore(s => s.user?.streak || 0)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState({}) // { questionId: selectedIndex (MCQ) or [indices] (MSQ) or string (NAT) }
   const [flags, setFlags] = useState({}) // { questionId: boolean }
@@ -428,8 +433,11 @@ export default function PYQMockTestsPage() {
     const sessionId = paperId || `pyq-custom-${Date.now()}`
     if (!canStartNewTest(sessionId)) return
 
-    // Shuffle test questions
-    const shuffled = [...questionsList].sort(() => Math.random() - 0.5)
+    // A full year paper keeps the real paper's order (General Aptitude first);
+    // other sets are shuffled
+    const shuffled = paperId
+      ? [...questionsList].sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0))
+      : [...questionsList].sort(() => Math.random() - 0.5)
 
     setActiveTestQuestions(shuffled)
     setActiveTestTitle(title)
@@ -445,8 +453,7 @@ export default function PYQMockTestsPage() {
     setVisited(initialVisited)
     setCurrentQuestionIndex(0)
     
-    // 1.5 minutes per question
-    const totalDurationSeconds = Math.round(shuffled.length * 1.5) * 60
+    const totalDurationSeconds = pyqPaperMinutes(shuffled.length, !!paperId) * 60
     setTimeLeft(totalDurationSeconds)
     setView('testing')
     enterFullscreen()
@@ -589,6 +596,8 @@ export default function PYQMockTestsPage() {
     setAnswerTimes(prev => ({ ...prev, [qId]: timeLeft }))
   }
 
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+
   const handleNATChange = (qId, val) => {
     setAnswers(prev => ({ ...prev, [qId]: val }))
     setAnswerTimes(prev => ({ ...prev, [qId]: timeLeft }))
@@ -703,7 +712,7 @@ export default function PYQMockTestsPage() {
     const timeSpentPerQuestionCount = { correct: 0, incorrect: 0, unanswered: 0 }
     
     let panicZoneErrors = 0
-    const totalDurationSeconds = Math.round(activeTestQuestions.length * 1.5) * 60
+    const totalDurationSeconds = pyqPaperMinutes(activeTestQuestions.length, !!activePaperId) * 60
     const panicThreshold = totalDurationSeconds * 0.15
 
     activeTestQuestions.forEach(q => {
@@ -807,9 +816,8 @@ export default function PYQMockTestsPage() {
     const avgTimeIncorrect = timeSpentPerQuestionCount.incorrect > 0 ? Math.round(timePerQuestionStatus.incorrect / timeSpentPerQuestionCount.incorrect) : 0
     const avgTimeUnanswered = timeSpentPerQuestionCount.unanswered > 0 ? Math.round(timePerQuestionStatus.unanswered / timeSpentPerQuestionCount.unanswered) : 0
 
-    const scaledScore = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0
-    const estimatedGateScore = Math.max(100, Math.min(1000, Math.round(150 + scaledScore * 8.5)))
-    const estimatedRank = Math.max(1, Math.round(50000 * Math.pow(0.93, Math.max(0, scaledScore - 15))))
+
+
 
     // Save to local storage under gate_pyq_mock_history
     const existing = JSON.parse(localStorage.getItem('gate_pyq_mock_history') || '[]')
@@ -838,13 +846,12 @@ export default function PYQMockTestsPage() {
       attemptRate,
       timeTaken,
       timeTakenFormatted: formatTime(timeTaken),
+      totalDuration: totalDurationSeconds,
       timeUtilizationRate,
       avgTimeCorrect,
       avgTimeIncorrect,
       avgTimeUnanswered,
       panicZoneErrors,
-      estimatedGateScore,
-      estimatedRank,
       subjectStats,
       topicStats,
       difficultyStats,
@@ -1279,7 +1286,7 @@ export default function PYQMockTestsPage() {
                             <span>Duration: <strong className="text-slate-700 dark:text-slate-300">{attempt.timeTakenFormatted || '—'}</strong></span>
                             <span>Questions: <strong className="text-slate-700 dark:text-slate-300">{attempt.questionsCount}</strong></span>
                             <span>Accuracy: <strong className="text-emerald-500 font-bold">{acc}%</strong></span>
-                            <span>Est. Rank: <strong className="text-amber-500 font-bold">#{attempt.estimatedRank || '—'}</strong></span>
+                            <span>Score: <strong className="text-amber-500 font-bold">{attempt.score ?? '—'} / {attempt.maxScore ?? '—'}</strong></span>
                           </div>
 
                           {/* Outcome Segmented Progress Bar */}
@@ -1430,15 +1437,16 @@ export default function PYQMockTestsPage() {
               </div>
               
               <div className="flex items-center gap-3 shrink-0">
-                {selectedSubjects.length > 0 && (
+                {(
                   <button
+                    disabled={selectedSubjects.length === 0}
                     onClick={() => {
                       const totalAvailable = selectedSubjects.reduce((sum, s) => sum + (subjectsMap[s] || 0), 0)
                       setMaxAvailableQuestions(totalAvailable)
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
                       setShowQuestionLimitModal(true)
                     }}
-                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                   >
                     <span>Configure Mock ({selectedSubjects.length})</span>
                     <ArrowRight size={12} />
@@ -1508,8 +1516,9 @@ export default function PYQMockTestsPage() {
               
               <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <TopicSchemeSwitch />
-                {selectedTopics.length > 0 && (
+                {(
                   <button
+                    disabled={selectedTopics.length === 0}
                     onClick={() => {
                       // Count each question once even if it carries several selected topics
                       const totalAvailable = questions.filter(q =>
@@ -1519,7 +1528,7 @@ export default function PYQMockTestsPage() {
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
                       setShowQuestionLimitModal(true)
                     }}
-                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                   >
                     <span>Configure Mock ({selectedTopics.length})</span>
                     <ArrowRight size={12} />
@@ -1650,6 +1659,8 @@ export default function PYQMockTestsPage() {
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 const isEmpty = questionCount === 0
+                // Topics with no questions yet are not offered
+                if (isEmpty) return null
                 return (
                   <div {...clickableProps}
                     key={`${subjectName}-${topicName}`}
@@ -1751,7 +1762,7 @@ export default function PYQMockTestsPage() {
                     
                     return (
                       <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
-                        <div
+                        <div {...clickableProps} aria-expanded={isExpanded}
                           onClick={() => setExpandedWizardSubject(isExpanded ? null : sub)}
                           className={`p-4 flex justify-between items-center bg-card-light dark:bg-card-dark cursor-pointer border-l-4 ${
                             isExpanded ? 'border-primary bg-slate-50/50 dark:bg-slate-900/30' : 'border-transparent hover:bg-slate-50/30 dark:hover:bg-slate-900/10'
@@ -1794,6 +1805,8 @@ export default function PYQMockTestsPage() {
                               const isChecked = wizardConfig.topics.includes(key)
                               const count = topicsMap[sub][topic]
                               const isEmpty = count === 0
+                              // Topics with no questions yet are not offered
+                              if (isEmpty) return null
                               return (
                                 <div {...clickableProps}
                                   key={topic}
@@ -1958,6 +1971,7 @@ export default function PYQMockTestsPage() {
                             <div className="flex items-center gap-1.5">
                               <input
                                 type="number"
+                                aria-label="Number of questions"
                                 min={1}
                                 max={availableCount}
                                 value={displayLimit}
@@ -1976,6 +1990,7 @@ export default function PYQMockTestsPage() {
 
                           <input
                             type="range"
+                            aria-label="Number of questions"
                             min={1}
                             max={availableCount}
                             value={displayLimit}
@@ -2097,6 +2112,7 @@ export default function PYQMockTestsPage() {
                     <div className="flex items-center gap-1.5">
                       <input
                         type="number"
+                        aria-label="Number of questions"
                         min={1}
                         max={maxAvailableQuestions}
                         value={limitQuestionsCount}
@@ -2115,6 +2131,7 @@ export default function PYQMockTestsPage() {
 
                   <input
                     type="range"
+                    aria-label="Number of questions"
                     min={1}
                     max={maxAvailableQuestions}
                     value={limitQuestionsCount}
@@ -2182,7 +2199,7 @@ export default function PYQMockTestsPage() {
             <h2 className="font-bold text-sm md:text-base text-text-primary-light dark:text-text-primary-dark truncate max-w-xs md:max-w-md">
               {activeTestTitle}
             </h2>
-            <p className="text-[10px] text-slate-400">Pacing: 1.5 min per question | Section: {activeQuestion?.subject}</p>
+            <p className="text-[10px] text-slate-400">Time allowed: {pyqPaperMinutes(activeTestQuestions.length, !!activePaperId)} min | Subject: {activeQuestion?.subject}</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -2198,18 +2215,27 @@ export default function PYQMockTestsPage() {
             </button>
 
             {/* Timer */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-btn bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-mono text-sm font-bold">
+            <div role="timer" aria-label={`Time left ${formatTime(timeLeft)}`} className={`flex items-center gap-2 px-3 py-1.5 rounded-btn border font-mono text-sm font-bold ${timeLeft <= 600 ? "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400" : "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-200"}`}>
               <Clock size={16} />
               <span>{formatTime(timeLeft)}</span>
             </div>
 
             <button
-              onClick={handleSubmitTest}
+              onClick={() => setConfirmSubmit(true)}
               className="px-4 py-2 bg-success text-white text-xs font-bold rounded-btn hover:bg-success/90 flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
             >
               <Send size={12} />
               <span>Submit Test</span>
             </button>
+            <SubmitConfirmModal
+              open={confirmSubmit}
+              total={activeTestQuestions.length}
+              answered={activeTestQuestions.filter(q => hasAnswer(answers[q.id])).length}
+              flagged={activeTestQuestions.filter(q => flags[q.id]).length}
+              oneAttempt={!!activePaperId}
+              onCancel={() => setConfirmSubmit(false)}
+              onConfirm={() => { setConfirmSubmit(false); handleSubmitTest() }}
+            />
           </div>
         </header>
 
@@ -2363,10 +2389,11 @@ export default function PYQMockTestsPage() {
                 </div>
 
                 {/* Clear Response on Mobile: Anchored to far-left so it avoids center floating button */}
-                {answers[activeQuestion?.id] !== undefined && answers[activeQuestion?.id] !== '' && (activeQuestion?.type !== 'MSQ' || (answers[activeQuestion?.id] || []).length > 0) && (
+                {(
                   <button
                     onClick={() => handleClearResponse(activeQuestion.id)}
-                    className="md:hidden px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
+                    disabled={!hasAnswer(answers[activeQuestion?.id])}
+                    className="disabled:opacity-40 disabled:pointer-events-none md:hidden px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
                   >
                     <RotateCcw size={14} />
                     <span className="hidden sm:inline">Clear Response</span>
@@ -2378,10 +2405,11 @@ export default function PYQMockTestsPage() {
               {/* Right Side: Desktop Clear Response + Flag Question, or Mobile Flag Question */}
               <div className="flex items-center gap-2 ml-auto">
                 {/* Clear Response on Desktop */}
-                {answers[activeQuestion?.id] !== undefined && answers[activeQuestion?.id] !== '' && (activeQuestion?.type !== 'MSQ' || (answers[activeQuestion?.id] || []).length > 0) && (
+                {(
                   <button
                     onClick={() => handleClearResponse(activeQuestion.id)}
-                    className="hidden md:flex px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
+                    disabled={!hasAnswer(answers[activeQuestion?.id])}
+                    className="disabled:opacity-40 disabled:pointer-events-none hidden md:flex px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
                   >
                     <RotateCcw size={14} />
                     <span>Clear Response</span>
@@ -2417,11 +2445,13 @@ export default function PYQMockTestsPage() {
                     const isCurrent = idx === currentQuestionIndex
                     const isFlagged = flags[q.id]
                     const userAns = answers[q.id]
-                    const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
+                    const hasAnswered = hasAnswer(userAns)
                     const hasVisited = visited[q.id]
 
                     let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-655 dark:text-slate-400'
-                    if (hasAnswered) {
+                    if (hasAnswered && isFlagged) {
+                      btnClass = 'bg-violet-500 text-white border-violet-600'
+                    } else if (hasAnswered) {
                       btnClass = 'bg-emerald-500 text-white border-emerald-600'
                     } else if (isFlagged) {
                       btnClass = 'bg-amber-500 text-white border-amber-600'
@@ -2457,6 +2487,10 @@ export default function PYQMockTestsPage() {
                 <span>Flagged</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 rounded bg-violet-500 shrink-0"></span>
+                <span>Answered &amp; flagged</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 rounded bg-rose-500 shrink-0"></span>
                 <span>Visited but unanswered</span>
               </div>
@@ -2489,11 +2523,13 @@ export default function PYQMockTestsPage() {
                         const isCurrent = idx === currentQuestionIndex
                         const isFlagged = flags[q.id]
                         const userAns = answers[q.id]
-                        const hasAnswered = userAns !== undefined && userAns !== '' && (q.type !== 'MSQ' || userAns.length > 0)
+                        const hasAnswered = hasAnswer(userAns)
                         const hasVisited = visited[q.id]
 
                         let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                        if (hasAnswered) {
+                        if (hasAnswered && isFlagged) {
+                          btnClass = 'bg-violet-500 text-white border-violet-600'
+                        } else if (hasAnswered) {
                           btnClass = 'bg-emerald-500 text-white border-emerald-600'
                         } else if (isFlagged) {
                           btnClass = 'bg-amber-500 text-white border-amber-600'
@@ -2531,6 +2567,10 @@ export default function PYQMockTestsPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-amber-500 shrink-0"></span>
                       <span>Flagged</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-violet-500 shrink-0"></span>
+                      <span>Answered &amp; flagged</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-rose-500 shrink-0"></span>
@@ -2604,6 +2644,7 @@ export default function PYQMockTestsPage() {
       })
       .sort((a, b) => b.lost - a.lost)
 
+    const answeredCount = (reportData.correct || 0) + (reportData.incorrect || 0)
     const weakSubjects = Object.entries(reportData.subjectStats)
       .map(([subName, stats]) => {
         const accuracy = stats.totalQs - stats.unansweredQs > 0
@@ -2611,7 +2652,7 @@ export default function PYQMockTestsPage() {
           : 0
         return { subName, accuracy, ...stats }
       })
-      .filter(s => s.accuracy < 70)
+      .filter(s => s.totalQs - s.unansweredQs > 0 && s.accuracy < 70)
       .sort((a, b) => a.accuracy - b.accuracy)
 
     const handlePrint = () => {
@@ -2639,7 +2680,7 @@ export default function PYQMockTestsPage() {
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Attempted on: {reportData.date} | Mode: {reportData.testTitle}
-              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">Attempt #{reportData.attemptNo}</span>}
+              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">{" "}· Attempt #{reportData.attemptNo}</span>}
             </p>
           </div>
 
@@ -2711,126 +2752,7 @@ export default function PYQMockTestsPage() {
         {/* TAB 1: OVERVIEW */}
         {activeReportTab === 'overview' && (
           <div className="space-y-6 animate-fade-in">
-            {/* Top Cohort Benchmarks Hero Banner (matching SS 1) */}
-            {(() => {
-              const totalParticipants = 18450
-              const rawRank = parseInt(String(reportData.estimatedRank || '512').replace(/[^0-9]/g, '')) || 512
-              const userRank = rawRank > 0 ? rawRank : 512
-              const aheadCount = Math.max(0, totalParticipants - userRank)
-              const percentile = Math.min(99.9, Math.max(0.1, (((totalParticipants - userRank) / totalParticipants) * 100))).toFixed(1)
-              const batchAverage = Number((reportData.maxScore * 0.386).toFixed(1))
-              const topperScore = Number((reportData.maxScore * 0.8933).toFixed(2))
-
-              return (
-                <div className="space-y-4">
-                  {/* Hero Cohort Card */}
-                  <div className="p-6 sm:p-8 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white shadow-xl relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                      
-                      <div className="space-y-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-300 block">
-                          COHORT STANDING ({totalParticipants.toLocaleString()} TEST TAKERS)
-                        </span>
-                        <div className="flex items-baseline gap-3 flex-wrap">
-                          <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">
-                            {percentile}th
-                          </span>
-                          <span className="text-xl font-bold text-indigo-200">Percentile</span>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            Rank #{userRank}
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-indigo-200/80 max-w-lg leading-relaxed">
-                          You scored higher than <strong>{aheadCount.toLocaleString()}</strong> aspirants across India in this paper series.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4 sm:gap-6 bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 shrink-0">
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">YOUR SCORE</span>
-                          <span className="text-xl sm:text-2xl font-black text-white">{reportData.score}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">BATCH AVERAGE</span>
-                          <span className="text-xl sm:text-2xl font-black text-indigo-200">{batchAverage}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">AIR 1 TOPPER</span>
-                          <span className="text-xl sm:text-2xl font-black text-amber-300">{topperScore}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* Secondary Diagnostic Strip: Est. GATE Score, Accuracy & Pacing */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Est. GATE Score Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <Brain size={24} />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Estimated GATE Score
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                            {reportData.estimatedGateScore}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">/ 1000</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          Normalized relative to cutoff weightage
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Attempt Accuracy Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                        <Target size={24} />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Attempt Accuracy
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-emerald-500">
-                            {reportData.percentage}%
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">({reportData.correct} Correct)</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          {reportData.incorrect} incorrect · {reportData.unanswered} skipped
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Pacing & Time Statistics Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                        <Clock size={24} />
-                      </div>
-                      <div className="space-y-0.5 flex-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Pacing & Time Utilized
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                            {reportData.timeTakenFormatted}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">({reportData.attemptRate}% attempted)</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          Total Questions: {activeTestQuestions?.length || 65} Qs
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
+            <ResultSummary report={reportData} comparisonState={comparisonState} durationMinutes={Math.round((reportData.totalDuration || 0) / 60) || undefined} />
 
             {/* Trend Graph & Recommendations */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2930,13 +2852,13 @@ export default function PYQMockTestsPage() {
                   {weakSubjects.length > 0 ? (
                     <>
                       <p className="text-xs text-slate-500 leading-tight">
-                        Your accuracy in **{weakSubjects[0].subName}** was only {Math.round(weakSubjects[0].accuracy)}%. We recommend this study schedule:
+                        Your accuracy in <strong>{weakSubjects[0].subName}</strong> was {Math.round(weakSubjects[0].accuracy)}% on the questions you answered. Next steps:
                       </p>
                       
                       <div className="space-y-2 text-xs">
                         <div className="flex gap-2 items-start bg-primary/5 p-2 rounded">
                           <span className="h-4 w-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">1</span>
-                          <span className="text-slate-650 dark:text-slate-400">Review core formulas of **{weakSubjects[0].subName}**.</span>
+                          <span className="text-slate-650 dark:text-slate-400">Review core formulas of <strong>{weakSubjects[0].subName}</strong>.</span>
                         </div>
                         <div className="flex gap-2 items-start bg-primary/5 p-2 rounded">
                           <span className="h-4 w-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">2</span>
@@ -2946,15 +2868,21 @@ export default function PYQMockTestsPage() {
                     </>
                   ) : (
                     <div className="text-xs text-slate-500 space-y-2">
-                      <p className="font-bold text-success">Excellent consistency!</p>
-                      <p className="leading-tight">All subjects exceed 70% accuracy. Continue practicing mock exams to build endurance and speed.</p>
+                      {answeredCount === 0 ? (
+                        <p className="leading-tight">You didn't answer any questions, so there's nothing to analyse yet. Try a few questions in your next attempt.</p>
+                      ) : (
+                        <>
+                          <p className="font-bold text-success">Good accuracy on what you answered</p>
+                          <p className="leading-tight">Every subject you answered was 70% or better.{reportData.unanswered > 0 ? ` You skipped ${reportData.unanswered} questions, so attempt more of the paper next time.` : ' Keep taking full mocks to build speed.'}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-btn text-[10px] text-slate-500 font-semibold flex justify-between items-center">
-                  <span>Practice Streak:</span>
-                  <span className="text-primary font-bold">🔥 6 Days</span>
+                  <span>Practice streak:</span>
+                  <span className="text-primary font-bold">🔥 {userStreak} {userStreak === 1 ? 'day' : 'days'}</span>
                 </div>
               </div>
 
@@ -3133,7 +3061,7 @@ export default function PYQMockTestsPage() {
                       </div>
                       <h4 className="font-bold text-xs text-text-primary-light dark:text-text-primary-dark uppercase">Pacing Warning Triggered</h4>
                       <p className="text-[11px] text-slate-500 leading-tight">
-                        You made **{reportData.panicZoneErrors} errors** in the final 15% of the mock exam. You might be rushing. Optimize pacing or skip hard questions early.
+                        You made <strong>{reportData.panicZoneErrors} errors</strong> in the final 15% of the mock exam. You might be rushing. Optimize pacing or skip hard questions early.
                       </p>
                     </div>
                   ) : (
@@ -3169,7 +3097,7 @@ export default function PYQMockTestsPage() {
                     <span className="text-xs font-extrabold text-success bg-emerald-500/10 px-2 py-0.5 rounded">{pacers.quickCorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-655 dark:text-slate-450 leading-relaxed">
-                    Correct questions solved in **less than 60 seconds**. Peak strength zone.
+                    Correct questions solved in <strong>less than 60 seconds</strong>. Peak strength zone.
                   </p>
                 </div>
 
@@ -3179,7 +3107,7 @@ export default function PYQMockTestsPage() {
                     <span className="text-xs font-extrabold text-primary bg-indigo-500/10 px-2 py-0.5 rounded">{pacers.slowCorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-655 dark:text-slate-450 leading-relaxed">
-                    Correct questions solved in **60 seconds or more**. Concepts are sound, but execution speed could improve.
+                    Correct questions solved in <strong>60 seconds or more</strong>. Concepts are sound, but execution speed could improve.
                   </p>
                 </div>
 
@@ -3189,7 +3117,7 @@ export default function PYQMockTestsPage() {
                     <span className="text-xs font-extrabold text-amber-600 dark:text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">{pacers.quickIncorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-655 dark:text-slate-450 leading-relaxed">
-                    Incorrect questions solved in **less than 45 seconds**. Likely caused by arithmetic errors or misreading statement details.
+                    Incorrect questions solved in <strong>less than 45 seconds</strong>. Likely caused by arithmetic errors or misreading statement details.
                   </p>
                 </div>
 
@@ -3199,7 +3127,7 @@ export default function PYQMockTestsPage() {
                     <span className="text-xs font-extrabold text-error bg-red-500/10 px-2 py-0.5 rounded">{pacers.slowIncorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-655 dark:text-slate-450 leading-relaxed">
-                    Incorrect questions solved in **90 seconds or more**. High overhead cognitive efforts that still resulted in a wrong attempt.
+                    Incorrect questions solved in <strong>90 seconds or more</strong>. High overhead cognitive efforts that still resulted in a wrong attempt.
                   </p>
                 </div>
               </div>

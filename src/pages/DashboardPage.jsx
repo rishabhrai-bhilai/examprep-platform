@@ -638,7 +638,7 @@ export default function DashboardPage() {
     )
   }
 
-  const { solved, attempted, accuracy, practiceSec } = summary
+  const { solved, attempted, accuracy, practiceSec, totalAnswers, totalCorrect } = summary
   // The server's streak also counts Problem of the Day and discussion days
   const streak = Math.max(summary.streak, user?.streak || 0)
   const longestStreak = Math.max(summary.longestStreak, user?.longestStreak || 0)
@@ -652,8 +652,8 @@ export default function DashboardPage() {
 
   const statCards = [
     { label: 'Questions Solved', value: solved, sub: hasPractice ? `of ${attempted} attempted` : 'None yet', icon: CheckCircle, tone: 'bg-emerald-500/10 text-emerald-500' },
-    { label: 'Accuracy', value: accuracy === null ? '—' : `${accuracy}%`, sub: hasPractice ? 'of all answers' : 'Answer a question to see it', icon: Target, tone: 'bg-amber-500/10 text-amber-500' },
-    { label: 'Practice Time', value: formatDuration(practiceSec), sub: hasPractice ? 'on answered questions' : 'Starts with your first answer', icon: Clock, tone: 'bg-blue-500/10 text-blue-500' },
+    { label: 'Accuracy', value: accuracy === null ? '—' : `${accuracy}%`, sub: hasPractice ? `${totalCorrect} of ${totalAnswers} answers right` : 'Answer a question to see it', icon: Target, tone: 'bg-amber-500/10 text-amber-500' },
+    { label: 'Practice Time', value: formatDuration(practiceSec), sub: hasPractice ? 'thinking time before each answer' : 'Starts with your first answer', icon: Clock, tone: 'bg-blue-500/10 text-blue-500' },
     { label: 'Saved Bookmarks', value: bookmarkedItems.length, sub: bookmarkedItems.length ? 'questions saved' : 'None yet', icon: Bookmark, tone: 'bg-indigo-500/10 text-indigo-500', to: '/bookmarks' }
   ]
 
@@ -670,7 +670,7 @@ export default function DashboardPage() {
             {!hasPractice
               ? 'Answer your first question to start tracking your progress.'
               : answeredToday > 0
-                ? `You've answered ${answeredToday} question${answeredToday === 1 ? '' : 's'} today. Keep your momentum going.`
+                ? `You've given ${answeredToday} answer${answeredToday === 1 ? '' : 's'} today. Keep your momentum going.`
                 : streak > 0
                   ? 'Answer a question today to keep your streak alive.'
                   : 'Answer a question today to start a new streak.'}

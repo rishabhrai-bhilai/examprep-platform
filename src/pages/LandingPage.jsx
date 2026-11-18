@@ -1,8 +1,11 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { useAuthStore } from '../store/useAuthStore'
 import { ArrowRight, BookOpen, Calculator, MessageSquare, ShieldCheck, Flame, Users, Play, Award } from 'lucide-react'
 
 export default function LandingPage() {
+  // Signed-in visitors get a way back into the app instead of Login / Sign up
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
   const features = [
     {
       title: "Reels-Style PYQ Practice",
@@ -48,6 +51,11 @@ export default function LandingPage() {
         </Link>
         
         <div className="flex items-center gap-4">
+          {isAuthenticated ? (
+            <Link to="/dashboard" className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-hover rounded-btn transition-colors shadow-sm">
+              Go to dashboard
+            </Link>
+          ) : (<>
           <Link to="/login" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary transition-colors">
             Login
           </Link>
@@ -57,6 +65,7 @@ export default function LandingPage() {
           >
             Start Practice
           </Link>
+          </>)}
         </div>
       </nav>
 
@@ -74,7 +83,7 @@ export default function LandingPage() {
         </h1>
         
         <p className="mt-6 text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-          Unlock a Reels-inspired question practicing layout, attempt realistic timed mock tests, write study notes alongside video explanations, and join peer discussions.
+          Unlock a Reels-inspired question practicing layout, attempt realistic timed mock tests, write study notes alongside step-by-step explanations, and join peer discussions.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -145,14 +154,14 @@ export default function LandingPage() {
             Ready to Ace Your Upcoming Exams?
           </h2>
           <p className="text-sm md:text-base text-slate-500 max-w-xl mx-auto leading-relaxed">
-            Create a free profile to track your streak, bookmark difficult questions, and access detailed video analysis.
+            Create a free profile to track your streak, bookmark difficult questions, and see detailed solutions for every question.
           </p>
           <div className="pt-4">
             <Link
-              to="/signup"
+              to={isAuthenticated ? '/dashboard' : '/signup'}
               className="inline-flex h-12 px-8 items-center justify-center font-bold text-white bg-primary hover:bg-primary-hover rounded-btn shadow-md hover:shadow-lg transition-all active:scale-95"
             >
-              Sign Up For Free
+              {isAuthenticated ? 'Continue practising' : 'Sign Up For Free'}
             </Link>
           </div>
         </div>

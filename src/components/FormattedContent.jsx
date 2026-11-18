@@ -272,7 +272,9 @@ function renderInlineFormatting(text, onImageAction) {
 
 function renderMarkdownTokens(str, keyPrefix, onImageAction) {
   // CRITICAL: Inner groups are non-capturing (?:...) to prevent leak of duplicate text in split chunks
-  const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|\[badge:[a-z]+:[^\]]+\]|!\[(?:[^\]]*)\]\((?:[^)]+)\)|\[(?:[^\]]+)\]\((?:[^)]+)\))/g
+  // Italic *text* only when the asterisks hug a word and aren't between digits or
+  // letters, so maths like 0.2*5000 + 0.9*100 or R*pi/2 keeps its asterisks
+  const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|(?<![\w*])\*(?=\S)[^*\n]*?[^\s*]\*(?![\w*])|~~[^~]+~~|\[badge:[a-z]+:[^\]]+\]|!\[(?:[^\]]*)\]\((?:[^)]+)\)|\[(?:[^\]]+)\]\((?:[^)]+)\))/g
   const chunks = str.split(tokenRegex)
 
   const elements = []

@@ -12,6 +12,11 @@
   /* In-between slate shades the components use (dark maths blocks, borders) */
   --color-slate-850: #172033;
   --color-slate-750: #283548;
+  --color-slate-150: #e9eef4;
+  --color-slate-350: #b0bccc;
+  --color-slate-450: #7a8aa1;
+  --color-slate-650: #3d4a5c;
+  --color-slate-655: #3d4a5c;
   
   /* Background and Surface Colors */
   --color-bg-light: #F8FAFC;

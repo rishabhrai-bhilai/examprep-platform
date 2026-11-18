@@ -37,9 +37,7 @@ export default function BookletPage() {
     loadDiscussion,
     fetchDiscussions, 
     bookmarks, 
-    toggleQuestionInFolder,
-    openVideoSolution,
-    addSolution,
+    toggleQuestionInFolder,    addSolution,
     addReply,
     upvoteSolution,
     downvoteSolution
@@ -95,6 +93,8 @@ export default function BookletPage() {
 
     // Build map of questions per subject and topic
     const subjectTopicMap = new Map()
+    // Distinct questions per subject (a question tagged with two topics counts once)
+    const subjectQuestionIds = new Map()
 
     questions.forEach(q => {
       const tags = getTags(q, topicScheme)
@@ -105,6 +105,8 @@ export default function BookletPage() {
         }
         const topicsMap = subjectTopicMap.get(subject)
         topicsMap.set(topic, (topicsMap.get(topic) || 0) + 1)
+        if (!subjectQuestionIds.has(subject)) subjectQuestionIds.set(subject, new Set())
+        subjectQuestionIds.get(subject).add(q.id)
       })
     })
 
@@ -128,6 +130,8 @@ export default function BookletPage() {
 
       allTopicNames.forEach((topicName) => {
         const count = presentTopicsMap.get(topicName) || 0
+        // Topics with no questions yet are not listed
+        if (count === 0) return
         topicCounter++
 
         subjectTopics.push({
@@ -136,7 +140,7 @@ export default function BookletPage() {
         })
       })
 
-      const totalSubjectQuestions = subjectTopics.reduce((acc, t) => acc + t.questionCount, 0)
+      const totalSubjectQuestions = subjectQuestionIds.get(subjectName)?.size || 0
 
       if (subjectTopics.length > 0) {
         result.push({
@@ -762,16 +766,6 @@ export default function BookletPage() {
                             )}
                           </button>
 
-                          {/* Video Solution Button if available */}
-                          {q.videoUrl && (
-                            <button
-                              onClick={() => openVideoSolution(q.videoUrl)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-                            >
-                              <Play size={12} className="fill-current" />
-                              <span>Video</span>
-                            </button>
-                          )}
                         </div>
 
                         {/* Bookmark Button */}
@@ -923,16 +917,6 @@ export default function BookletPage() {
                             )}
                           </button>
 
-                          {/* Video Solution Button if available */}
-                          {q.videoUrl && (
-                            <button
-                              onClick={() => openVideoSolution(q.videoUrl)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-                            >
-                              <Play size={12} className="fill-current" />
-                              <span>Video</span>
-                            </button>
-                          )}
                         </div>
 
                         {/* Bookmark Button */}
@@ -1009,15 +993,6 @@ export default function BookletPage() {
                   <span>{activeQuestion.marks} {activeQuestion.marks === 1 ? 'Mark' : 'Marks'}</span>
                 </div>
 
-                {activeQuestion.videoSolutionUrl && (
-                  <button
-                    onClick={() => openVideoSolution(activeQuestion)}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-red-500 hover:underline"
-                  >
-                    <Play size={11} className="fill-red-500" />
-                    <span>Video</span>
-                  </button>
-                )}
               </div>
             )}
 
@@ -1038,7 +1013,7 @@ export default function BookletPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 size={13} />
-                        Official / Curated Answer
+                        {activeQuestion.answerSource === 'unofficial' ? 'Answer (no official key)' : activeQuestion.original ? 'Answer key' : 'Official answer'}
                       </span>
                     </div>
 

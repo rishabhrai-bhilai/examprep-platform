@@ -7,7 +7,7 @@ import {
   Edit3, Cpu, Database, Globe, Binary, Compass, Hash, Brain, Search, Filter, Grid, Flag, FileText
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useAppStore } from '../store/useAppStore'
+import { discussionCountFor, useAppStore } from '../store/useAppStore'
 import { useReportStore } from '../store/useReportStore'
 import DiscussionDrawer from '../components/DiscussionDrawer'
 import ScratchpadDrawer from '../components/ScratchpadDrawer'
@@ -34,8 +34,8 @@ export default function PYQPage() {
     upvoteQuestion,
     downvoteQuestion,
     activeDiscussionQuestionId,
+    discussionCounts,
     setActiveDiscussionQuestionId,
-    setActiveVideoSolutionUrl,
     scratchpadOpenQuestionId,
     setScratchpadOpenQuestionId,
     questionNotes,
@@ -447,6 +447,13 @@ export default function PYQPage() {
     if (view !== 'reels') return
 
     const handleKeyDown = (e) => {
+      // Not while typing an answer or a note, or while a popup is open
+      const el = document.activeElement
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      if (e.key === 'ArrowRight') { e.preventDefault(); goToNextQuestion(); return }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); goToPrevQuestion(); return }
       if (e.key === 'ArrowDown') {
         const el = scrollContainerRef.current
         if (el && isAtBottom(el)) goToNextQuestion()
@@ -1150,6 +1157,8 @@ export default function PYQPage() {
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 const isEmpty = questionCount === 0
+                // Topics with no questions yet are not offered
+                if (isEmpty) return null
                 return (
                   <div {...clickableProps}
                     key={`${subjectName}-${topicName}`}
@@ -1254,7 +1263,7 @@ export default function PYQPage() {
                   return (
                     <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
                       {/* Subject Header */}
-                      <div
+                      <div {...clickableProps} aria-expanded={isExpanded}
                         onClick={() => setExpandedWizardSubject(isExpanded ? null : sub)}
                         className={`p-4 flex justify-between items-center bg-card-light dark:bg-card-dark cursor-pointer border-l-4 ${
                           isExpanded 
@@ -1300,6 +1309,8 @@ export default function PYQPage() {
                             const isChecked = wizardConfig.topics.includes(key)
                             const count = topicsMap[sub][topic]
                             const isEmpty = count === 0
+                            // Topics with no questions yet are not offered
+                            if (isEmpty) return null
                             return (
                               <div {...clickableProps}
                                 key={topic}
@@ -1467,6 +1478,7 @@ export default function PYQPage() {
                           <div className="flex items-center gap-1.5">
                             <input
                               type="number"
+                              aria-label="Number of questions"
                               min={1}
                               max={availableCount}
                               value={wizardConfig.limit}
@@ -1485,6 +1497,7 @@ export default function PYQPage() {
 
                         <input
                           type="range"
+                          aria-label="Number of questions"
                           min={1}
                           max={availableCount}
                           value={wizardConfig.limit}
@@ -1579,6 +1592,8 @@ export default function PYQPage() {
               <button
                 onClick={goToPrevQuestion}
                 disabled={activeQuestionIndex === 0}
+                aria-label="Previous question"
+                title="Previous question (Left arrow)"
                 className="p-2.5 rounded-full border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 shadow-sm text-slate-500 transition-colors"
               >
                 <ChevronUp size={20} />
@@ -1586,6 +1601,8 @@ export default function PYQPage() {
               <button
                 onClick={goToNextQuestion}
                 disabled={activeQuestionIndex === totalQuestions - 1}
+                aria-label="Next question"
+                title="Next question (Right arrow)"
                 className="p-2.5 rounded-full border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 shadow-sm text-slate-500 transition-colors"
               >
                 <ChevronDown size={20} />
@@ -1906,7 +1923,7 @@ export default function PYQPage() {
                     </span>
                   </button>
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                    {currentQuestion?.commentsCount || 0}
+                    {(() => { const c = discussionCountFor(discussionCounts, currentQuestion?.id); return c.posts + c.replies })()}
                   </span>
                 </div>
 
@@ -1943,16 +1960,6 @@ export default function PYQPage() {
                   </span>
                 </button>
 
-                {/* Video Solution Button */}
-                <button
-                  onClick={() => setActiveVideoSolutionUrl(currentQuestion?.videoSolutionUrl, currentQuestion)}
-                  className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
-                >
-                  <Play size={16} className="fill-slate-500 text-slate-500 sm:size-[18px]" />
-                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Video Solution
-                  </span>
-                </button>
 
                 {/* Report Question Button */}
                 <button
@@ -2234,6 +2241,7 @@ export default function PYQPage() {
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
+                      aria-label="Number of questions"
                       min={1}
                       max={maxAvailableQuestions}
                       value={limitQuestionsCount}
@@ -2252,6 +2260,7 @@ export default function PYQPage() {
 
                 <input
                   type="range"
+                  aria-label="Number of questions"
                   min={1}
                   max={maxAvailableQuestions}
                   value={limitQuestionsCount}

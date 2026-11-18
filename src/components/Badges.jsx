@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import { Sparkles, Flame, MessageSquare, Award, Lock, Share2, X } from 'lucide-react'
 import { BADGES, findBadge } from '../../shared/engagement.js'
 import { avatarForBadge } from '../../shared/avatars.js'
 import { useAuthStore } from '../store/useAuthStore'
+import { useAppStore } from '../store/useAppStore'
 import { markBadgesSeen } from '../utils/engagementApi'
+import useDialog from '../hooks/useDialog'
 
 // How each badge group looks: an icon for the app, an emoji for the share card
 const GROUPS = {
@@ -141,10 +143,16 @@ export function BadgeUnlockModal() {
   const [dismissed, setDismissed] = useState([])
 
   const seen = new Set([...(user?.badgesSeen || []), ...dismissed])
-  const queue = isAuthenticated && user?.profileCompleted
+  // Never interrupt a timed test: badges wait until it is submitted
+  const testActive = useAppStore(s => s.isPracticeActive)
+  const queue = isAuthenticated && user?.profileCompleted && !testActive
     ? Object.keys(user?.badges || {}).filter(id => !seen.has(id) && findBadge(id))
     : []
   const badge = queue.length ? findBadge(queue[0]) : null
+
+  // Escape and Tab work like any dialog; closeRef points at the current close()
+  const closeRef = useRef(null)
+  const dialogRef = useDialog(!!badge, () => closeRef.current?.())
 
   useEffect(() => {
     if (!badge) return
@@ -162,6 +170,8 @@ export function BadgeUnlockModal() {
     setAvatarState('saving')
     const result = await updateProfile({ avatar: reward }).catch(() => null)
     setAvatarState(result?.success ? 'saved' : 'error')
+    // Choosing the reward is the end of this popup
+    if (result?.success) close()
   }
 
   const close = () => {
@@ -169,12 +179,14 @@ export function BadgeUnlockModal() {
     setDismissed(d => [...d, badge.id])
     markBadgesSeen([badge.id]).catch(() => {})
   }
+  closeRef.current = close
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-[1100] flex justify-center p-4 overflow-y-auto">
         <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={close} />
         <motion.div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="badge-unlock-title"
@@ -183,7 +195,7 @@ export function BadgeUnlockModal() {
           transition={{ type: 'spring', stiffness: 260, damping: 18 }}
           className="relative my-auto w-full max-w-sm bg-card-light dark:bg-card-dark rounded-2xl border border-border-light dark:border-border-dark shadow-2xl p-6 text-center space-y-4"
         >
-          <button onClick={close} aria-label="Close" className="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={16} /></button>
+          <button onClick={close} aria-label="Dismiss badge" className="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={16} /></button>
           <p className="text-[11px] font-bold uppercase tracking-widest text-primary">Badge unlocked</p>
           <motion.div
             initial={{ rotate: -20, scale: 0.5 }}

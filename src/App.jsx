@@ -33,11 +33,16 @@ const withQuestions = (page) => <QuestionsGate>{page}</QuestionsGate>
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
 import BookmarkSelectorModal from './components/BookmarkSelectorModal'
-import VideoSolutionModal from './components/VideoSolutionModal'
 import AuthPromptModal from './components/AuthPromptModal'
 import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
 import { BadgeUnlockModal } from './components/Badges'
+
+// An address that doesn't exist sends signed-in students to their dashboard
+function UnknownPage() {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />
+}
 
 function App() {
   const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
@@ -95,14 +100,13 @@ function App() {
         </Route>
 
         {/* Fallback Redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<UnknownPage />} />
       </Routes>
       </Suspense>
 
       {/* Global Overlays */}
       <ScientificCalculator />
       <BookmarkSelectorModal />
-      <VideoSolutionModal />
       <AuthPromptModal />
       <OnboardingModal />
       <ReportIssueModal />

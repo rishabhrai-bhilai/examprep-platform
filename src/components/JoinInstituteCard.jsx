@@ -79,13 +79,13 @@ export default function JoinInstituteCard() {
   })
 
   const shell = 'p-5 rounded-3xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4'
-  const header = (subtitle) => (
+  const header = (subtitle, title = 'Join your coaching centre') => (
     <div className="flex items-start gap-3">
       <div className="h-10 w-10 shrink-0 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
         <School size={20} />
       </div>
       <div>
-        <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100 tracking-tight">Join your coaching centre</h3>
+        <h3 className="font-extrabold text-base text-slate-900 dark:text-slate-100 tracking-tight">{title}</h3>
         <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
       </div>
     </div>
@@ -97,7 +97,7 @@ export default function JoinInstituteCard() {
     return (
       <div className={shell} id="coaching-centre">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {header(<>You&apos;re linked to <span className="font-bold text-slate-800 dark:text-slate-200">{membership.name}</span> since {formatDate(membership.joinedAt)}.</>)}
+          {header(<>You&apos;re linked to <span className="font-bold text-slate-800 dark:text-slate-200">{membership.name}</span> since {formatDate(membership.joinedAt)}.</>, 'Your coaching centre')}
           {!confirmLeave ? (
             <button
               onClick={() => setConfirmLeave(true)}
@@ -115,6 +115,9 @@ export default function JoinInstituteCard() {
             </div>
           )}
         </div>
+        {!(membership.series?.length > 0) && (
+          <p className="text-xs text-slate-500">Your centre hasn&apos;t added a test series on ExamPrep yet. When it does, the tests appear under Mock Tests.</p>
+        )}
         {membership.series?.length > 0 && (
           <p className="text-xs text-slate-700 dark:text-slate-300 flex items-start gap-1.5">
             <Package size={13} className="mt-0.5 shrink-0 text-primary" />
@@ -132,7 +135,7 @@ export default function JoinInstituteCard() {
 
   return (
     <div className={shell} id="coaching-centre">
-      {header('Studying with a coaching centre on ExamPrep? Enter the code they gave you: they can follow your progress, and their test series unlock for you.')}
+      {header('Studying with a coaching centre on ExamPrep? Enter the code they gave you: they can follow your progress, and any test series they run on ExamPrep unlocks for you.')}
 
       {!found ? (
         <form onSubmit={checkCode} className="flex flex-col sm:flex-row gap-2">
@@ -171,7 +174,7 @@ export default function JoinInstituteCard() {
             </p>
           </div>
           <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-primary" />
+            <input type="checkbox" id="join-centre-consent" aria-label={`I agree to share my progress with ${found.name}`} checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 accent-primary" />
             <span>I agree to share this with {found.name}. I can leave at any time from my Profile.</span>
           </label>
           <div className="flex gap-2">

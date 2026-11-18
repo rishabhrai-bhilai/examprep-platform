@@ -34,6 +34,20 @@ export default function HeaderSearch() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const boxRef = useRef(null)
+  const inputRef = useRef(null)
+
+  // "/" jumps to the search box from anywhere (unless typing somewhere)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const el = document.activeElement
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      e.preventDefault()
+      inputRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   // Start fresh on each page
   useEffect(() => { setQuery(''); setOpen(false) }, [location.pathname])
@@ -107,6 +121,7 @@ export default function HeaderSearch() {
         <Search size={18} className="text-slate-400 dark:text-slate-500" />
       </span>
       <input
+        ref={inputRef}
         type="search"
         role="combobox"
         aria-label="Search questions, subjects, topics"
@@ -118,7 +133,7 @@ export default function HeaderSearch() {
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => { fetchQuestions(); setOpen(true) }}
         onKeyDown={onKeyDown}
-        placeholder="Search questions, subjects, topics..."
+        placeholder="Search questions, subjects, topics... (press /)"
         className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
       />
       {showList && (
