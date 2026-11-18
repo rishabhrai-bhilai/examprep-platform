@@ -105,7 +105,8 @@ export default function SignupPage() {
     if (result.success) {
       setCode('')
       goToStep('verify')
-      setInfo(result.message || '')
+      // The verify step's heading already says where the code went
+      setInfo('')
       setCooldown(RESEND_SECONDS)
     } else if (result.retryAfter) {
       setCooldown(result.retryAfter)

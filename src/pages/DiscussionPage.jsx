@@ -18,6 +18,7 @@ import FilterDropdown from '../components/FilterDropdown'
 import { compareSubjects } from '../utils/subjects'
 import { getTags, hasTopicName } from '../utils/topics'
 import { matchesQuestionRef, parseQuestionCode, EXAMS } from '../../shared/questionCodes.js'
+import { clickableProps } from '../utils/a11y'
 
 // Recursive component for rendering multi-level threaded replies
 function ThreadedReplyNode({
@@ -827,7 +828,7 @@ export default function DiscussionPage() {
                 const commentCount = qCounts.posts + qCounts.replies
 
                 return (
-                  <div
+                  <div {...clickableProps}
                     key={q.id}
                     onClick={() => openQuestion(q)}
                     className="p-5 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-card hover:border-slate-300 dark:hover:border-slate-800 hover:shadow-soft cursor-pointer transition-all duration-200 flex flex-col justify-between gap-4 relative group"

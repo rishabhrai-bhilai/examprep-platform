@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { questionPreview } from '../utils/questionPreview'
+import { clickableProps } from '../utils/a11y'
 
 export default function BookmarksPage() {
   const navigate = useNavigate()
@@ -156,7 +157,7 @@ export default function BookmarksPage() {
                 className="p-5 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft hover:shadow-md hover:border-slate-300 dark:hover:border-slate-850 flex flex-col justify-between h-[155px] group transition-all"
               >
                 {/* Folder details */}
-                <div 
+                <div {...clickableProps} 
                   onClick={() => setSelectedFolder(folderName)}
                   className="space-y-1.5 cursor-pointer flex-1"
                 >
@@ -287,7 +288,7 @@ export default function BookmarksPage() {
                     </button>
 
                     {/* Question Content */}
-                    <div 
+                    <div {...clickableProps} 
                       onClick={() => handlePracticeFolder(selectedFolder, q.id)}
                       className="flex-1 min-w-0 cursor-pointer space-y-1.5"
                     >

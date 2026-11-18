@@ -758,7 +758,7 @@ export default function AnalyticsPage() {
 
           <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between">
             <span>{nextPaper ? <>Next recommended: <strong>{nextPaper.title}</strong></> : 'Every paper taken.'}</span>
-            <Link to="/pyq-mock" className="font-bold text-primary hover:underline">{nextPaper ? 'Start Paper →' : 'Open →'}</Link>
+            <Link to="/pyq-mock" state={nextPaper ? { startPaper: { year: nextPaper.year, set: nextPaper.set } } : undefined} className="font-bold text-primary hover:underline">{nextPaper ? 'Start Paper →' : 'Open →'}</Link>
           </div>
         </div>
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Menu, Search, Calculator, Sun, Moon, Maximize, Minimize, BookOpen, User, LogIn, LogOut } from 'lucide-react'
+import { Menu, Calculator, Sun, Moon, Maximize, Minimize, BookOpen, User, LogIn, LogOut } from 'lucide-react'
 import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
+import HeaderSearch from './HeaderSearch'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -54,16 +55,7 @@ export default function Header() {
 
       {/* Center: Search Bar */}
       <div className="hidden sm:flex items-center flex-1 max-w-md mx-8">
-        <div className="relative w-full">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-            <Search size={18} className="text-slate-400 dark:text-slate-500" />
-          </span>
-          <input
-            type="search"
-            placeholder="Search questions, subjects, topics..."
-            className="w-full h-10 pl-10 pr-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary dark:focus:border-primary text-text-primary-light dark:text-text-primary-dark transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-          />
-        </div>
+        <HeaderSearch />
       </div>
 
       {/* Right side: Tools, Theme, Fullscreen, Auth */}
