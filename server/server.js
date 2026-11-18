@@ -1318,7 +1318,7 @@ app.delete('/api/me/institute', requireAuth, (req, res) => {
 
 // --- TEST SERIES AND THE ADMIN APP'S API ---
 registerSeriesRoutes(app, { mockTests, originalQuestions: publicOriginals, optionalUser, isAdminEmail })
-registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle })
+registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle, questionById })
 registerCoachingRoutes(app, { questions, testTitle })
 
 // --- STATIC ASSETS & PRODUCTION SERVING ---

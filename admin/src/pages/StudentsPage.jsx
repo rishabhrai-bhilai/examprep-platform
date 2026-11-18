@@ -12,10 +12,14 @@ const FILTERS = [
   ['seat', 'Has a series seat'],
   ['solo', 'No centre'],
   ['active', 'Active this week'],
-  ['inactive', 'Inactive 30+ days']
+  ['inactive', 'Inactive 30+ days'],
+  ['real', 'Real only'],
+  ['demo', 'Demo only']
 ]
 const WEEK = 7 * 24 * 3600 * 1000
 const matches = (s, filter, now) => {
+  if (filter === 'real') return !s.demo
+  if (filter === 'demo') return !!s.demo
   if (filter === 'seat') return s.hasSeat
   if (filter === 'solo') return !s.centre
   if (filter === 'centre') return !!s.centre
@@ -64,7 +68,7 @@ export default function StudentsPage() {
       <PageHeader
         icon={Users}
         title="Students"
-        subtitle={`${data.students.length} accounts · showing ${students.length}`}
+        subtitle={`${data.students.length} accounts (${data.students.filter(s => s.demo).length} demo) · showing ${students.length}`}
         right={<>
           <button className={btnGhost} onClick={load} disabled={loading}><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh</button>
           <button className={btnPrimary} disabled={!students.length} onClick={() => downloadText(`examprep-students-${new Date().toISOString().slice(0, 10)}.csv`, studentsCsv(students, SITE_CSV_COLUMNS))}>
@@ -113,7 +117,7 @@ export default function StudentsPage() {
                     <div className="flex items-center gap-2.5">
                       {s.avatar ? <img src={s.avatar} alt="" className="h-8 w-8 rounded-full bg-slate-100 object-cover" /> : <div className="h-8 w-8 rounded-full bg-slate-200" />}
                       <div className="min-w-0">
-                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[14rem]">{s.name}</div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate max-w-[14rem] flex items-center gap-1.5"><span className="truncate">{s.name}</span>{s.demo && <Pill tone="warning">Demo</Pill>}</div>
                         <div className="text-[10px] text-slate-400 truncate max-w-[14rem]">{s.email}</div>
                       </div>
                     </div>

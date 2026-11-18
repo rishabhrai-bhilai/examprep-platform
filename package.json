@@ -11,7 +11,10 @@
     "build:admin": "vite build --config admin/vite.config.js",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "demo:status": "node server/scripts/demo-students.js status",
+    "demo:import": "node server/scripts/demo-students.js import",
+    "demo:remove": "node server/scripts/demo-students.js remove"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",

@@ -2,7 +2,9 @@
 // every student, and test series. Coaching-centre routes live in server.js
 // (/api/institutes): centre admins use those too, and only ever see their own
 // centre's students.
-import { userDb, seriesDb, instituteDb, attemptDb, mockAttemptDb } from '../db/index.js'
+import { userDb, seriesDb, instituteDb, attemptDb, mockAttemptDb, bookmarkDb, noteDb, testRecordDb, potdDb, reportDb, discussionDb } from '../db/index.js'
+import { findBadge } from '../../shared/engagement.js'
+import { ageFromDob } from '../../shared/profile.js'
 import { requireAuth, requireAdmin } from '../services/auth.js'
 import { seriesAccess, centreSeat } from '../services/access.js'
 import { studentReport } from '../services/institutes.js'
@@ -17,7 +19,7 @@ const lastDays = (n, now = Date.now()) => {
   return Array.from({ length: n }, (_, i) => new Date(Date.UTC(y, m - 1, d - (n - 1 - i))).toISOString().slice(0, 10))
 }
 
-export function registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle }) {
+export function registerAdminRoutes(app, { mockTests, refreshPracticeStats, questionSubjects, testTitle, questionById = new Map() }) {
   const admin = [requireAuth, requireAdmin]
   const testIds = new Set(mockTests.map(t => t.id))
 
@@ -122,6 +124,7 @@ export function registerAdminRoutes(app, { mockTests, refreshPracticeStats, ques
         return {
           ...row,
           provider: user.provider,
+          demo: !!user.demo,
           centre: centre?.name || null,
           hasSeat: !!(centre && centreSeat(u.id, centre))
         }
@@ -147,10 +150,80 @@ export function registerAdminRoutes(app, { mockTests, refreshPracticeStats, ques
         phone: user.phone || null,
         provider: user.provider,
         centre: centre ? { id: centre.id, name: centre.name, joinedAt: centre.members.find(m => m.userId === user.id)?.joinedAt } : null,
-        access: [...access.entries()].map(([seriesId, a]) => ({ seriesId, title: seriesDb.findById(seriesId)?.title || seriesId, ...a }))
+        access: [...access.entries()].map(([seriesId, a]) => ({ seriesId, title: seriesDb.findById(seriesId)?.title || seriesId, ...a })),
+        ...engagementOf(user)
       }
     })
   })
+
+  // Everything else a student has done: profile, recent answers, papers taken,
+  // Problem of the Day, bookmarks, notes, forum posts and issue reports
+  const questionLabel = (id) => {
+    const q = questionById.get(Number(id))
+    if (!q) return { questionId: id, label: `Question ${id}` }
+    return { questionId: q.id, label: `GATE ${q.year}${q.set ? ` (Set ${q.set})` : ''} · ${q.subject}${q.topic ? ` · ${q.topic}` : ''}`, type: q.type }
+  }
+  const snippet = (text, n = 160) => {
+    const s = String(text || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+    return s.length > n ? `${s.slice(0, n)}…` : s
+  }
+  const engagementOf = (user) => {
+    const practice = attemptDb.getUserAttempts(user.id)
+    const recentAnswers = Object.values(practice.attempts || {})
+      .sort((a, b) => (b.answeredAt || 0) - (a.answeredAt || 0))
+      .slice(0, 25)
+      .map(a => ({ ...questionLabel(a.questionId), correct: !!a.correct, answeredAt: a.answeredAt, timeSpentSec: a.timeSpentSec, attempts: a.attempts }))
+
+    const records = testRecordDb.getUserRecords(user.id)
+    const papers = [...(records.mockHistory || []).map(h => ({ ...h, kind: 'Mock' })), ...(records.pyqHistory || []).map(h => ({ ...h, kind: 'PYQ' }))]
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .map(h => ({ kind: h.kind, title: h.testTitle || h.displayName, at: h.timestamp, score: h.score, maxScore: h.maxScore, correct: h.correct, incorrect: h.incorrect, unanswered: h.unanswered, questions: h.questionsCount, timeTaken: h.timeTaken, counted: h.counted !== false }))
+
+    const potd = Object.entries(potdDb.getUserDays(user.id))
+      .map(([date, e]) => ({ date, ...questionLabel(e.questionId), correct: !!e.correct }))
+      .sort((a, b) => b.date.localeCompare(a.date))
+
+    const bm = bookmarkDb.getUserBookmarks(user.id)
+    const folders = Object.entries(bm.bookmarkFolders || {}).map(([name, ids]) => ({ name, count: (ids || []).length })).filter(f => f.count > 0 || f.name !== 'General')
+
+    const notes = Object.entries(noteDb.getUserNotes(user.id).questionNotes || {}).map(([qid, n]) => ({
+      ...questionLabel(qid),
+      text: snippet((n.sheets || []).map(s => s.text).filter(Boolean).join(' ') || n.content || n.text || ''),
+      sheets: (n.sheets || []).length || 1
+    }))
+
+    const posts = []
+    const walk = (list, qid, depth) => (list || []).forEach(p => {
+      if (p.authorId === user.id) posts.push({ ...questionLabel(qid), kind: depth ? 'Reply' : 'Solution', text: snippet(p.content), at: p.timestamp, votes: Object.values(p.voters || {}).reduce((n, v) => n + (v === 'up' ? 1 : v === 'down' ? -1 : 0), 0), replies: (p.replies || []).length })
+      walk(p.replies, qid, depth + 1)
+    })
+    Object.entries(discussionDb.peekAll()).forEach(([qid, list]) => walk(list, qid, 0))
+    posts.sort((a, b) => (b.at || 0) - (a.at || 0))
+
+    const reports = reportDb.getByUser(user.id)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .map(r => ({ id: r.id, category: r.category, status: r.status, page: r.page, message: snippet(r.message, 240), at: r.createdAt }))
+
+    return {
+      demo: !!user.demo,
+      profile: {
+        dob: user.dob || null,
+        age: user.dob ? ageFromDob(user.dob) : null,
+        targetYear: user.targetYear || null,
+        targetGoal: user.targetGoal || null,
+        profileCompleted: !!user.profileCompleted,
+        potdStreak: user.potdStreak || 0,
+        badges: Object.entries(user.badges || {}).map(([id, at]) => ({ id, name: findBadge(id)?.name || id, at })).sort((a, b) => a.at - b.at)
+      },
+      recentAnswers,
+      papers,
+      potd,
+      bookmarks: { count: (bm.bookmarks || []).length, folders },
+      notes,
+      posts,
+      reports
+    }
+  }
 
   // --- TEST SERIES ---
   const seriesInput = (body, existing = {}) => {
