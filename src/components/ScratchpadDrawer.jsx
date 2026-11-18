@@ -49,9 +49,7 @@ export default function ScratchpadDrawer({
     votes,
     upvoteQuestion,
     downvoteQuestion,
-    setActiveDiscussionQuestionId,
-    setActiveVideoSolutionUrl
-  } = useAppStore()
+    setActiveDiscussionQuestionId,  } = useAppStore()
 
   // Workspace Mode: 'draw' (editing) | 'view' (read saved notes)
   const [mode, setMode] = useState('draw')
@@ -1853,16 +1851,6 @@ export default function ScratchpadDrawer({
                 <span className="text-[11px]">Bookmark</span>
               </button>
 
-              {currentQuestion.videoSolutionUrl && (
-                <button
-                  onClick={() => setActiveVideoSolutionUrl(currentQuestion.videoSolutionUrl)}
-                  className="h-8 px-2.5 rounded-lg bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-primary hover:border-primary/40 flex items-center gap-1 text-xs font-bold transition-all cursor-pointer"
-                  title="Watch Video Solution"
-                >
-                  <Play size={12} className="fill-current text-slate-500" />
-                  <span className="text-[11px] hidden sm:inline">Video</span>
-                </button>
-              )}
             </div>
           </div>
         </div>

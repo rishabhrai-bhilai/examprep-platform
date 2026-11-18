@@ -74,7 +74,7 @@ export default function LandingPage() {
         </h1>
         
         <p className="mt-6 text-base md:text-lg text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
-          Unlock a Reels-inspired question practicing layout, attempt realistic timed mock tests, write study notes alongside video explanations, and join peer discussions.
+          Unlock a Reels-inspired question practicing layout, attempt realistic timed mock tests, write study notes alongside step-by-step explanations, and join peer discussions.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -145,7 +145,7 @@ export default function LandingPage() {
             Ready to Ace Your Upcoming Exams?
           </h2>
           <p className="text-sm md:text-base text-slate-500 max-w-xl mx-auto leading-relaxed">
-            Create a free profile to track your streak, bookmark difficult questions, and access detailed video analysis.
+            Create a free profile to track your streak, bookmark difficult questions, and see detailed solutions for every question.
           </p>
           <div className="pt-4">
             <Link

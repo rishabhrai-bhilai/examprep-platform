@@ -951,7 +951,7 @@ const resolveTest = (id) => {
   if (mock) return { id: mock.id, durationMinutes: mock.durationMinutes, questions: mock.questions }
   if (isPyqPaperId(id)) {
     const paper = pyqPaperQuestions(questions, id)
-    if (paper.length) return { id, durationMinutes: pyqPaperMinutes(paper.length), questions: paper.map(q => q.id) }
+    if (paper.length) return { id, durationMinutes: pyqPaperMinutes(paper.length, true), questions: paper.map(q => q.id) }
   }
   return null
 }

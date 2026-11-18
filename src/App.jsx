@@ -33,7 +33,6 @@ const withQuestions = (page) => <QuestionsGate>{page}</QuestionsGate>
 // Components
 import ScientificCalculator from './components/ScientificCalculator'
 import BookmarkSelectorModal from './components/BookmarkSelectorModal'
-import VideoSolutionModal from './components/VideoSolutionModal'
 import AuthPromptModal from './components/AuthPromptModal'
 import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
@@ -102,7 +101,6 @@ function App() {
       {/* Global Overlays */}
       <ScientificCalculator />
       <BookmarkSelectorModal />
-      <VideoSolutionModal />
       <AuthPromptModal />
       <OnboardingModal />
       <ReportIssueModal />

@@ -23,6 +23,9 @@ import GlobalComparison, { LoginToCompare } from '../components/GlobalComparison
 import ResumeTestBanner from '../components/ResumeTestBanner'
 import { loadSession, saveSession, clearSession, findMockAttempt, canStartNewTest } from '../utils/testSession'
 import { clickableProps } from '../utils/a11y'
+import { answerType, hasAnswer, skillBreakdown } from '../utils/testAnswers'
+import SubmitConfirmModal from '../components/SubmitConfirmModal'
+import ResultSummary from '../components/ResultSummary'
 
 // The list page groups tests by kind (see shared/mockTests.js). Sectional
 // categories show the chapter-based papers, or the classic ones (built before
@@ -116,6 +119,7 @@ export default function MockTestsPage() {
   // Original questions come from the server (only those this student may see).
   const navigate = useNavigate()
   const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  const userStreak = useAuthStore(s => s.user?.streak || 0)
   const originals = useSeriesStore(s => s.originals)
   const seriesAccess = useSeriesStore(s => s.access)
   const refreshAccess = useSeriesStore(s => s.refreshAccess)
@@ -375,6 +379,23 @@ export default function MockTestsPage() {
     setAnswerTimes((prev) => ({ ...prev, [questionId]: timeLeft }))
   }
 
+  // Multiple-select questions keep a list of chosen options
+  const handleToggleOption = (questionId, optionIndex) => {
+    setAnswers((prev) => {
+      const current = Array.isArray(prev[questionId]) ? prev[questionId] : []
+      const next = current.includes(optionIndex) ? current.filter(i => i !== optionIndex) : [...current, optionIndex].sort((a, b) => a - b)
+      return { ...prev, [questionId]: next }
+    })
+    setAnswerTimes((prev) => ({ ...prev, [questionId]: timeLeft }))
+  }
+
+  const handleNumericAnswer = (questionId, value) => {
+    setAnswers((prev) => ({ ...prev, [questionId]: value }))
+    setAnswerTimes((prev) => ({ ...prev, [questionId]: timeLeft }))
+  }
+
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
+
   const toggleFlag = (questionId) => {
     setFlags((prev) => ({ ...prev, [questionId]: !prev[questionId] }))
   }
@@ -543,7 +564,7 @@ export default function MockTestsPage() {
     scoredQuestions.forEach((q) => {
       const selected = answers[q.id]
       const qMarks = q.marks || 1
-      const qType = q.type || 'MCQ'
+      const qType = answerType(q)
       const qSubject = q.subject || 'General Aptitude'
       // Primary (first) tag, so each question counts toward one topic
       const qTopic = getTags(q)[0]?.topic || 'General'
@@ -579,7 +600,7 @@ export default function MockTestsPage() {
       let status = 'unanswered'
       let gained = 0
 
-      if (selected === undefined || selected === null) {
+      if (!hasAnswer(selected)) {
         unanswered++
         status = 'unanswered'
         timePerQuestionStatus.unanswered += qTimeSpent
@@ -641,11 +662,6 @@ export default function MockTestsPage() {
 
     // GATE Score and Rank Estimations
     // Max marks for full GATE is 100. This mock is smaller. Let's scale score to 100 to estimate GATE score.
-    const scaledScore = maxPossibleScore > 0 ? (totalScore / maxPossibleScore) * 100 : 0
-    // Estimate GATE Score: typically scaled score from 0-100 translates to gate score from 100 to 1000.
-    const estimatedGateScore = Math.max(100, Math.min(1000, Math.round(150 + scaledScore * 8.5)))
-    // Estimate rank: rank decreases exponentially as score increases
-    const estimatedRank = Math.max(1, Math.round(50000 * Math.pow(0.93, Math.max(0, scaledScore - 15))))
 
     // Under a minute isn't a real attempt: it is kept (the paper is used up and
     // its analysis stays viewable) but doesn't count toward stats or comparison
@@ -660,7 +676,7 @@ export default function MockTestsPage() {
     const data = {
       testId: activeTest.id,
       testTitle: activeTest.title,
-      displayName: `Mock Test ${testNum}`,
+      displayName: activeTest.title || `Mock Test ${testNum}`,
       attemptNo,
       counted,
       ...(!counted && serverResult.answersSeen ? { notCountedReason: serverResult.reason } : {}),
@@ -682,8 +698,6 @@ export default function MockTestsPage() {
       avgTimeIncorrect,
       avgTimeUnanswered,
       panicZoneErrors,
-      estimatedGateScore,
-      estimatedRank,
       subjectStats,
       topicStats,
       difficultyStats,
@@ -843,7 +857,7 @@ export default function MockTestsPage() {
                   <span>Duration: <strong className="text-slate-700 dark:text-slate-300">{attempt.timeTakenFormatted}</strong></span>
                   <span>Questions: <strong className="text-slate-700 dark:text-slate-300">{attempt.questionsCount}</strong></span>
                   <span>Accuracy: <strong className="text-emerald-500 font-bold">{attempt.percentage}%</strong></span>
-                  <span>Est. Rank: <strong className="text-amber-500 font-bold">#{attempt.estimatedRank}</strong></span>
+                  <span>Score: <strong className="text-amber-500 font-bold">{attempt.score} / {attempt.maxScore}</strong></span>
                 </div>
 
                 {/* Outcome mini-bar */}
@@ -1142,6 +1156,7 @@ export default function MockTestsPage() {
                     return (
                       <button
                         onClick={() => startTest(test)}
+                        aria-label={`${inProgress ? "Resume" : done ? "View analysis of" : "Attempt"} ${test.title}`}
                         title={done ? 'Each test can be taken once. Opens your analysis.' : undefined}
                         className={`px-4 py-2 text-xs font-bold rounded-btn transition-all active:scale-95 shadow-sm cursor-pointer ${
                           inProgress
@@ -1190,19 +1205,28 @@ export default function MockTestsPage() {
             </button>
 
             {/* Timer display */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-btn bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 font-mono text-sm font-bold">
+            <div role="timer" aria-label={`Time left ${formatTime(timeLeft)}`} className={`flex items-center gap-2 px-3 py-1.5 rounded-btn border font-mono text-sm font-bold ${timeLeft <= 600 ? "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400" : "bg-slate-500/10 border-slate-500/20 text-slate-700 dark:text-slate-200"}`}>
               <Clock size={16} />
               <span>{formatTime(timeLeft)}</span>
             </div>
 
             <button
-              onClick={handleSubmitTest}
+              onClick={() => setConfirmSubmit(true)}
               disabled={submitting}
               className="px-4 py-2 bg-success text-white text-xs font-bold rounded-btn hover:bg-success/90 flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-wait"
             >
               <Send size={12} />
               <span>{submitting ? 'Submitting…' : 'Submit Test'}</span>
             </button>
+            <SubmitConfirmModal
+              open={confirmSubmit}
+              total={testQuestions.length}
+              answered={testQuestions.filter(q => hasAnswer(answers[q.id])).length}
+              flagged={testQuestions.filter(q => flags[q.id]).length}
+              oneAttempt
+              onCancel={() => setConfirmSubmit(false)}
+              onConfirm={() => { setConfirmSubmit(false); handleSubmitTest() }}
+            />
           </div>
         </header>
 
@@ -1250,21 +1274,47 @@ export default function MockTestsPage() {
                       alt={activeQuestion?.imageAlt || 'Question Diagram'} 
                     />
 
-                    {/* Multiple Choice Options */}
-                    <div className="space-y-2.5 pt-4">
-                      {activeQuestion?.options.map((option, idx) => {
-                        const isSelected = answers[activeQuestion.id] === idx
+                    {/* Numerical answer (NAT) */}
+                    {answerType(activeQuestion) === 'NAT' && (
+                      <div className="space-y-3 pt-4">
+                        <label htmlFor={`nat-${activeQuestion?.id}`} className="text-xs font-bold text-slate-500 block uppercase tracking-wide">Enter numerical answer</label>
+                        <input
+                          id={`nat-${activeQuestion?.id}`}
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          placeholder="Type a number (e.g. 5 or 2.33)"
+                          value={answers[activeQuestion?.id] ?? ''}
+                          onChange={(e) => handleNumericAnswer(activeQuestion.id, e.target.value)}
+                          className="w-full h-12 px-4 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-input focus:outline-none focus:border-primary text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+                    )}
+
+                    {/* Options: one choice for MCQ, any number for MSQ */}
+                    {answerType(activeQuestion) !== 'NAT' && (
+                    <div className="space-y-2.5 pt-4" role={answerType(activeQuestion) === 'MSQ' ? 'group' : 'radiogroup'} aria-label={answerType(activeQuestion) === 'MSQ' ? 'Select all that apply' : 'Choose one option'}>
+                      {answerType(activeQuestion) === 'MSQ' && (
+                        <p className="text-[11px] font-semibold text-slate-500">Select all correct options</p>
+                      )}
+                      {(activeQuestion?.options || []).map((option, idx) => {
+                        const isMulti = answerType(activeQuestion) === 'MSQ'
+                        const isSelected = isMulti
+                          ? (Array.isArray(answers[activeQuestion.id]) && answers[activeQuestion.id].includes(idx))
+                          : answers[activeQuestion.id] === idx
                         return (
                           <button
                             key={idx}
-                            onClick={() => handleSelectOption(activeQuestion.id, idx)}
+                            role={isMulti ? 'checkbox' : 'radio'}
+                            aria-checked={isSelected}
+                            onClick={() => (isMulti ? handleToggleOption : handleSelectOption)(activeQuestion.id, idx)}
                             className={`w-full p-4 text-left text-sm rounded-btn border transition-all flex items-start gap-3 ${
                               isSelected
                                 ? 'border-primary bg-indigo-50/50 dark:bg-indigo-950/20 text-primary font-medium'
                                 : 'border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900'
                             }`}
                           >
-                            <span className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 text-xs font-bold ${
+                            <span className={`h-5 w-5 ${isMulti ? 'rounded' : 'rounded-full'} border flex items-center justify-center shrink-0 text-xs font-bold ${
                               isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 dark:border-slate-700 text-slate-500'
                             }`}>
                               {String.fromCharCode(65 + idx)}
@@ -1276,6 +1326,7 @@ export default function MockTestsPage() {
                         )
                       })}
                     </div>
+                    )}
                   </div>
                 </motion.div>
               </AnimatePresence>
@@ -1304,10 +1355,11 @@ export default function MockTestsPage() {
                 </div>
 
                 {/* Clear Response on Mobile: Anchored to the far-left so it never overlaps the center floating Question Grid button */}
-                {answers[activeQuestion?.id] !== undefined && (
+                {(
                   <button
                     onClick={() => handleClearResponse(activeQuestion.id)}
-                    className="md:hidden px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
+                    disabled={!hasAnswer(answers[activeQuestion?.id])}
+                    className="md:hidden disabled:opacity-40 disabled:pointer-events-none px-2.5 sm:px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-1.5"
                   >
                     <RotateCcw size={14} />
                     <span className="hidden sm:inline">Clear Response</span>
@@ -1319,10 +1371,11 @@ export default function MockTestsPage() {
               {/* Right Side: Desktop Clear Response + Flag Question, or Mobile Flag Question */}
               <div className="flex items-center gap-2 ml-auto">
                 {/* Clear Response on Desktop */}
-                {answers[activeQuestion?.id] !== undefined && (
+                {(
                   <button
                     onClick={() => handleClearResponse(activeQuestion.id)}
-                    className="hidden md:flex px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
+                    disabled={!hasAnswer(answers[activeQuestion?.id])}
+                    className="hidden md:flex disabled:opacity-40 disabled:pointer-events-none px-3 py-2 rounded-btn text-xs font-semibold border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors items-center gap-1.5"
                   >
                     <RotateCcw size={14} />
                     <span>Clear Response</span>
@@ -1358,11 +1411,13 @@ export default function MockTestsPage() {
                   {testQuestions.map((q, idx) => {
                     const isCurrent = idx === currentQuestionIndex
                     const isFlagged = flags[q.id]
-                    const hasAnswered = answers[q.id] !== undefined
+                    const hasAnswered = hasAnswer(answers[q.id])
                     const hasVisited = visited[q.id]
 
                     let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 outline-none focus:outline-none'
-                    if (hasAnswered) {
+                    if (hasAnswered && isFlagged) {
+                      btnClass = 'bg-violet-500 text-white border-violet-600 outline-none focus:outline-none'
+                    } else if (hasAnswered) {
                       btnClass = 'bg-emerald-500 text-white border-emerald-600 outline-none focus:outline-none'
                     } else if (isFlagged) {
                       btnClass = 'bg-amber-500 text-white border-amber-600 outline-none focus:outline-none'
@@ -1399,6 +1454,10 @@ export default function MockTestsPage() {
                 <span>Flagged</span>
               </div>
               <div className="flex items-center gap-2">
+                <span className="h-3.5 w-3.5 rounded bg-violet-500 shrink-0"></span>
+                <span>Answered &amp; flagged</span>
+              </div>
+              <div className="flex items-center gap-2">
                 <span className="h-3.5 w-3.5 rounded bg-rose-500 shrink-0"></span>
                 <span>Visited but unanswered</span>
               </div>
@@ -1430,11 +1489,13 @@ export default function MockTestsPage() {
                       {testQuestions.map((q, idx) => {
                         const isCurrent = idx === currentQuestionIndex
                         const isFlagged = flags[q.id]
-                        const hasAnswered = answers[q.id] !== undefined
+                        const hasAnswered = hasAnswer(answers[q.id])
                         const hasVisited = visited[q.id]
 
                         let btnClass = 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                        if (hasAnswered) {
+                        if (hasAnswered && isFlagged) {
+                          btnClass = 'bg-violet-500 text-white border-violet-600'
+                        } else if (hasAnswered) {
                           btnClass = 'bg-emerald-500 text-white border-emerald-600'
                         } else if (isFlagged) {
                           btnClass = 'bg-amber-500 text-white border-amber-600'
@@ -1472,6 +1533,10 @@ export default function MockTestsPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-amber-500 shrink-0"></span>
                       <span>Flagged</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-3 w-3 rounded bg-violet-500 shrink-0"></span>
+                      <span>Answered &amp; flagged</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="h-3 w-3 rounded bg-rose-500 shrink-0"></span>
@@ -1554,6 +1619,7 @@ export default function MockTestsPage() {
       .sort((a, b) => b.lost - a.lost)
 
     // AI Revision recommendations based on low accuracy subjects
+    const answeredCount = (reportData.correct || 0) + (reportData.incorrect || 0)
     const weakSubjects = Object.entries(reportData.subjectStats)
       .map(([subName, stats]) => {
         const accuracy = stats.totalQs - stats.unansweredQs > 0
@@ -1561,7 +1627,7 @@ export default function MockTestsPage() {
           : 0
         return { subName, accuracy, ...stats }
       })
-      .filter(s => s.accuracy < 70)
+      .filter(s => s.totalQs - s.unansweredQs > 0 && s.accuracy < 70)
       .sort((a, b) => a.accuracy - b.accuracy)
 
     // Print Handler
@@ -1590,7 +1656,7 @@ export default function MockTestsPage() {
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Attempted on: {reportData.date}
-              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">Attempt #{reportData.attemptNo}</span>}
+              {reportData.attemptNo && reportData.counted !== false && <span className="ml-2 font-bold text-primary">{" "}· Attempt #{reportData.attemptNo}</span>}
             </p>
           </div>
 
@@ -1659,126 +1725,7 @@ export default function MockTestsPage() {
         {(activeReportTab === 'overview' || window.matchMedia('print').matches) && (
           <div className="space-y-6">
             
-            {/* Top Cohort Benchmarks Hero Banner (matching SS 1) */}
-            {(() => {
-              const totalParticipants = 18450
-              const rawRank = parseInt(String(reportData.estimatedRank || '512').replace(/[^0-9]/g, '')) || 512
-              const userRank = rawRank > 0 ? rawRank : 512
-              const aheadCount = Math.max(0, totalParticipants - userRank)
-              const percentile = Math.min(99.9, Math.max(0.1, (((totalParticipants - userRank) / totalParticipants) * 100))).toFixed(1)
-              const batchAverage = Number((reportData.maxScore * 0.386).toFixed(1))
-              const topperScore = Number((reportData.maxScore * 0.8933).toFixed(2))
-
-              return (
-                <div className="space-y-4">
-                  {/* Hero Cohort Card */}
-                  <div className="p-6 sm:p-8 rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 text-white shadow-xl relative overflow-hidden">
-                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                      
-                      <div className="space-y-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-300 block">
-                          COHORT STANDING ({totalParticipants.toLocaleString()} TEST TAKERS)
-                        </span>
-                        <div className="flex items-baseline gap-3 flex-wrap">
-                          <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">
-                            {percentile}th
-                          </span>
-                          <span className="text-xl font-bold text-indigo-200">Percentile</span>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            Rank #{userRank}
-                          </span>
-                        </div>
-                        <p className="text-xs sm:text-sm text-indigo-200/80 max-w-lg leading-relaxed">
-                          You scored higher than <strong>{aheadCount.toLocaleString()}</strong> aspirants across India in this paper series.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-4 sm:gap-6 bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-white/10 shrink-0">
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">YOUR SCORE</span>
-                          <span className="text-xl sm:text-2xl font-black text-white">{reportData.score}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">BATCH AVERAGE</span>
-                          <span className="text-xl sm:text-2xl font-black text-indigo-200">{batchAverage}</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-indigo-300 block">AIR 1 TOPPER</span>
-                          <span className="text-xl sm:text-2xl font-black text-amber-300">{topperScore}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* Secondary Diagnostic Strip: Est. GATE Score, Accuracy & Pacing */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {/* Est. GATE Score Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <Brain size={24} />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Estimated GATE Score
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                            {reportData.estimatedGateScore}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">/ 1000</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          Normalized relative to cutoff weightage
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Attempt Accuracy Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-                        <Target size={24} />
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Attempt Accuracy
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-emerald-500">
-                            {reportData.percentage}%
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">({reportData.correct} Correct)</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          {reportData.incorrect} incorrect · {reportData.unanswered} skipped
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Pacing & Time Statistics Card */}
-                    <div className="p-4 sm:p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-                        <Clock size={24} />
-                      </div>
-                      <div className="space-y-0.5 flex-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                          Pacing & Time Utilized
-                        </span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-2xl font-black text-slate-900 dark:text-slate-100">
-                            {reportData.timeTakenFormatted}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold">({reportData.attemptRate}% attempted)</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 block leading-tight">
-                          Total Duration: {activeTest?.durationMinutes || 180} Minutes
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
+            <ResultSummary report={reportData} comparisonState={comparisonState} durationMinutes={activeTest?.durationMinutes} />
 
             {/* Progress Chart and AI recommendations Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1883,13 +1830,13 @@ export default function MockTestsPage() {
                   {weakSubjects.length > 0 ? (
                     <>
                       <p className="text-xs text-slate-500 leading-tight">
-                        Your accuracy in **{weakSubjects[0].subName}** was only {Math.round(weakSubjects[0].accuracy)}%. We recommend this 7-day study program:
+                        Your accuracy in <strong>{weakSubjects[0].subName}</strong> was {Math.round(weakSubjects[0].accuracy)}% on the questions you answered. Next steps:
                       </p>
                       
                       <div className="space-y-2 text-xs">
                         <div className="flex gap-2 items-start bg-primary/5 p-2 rounded">
                           <span className="h-4 w-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">1</span>
-                          <span className="text-slate-600 dark:text-slate-400">Re-watch core lecture notes for **{weakSubjects[0].subName}**.</span>
+                          <span className="text-slate-600 dark:text-slate-400">Revise your notes for <strong>{weakSubjects[0].subName}</strong>.</span>
                         </div>
                         <div className="flex gap-2 items-start bg-primary/5 p-2 rounded">
                           <span className="h-4 w-4 bg-primary text-white text-[9px] font-bold rounded-full flex items-center justify-center shrink-0 mt-0.5">2</span>
@@ -1899,15 +1846,21 @@ export default function MockTestsPage() {
                     </>
                   ) : (
                     <div className="text-xs text-slate-500 space-y-2">
-                      <p className="font-bold text-success">Excellent consistency!</p>
-                      <p className="leading-tight">All subjects exceed 70% accuracy. Continue practicing comprehensive mock exams to increase speed and maintain stamina.</p>
+                      {answeredCount === 0 ? (
+                        <p className="leading-tight">You didn't answer any questions, so there's nothing to analyse yet. Try a few questions in your next attempt.</p>
+                      ) : (
+                        <>
+                          <p className="font-bold text-success">Good accuracy on what you answered</p>
+                          <p className="leading-tight">Every subject you answered was 70% or better.{reportData.unanswered > 0 ? ` You skipped ${reportData.unanswered} questions, so attempt more of the paper next time.` : ' Keep taking full mocks to build speed.'}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-btn text-[10px] text-slate-500 font-semibold flex justify-between items-center">
-                  <span>Current Revision Streak:</span>
-                  <span className="text-primary font-bold">🔥 6 Days</span>
+                  <span>Practice streak:</span>
+                  <span className="text-primary font-bold">🔥 {userStreak} {userStreak === 1 ? 'day' : 'days'}</span>
                 </div>
               </div>
 
@@ -1956,14 +1909,10 @@ export default function MockTestsPage() {
               {/* Cognitive / Question Type Skill Gaps */}
               <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
                 <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Skill Gap Analysis</h3>
-                <p className="text-xs text-slate-400">Categorization based on cognitive depth of problems</p>
+                <p className="text-xs text-slate-400">Accuracy on the questions you answered, by kind of question</p>
                 
                 <div className="space-y-4 pt-2">
-                  {[
-                    { type: 'Conceptual (1-Mark MCQs)', label: 'Tests basic retention and recall of formulas.', color: 'bg-emerald-500', correct: reportData.correct, total: reportData.correct + reportData.incorrect },
-                    { type: 'Numerical (NATs)', label: 'Requires calculation accuracy, prone to decimals.', color: 'bg-indigo-500', correct: Math.round(reportData.correct * 0.4), total: Math.round((reportData.correct + reportData.incorrect) * 0.4) || 2 },
-                    { type: 'Application (2-Mark MCQs)', label: 'Evaluates derivation and synthesis ability.', color: 'bg-amber-500', correct: Math.max(0, reportData.correct - Math.round(reportData.correct * 0.4)), total: Math.max(1, (reportData.correct + reportData.incorrect) - Math.round((reportData.correct + reportData.incorrect) * 0.4)) }
-                  ].map((skill, idx) => {
+                  {skillBreakdown(testQuestions, reportData.answers || answers, isAnswerCorrect).map((skill, idx) => {
                     const pct = skill.total > 0 ? Math.round((skill.correct / skill.total) * 100) : 0
                     return (
                       <div key={idx} className="space-y-1 text-xs">
@@ -1987,7 +1936,7 @@ export default function MockTestsPage() {
             <div className="p-6 rounded-card border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-4">
               <div>
                 <h3 className="font-bold text-sm text-text-primary-light dark:text-text-primary-dark">Topic Heatmap & Weak Topics</h3>
-                <p className="text-xs text-slate-400">Weak Topics prioritized by **Marks Lost Potential** (Max possible score - Obtained score)</p>
+                <p className="text-xs text-slate-400">Weak Topics prioritized by <strong>Marks Lost Potential</strong> (Max possible score - Obtained score)</p>
               </div>
 
               <div className="overflow-x-auto">
@@ -2091,7 +2040,7 @@ export default function MockTestsPage() {
                       </div>
                       <h4 className="font-bold text-xs text-text-primary-light dark:text-text-primary-dark uppercase">Pacing Warning Triggered</h4>
                       <p className="text-[11px] text-slate-500 leading-tight">
-                        You made **{reportData.panicZoneErrors} errors** in the final 15% of the mock test time. This shows high rush pressure. Consider skipping hard questions earlier to leave time.
+                        You made <strong>{reportData.panicZoneErrors} errors</strong> in the final 15% of the mock test time. This shows high rush pressure. Consider skipping hard questions earlier to leave time.
                       </p>
                     </div>
                   ) : (
@@ -2130,7 +2079,7 @@ export default function MockTestsPage() {
                     <span className="text-xs font-extrabold text-success bg-emerald-500/10 px-2 py-0.5 rounded">{pacers.quickCorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Correct questions solved in **less than 60 seconds**. This is your peak strength zone — high accuracy and speed.
+                    Correct questions solved in <strong>less than 60 seconds</strong>. This is your peak strength zone — high accuracy and speed.
                   </p>
                 </div>
 
@@ -2141,7 +2090,7 @@ export default function MockTestsPage() {
                     <span className="text-xs font-extrabold text-primary bg-indigo-500/10 px-2 py-0.5 rounded">{pacers.slowCorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Correct questions solved in **60 seconds or more**. Good conceptual understanding but requires practice to increase derivation speed.
+                    Correct questions solved in <strong>60 seconds or more</strong>. Good conceptual understanding but requires practice to increase derivation speed.
                   </p>
                 </div>
 
@@ -2152,7 +2101,7 @@ export default function MockTestsPage() {
                     <span className="text-xs font-extrabold text-amber-600 dark:text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">{pacers.quickIncorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Incorrect questions solved in **less than 45 seconds**. Indicative of silly calculation mistakes, misreading keywords, or poor elimination.
+                    Incorrect questions solved in <strong>less than 45 seconds</strong>. Indicative of silly calculation mistakes, misreading keywords, or poor elimination.
                   </p>
                 </div>
 
@@ -2163,7 +2112,7 @@ export default function MockTestsPage() {
                     <span className="text-xs font-extrabold text-error bg-red-500/10 px-2 py-0.5 rounded">{pacers.slowIncorrect} Questions</span>
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Incorrect questions solved in **90 seconds or more**. High cognitive overhead that cost you precious exam time and still resulted in negative marking.
+                    Incorrect questions solved in <strong>90 seconds or more</strong>. High cognitive overhead that cost you precious exam time and still resulted in negative marking.
                   </p>
                 </div>
 

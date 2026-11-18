@@ -35,7 +35,6 @@ export default function PYQPage() {
     downvoteQuestion,
     activeDiscussionQuestionId,
     setActiveDiscussionQuestionId,
-    setActiveVideoSolutionUrl,
     scratchpadOpenQuestionId,
     setScratchpadOpenQuestionId,
     questionNotes,
@@ -1943,16 +1942,6 @@ export default function PYQPage() {
                   </span>
                 </button>
 
-                {/* Video Solution Button */}
-                <button
-                  onClick={() => setActiveVideoSolutionUrl(currentQuestion?.videoSolutionUrl, currentQuestion)}
-                  className="group relative h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center shadow-md text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-90"
-                >
-                  <Play size={16} className="fill-slate-500 text-slate-500 sm:size-[18px]" />
-                  <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-slate-900/95 dark:bg-slate-800/95 text-white text-[10px] font-bold uppercase tracking-wider rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap border border-white/10">
-                    Video Solution
-                  </span>
-                </button>
 
                 {/* Report Question Button */}
                 <button

@@ -195,7 +195,6 @@ export default function DiscussionDrawer({
     votes,
     upvoteQuestion,
     downvoteQuestion,
-    setActiveVideoSolutionUrl,
     discussions,
     discussionLoading,
     loadDiscussion,

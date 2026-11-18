@@ -26,8 +26,9 @@ export const pyqPaperQuestions = (questions, id) => {
   return questions.filter(q => String(q.year) === year && (set === undefined || parseSet(q.set) === Number(set)))
 }
 
-// PYQ tests allow 1.5 minutes per question
-export const pyqPaperMinutes = (questionCount) => Math.round(questionCount * 1.5)
+// A full year paper gets GATE's real 3 hours; shorter PYQ sets allow 1.5 minutes a question
+export const pyqPaperMinutes = (questionCount, fullPaper = questionCount >= 60) =>
+  fullPaper && questionCount >= 60 ? 180 : Math.round(questionCount * 1.5)
 
 export const pyqPaperTitle = (id) => {
   const m = String(id).match(PAPER_RE)

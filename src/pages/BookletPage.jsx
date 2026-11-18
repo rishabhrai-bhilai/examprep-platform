@@ -37,9 +37,7 @@ export default function BookletPage() {
     loadDiscussion,
     fetchDiscussions, 
     bookmarks, 
-    toggleQuestionInFolder,
-    openVideoSolution,
-    addSolution,
+    toggleQuestionInFolder,    addSolution,
     addReply,
     upvoteSolution,
     downvoteSolution
@@ -762,16 +760,6 @@ export default function BookletPage() {
                             )}
                           </button>
 
-                          {/* Video Solution Button if available */}
-                          {q.videoUrl && (
-                            <button
-                              onClick={() => openVideoSolution(q.videoUrl)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-                            >
-                              <Play size={12} className="fill-current" />
-                              <span>Video</span>
-                            </button>
-                          )}
                         </div>
 
                         {/* Bookmark Button */}
@@ -923,16 +911,6 @@ export default function BookletPage() {
                             )}
                           </button>
 
-                          {/* Video Solution Button if available */}
-                          {q.videoUrl && (
-                            <button
-                              onClick={() => openVideoSolution(q.videoUrl)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
-                            >
-                              <Play size={12} className="fill-current" />
-                              <span>Video</span>
-                            </button>
-                          )}
                         </div>
 
                         {/* Bookmark Button */}
@@ -1009,15 +987,6 @@ export default function BookletPage() {
                   <span>{activeQuestion.marks} {activeQuestion.marks === 1 ? 'Mark' : 'Marks'}</span>
                 </div>
 
-                {activeQuestion.videoSolutionUrl && (
-                  <button
-                    onClick={() => openVideoSolution(activeQuestion)}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-red-500 hover:underline"
-                  >
-                    <Play size={11} className="fill-red-500" />
-                    <span>Video</span>
-                  </button>
-                )}
               </div>
             )}
 

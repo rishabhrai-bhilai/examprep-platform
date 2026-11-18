@@ -225,25 +225,6 @@ export const getInitialMyCommentIds = () => {
   }
 }
 
-export const DEFAULT_GATE_VIDEO_URL = 'https://www.youtube.com/embed/FchQ6wZVqsA?list=PLmXKhU9FNesTaKDC-MKWt-rFuB8OwqrCY'
-
-export function getEmbedVideoUrl(url, question = null) {
-  if (!url || typeof url !== 'string' || !url.trim()) {
-    return DEFAULT_GATE_VIDEO_URL
-  }
-  const trimmed = url.trim()
-  if (trimmed.includes('youtube.com/embed/')) {
-    return trimmed
-  }
-  const watchMatch = trimmed.match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|v\/)|youtu\.be\/)([^#&?]*)/)
-  if (watchMatch && watchMatch[1] && watchMatch[1].length === 11) {
-    const videoId = watchMatch[1]
-    const listMatch = trimmed.match(/[?&]list=([^#&]+)/)
-    return `https://www.youtube.com/embed/${videoId}${listMatch ? `?list=${listMatch[1]}` : ''}`
-  }
-  return trimmed
-}
-
 // --- DUAL-STORAGE CLOUD SYNC HELPERS ---
 export const syncBookmarksToServer = async (bookmarks, bookmarkFolders) => {
   const token = localStorage.getItem('auth_token')
@@ -360,8 +341,6 @@ export const useAppStore = create((set, get) => ({
   activeQuestionIndex: 0,
   calculatorOpen: false,
   activeDiscussionQuestionId: null,
-  activeVideoSolutionUrl: null,
-  activeVideoQuestion: null,
   scratchpadOpenQuestionId: null,
   sidebarOpen: false,
   sidebarCollapsed: true,
@@ -615,19 +594,6 @@ export const useAppStore = create((set, get) => ({
   setActiveQuestionIndex: (index) => set({ activeQuestionIndex: index }),
   setCalculatorOpen: (isOpen) => set({ calculatorOpen: isOpen }),
   setActiveDiscussionQuestionId: (questionId) => set({ activeDiscussionQuestionId: questionId }),
-  setActiveVideoSolutionUrl: (url, question = null) => {
-    if (!url && !question) {
-      set({ activeVideoSolutionUrl: null, activeVideoQuestion: null })
-      return
-    }
-    const resolvedUrl = getEmbedVideoUrl(url, question)
-    set({ activeVideoSolutionUrl: resolvedUrl, activeVideoQuestion: question })
-  },
-  openVideoSolution: (question) => {
-    if (!question) return
-    const resolvedUrl = getEmbedVideoUrl(question.videoSolutionUrl, question)
-    set({ activeVideoSolutionUrl: resolvedUrl, activeVideoQuestion: question })
-  },
   setScratchpadOpenQuestionId: (questionId) => set({ scratchpadOpenQuestionId: questionId }),
   setSidebarOpen: (isOpen) => set({ sidebarOpen: isOpen }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
