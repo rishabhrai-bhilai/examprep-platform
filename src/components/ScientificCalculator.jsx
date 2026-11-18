@@ -17,8 +17,9 @@ export default function ScientificCalculator() {
   // Initialize position to center of screen on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && calculatorOpen) {
-      const x = Math.max(20, (window.innerWidth - 320) / 2)
-      const y = Math.max(20, (window.innerHeight - 460) / 2)
+      // Open at the right edge so it doesn't cover the question and its options
+      const x = Math.max(20, window.innerWidth - 340)
+      const y = Math.max(20, Math.min(96, window.innerHeight - 480))
       setPosition({ x, y })
     }
   }, [calculatorOpen])
@@ -52,6 +53,10 @@ export default function ScientificCalculator() {
       setHistory(expression)
 
       // Replace math terms with Javascript equivalents
+      // Implied multiplication, as written on paper: 4π, 2(3+1), 4π/√(2), (1+2)(3+4)
+      expression = expression
+        .replace(/(\d|\)|π)(?=[π(√a-z])/g, '$1*')
+
       let parsed = expression
         .replace(/π/g, 'Math.PI')
         .replace(/e/g, 'Math.E')
@@ -128,6 +133,17 @@ export default function ScientificCalculator() {
 
     const handleKeyPress = (e) => {
       const key = e.key
+      // Typing in an answer box or note belongs to that box, not the calculator
+      const el = document.activeElement
+      const inField = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      if (inField && !dragRef.current?.contains(el)) return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      // Escape clears first, then closes
+      if (key === 'Escape') {
+        if (display) clear()
+        else setCalculatorOpen(false)
+        return
+      }
       
       // Numbers
       if (/^[0-9]$/.test(key)) {
@@ -155,7 +171,7 @@ export default function ScientificCalculator() {
         backspace()
       }
       // Escape or 'c'/'C' for clearing
-      else if (key === 'Escape' || key.toLowerCase() === 'c') {
+      else if (key.toLowerCase() === 'c') {
         clear()
       }
     }

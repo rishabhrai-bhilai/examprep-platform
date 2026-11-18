@@ -93,6 +93,8 @@ export default function BookletPage() {
 
     // Build map of questions per subject and topic
     const subjectTopicMap = new Map()
+    // Distinct questions per subject (a question tagged with two topics counts once)
+    const subjectQuestionIds = new Map()
 
     questions.forEach(q => {
       const tags = getTags(q, topicScheme)
@@ -103,6 +105,8 @@ export default function BookletPage() {
         }
         const topicsMap = subjectTopicMap.get(subject)
         topicsMap.set(topic, (topicsMap.get(topic) || 0) + 1)
+        if (!subjectQuestionIds.has(subject)) subjectQuestionIds.set(subject, new Set())
+        subjectQuestionIds.get(subject).add(q.id)
       })
     })
 
@@ -126,6 +130,8 @@ export default function BookletPage() {
 
       allTopicNames.forEach((topicName) => {
         const count = presentTopicsMap.get(topicName) || 0
+        // Topics with no questions yet are not listed
+        if (count === 0) return
         topicCounter++
 
         subjectTopics.push({
@@ -134,7 +140,7 @@ export default function BookletPage() {
         })
       })
 
-      const totalSubjectQuestions = subjectTopics.reduce((acc, t) => acc + t.questionCount, 0)
+      const totalSubjectQuestions = subjectQuestionIds.get(subjectName)?.size || 0
 
       if (subjectTopics.length > 0) {
         result.push({
@@ -1007,7 +1013,7 @@ export default function BookletPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                         <CheckCircle2 size={13} />
-                        Official / Curated Answer
+                        {activeQuestion.answerSource === 'unofficial' ? 'Answer (no official key)' : activeQuestion.original ? 'Answer key' : 'Official answer'}
                       </span>
                     </div>
 

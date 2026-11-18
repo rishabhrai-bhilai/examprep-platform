@@ -9,6 +9,7 @@ import { useAppStore } from '../store/useAppStore'
 import { useAuthStore } from '../store/useAuthStore'
 import QuestionImage from './QuestionImage'
 import QuestionText from './QuestionText'
+import useDialog from '../hooks/useDialog'
 import AnswerProvenance from './AnswerProvenance'
 import FormattedContent from './FormattedContent'
 import RichTextEditor from './RichTextEditor'
@@ -213,6 +214,8 @@ export default function DiscussionDrawer({
   const [activeReplyBox, setActiveReplyBox] = useState(null) // targetId
   const [mobileTab, setMobileTab] = useState('question') // 'question' | 'discussion'
   const [expandedReplies, setExpandedReplies] = useState({}) // { [commentId]: boolean }
+  // Full-screen panel: Escape closes it and keyboard focus stays inside
+  const dialogRef = useDialog(activeDiscussionQuestionId !== null && !!currentQuestion, () => setActiveDiscussionQuestionId(null))
 
   const toggleReplies = (id) => {
     setExpandedReplies((prev) => ({
@@ -301,7 +304,7 @@ export default function DiscussionDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-black/50 md:bg-slate-50 md:dark:bg-slate-950 overflow-hidden font-sans">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Discussion" className="fixed inset-0 z-[100] flex flex-col bg-black/50 md:bg-slate-50 md:dark:bg-slate-950 overflow-hidden font-sans">
       
       <div className="flex flex-1 relative min-h-0 w-full h-full">
         
@@ -316,7 +319,7 @@ export default function DiscussionDrawer({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-btn bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-655 dark:text-slate-350 font-bold text-xs transition-all active:scale-95 border border-slate-200 dark:border-slate-700"
             >
               <X size={14} />
-              <span>Exit Discussion</span>
+              <span>Close discussion</span>
             </button>
             <span className="text-xs font-extrabold text-slate-450 uppercase tracking-wider">Question {currentQuestion.code || `#${currentQuestion.id}`}</span>
           </div>
@@ -399,7 +402,7 @@ export default function DiscussionDrawer({
                           String.fromCharCode(65 + idx)
                         )}
                       </span>
-                      <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                      <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                     </button>
                   )
                 })}
@@ -444,7 +447,7 @@ export default function DiscussionDrawer({
                         <span className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 text-xs font-bold ${checkStyle}`}>
                           {isSelected || (hasSubmitted && isCorrect) ? <Check size={12} strokeWidth={3} /> : null}
                         </span>
-                        <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                        <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                       </button>
                     )
                   })}
@@ -573,7 +576,8 @@ export default function DiscussionDrawer({
               <button
                 onClick={() => setActiveDiscussionQuestionId(null)}
                 className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 transition-colors"
-                title="Close Discussions"
+                title="Close discussion"
+                aria-label="Close discussion"
               >
                 <X size={18} />
               </button>

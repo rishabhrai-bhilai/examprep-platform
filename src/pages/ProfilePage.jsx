@@ -276,7 +276,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState(user?.phone || '')
   const [targetYear, setTargetYear] = useState(user?.targetYear ? String(user.targetYear) : '')
   const [targetStream, setTargetStream] = useState(user?.targetStream || localStorage.getItem('gate_target_stream') || 'CS')
-  const [targetGoal, setTargetGoal] = useState(user?.targetGoal || localStorage.getItem('gate_target_goal') || 'AIR < 100')
+  const [targetGoal, setTargetGoal] = useState(user?.targetGoal || localStorage.getItem('gate_target_goal') || '')
   
   const [isSaved, setIsSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -743,7 +743,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex justify-between items-center text-[10px] text-slate-400 font-semibold">
                           <span>{percent}% Completed</span>
-                          <span>{sub.attempted - sub.solved > 0 ? `${sub.attempted - sub.solved} Unsolved Attempts` : 'All Correct'}</span>
+                          <span>{sub.attempted === 0 ? 'Not started' : sub.attempted - sub.solved > 0 ? `${sub.attempted - sub.solved} unsolved` : 'All correct'}</span>
                         </div>
                       </div>
                     </div>

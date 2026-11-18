@@ -6,13 +6,14 @@ import {
   Move, PanelLeftClose, PanelLeftOpen, Eraser, PenTool, GripVertical,
   Bold, Italic, Strikethrough, Code, Quote, List, ListOrdered, Table, Palette, Undo2, Upload
 } from 'lucide-react'
-import { useAppStore } from '../store/useAppStore'
+import { discussionCountFor, useAppStore } from '../store/useAppStore'
 import QuestionImage from './QuestionImage'
 import QuestionText from './QuestionText'
 import AnswerProvenance from './AnswerProvenance'
 import FormattedContent from './FormattedContent'
 import { formatAnswer, isAcceptedOption, isAnswerCorrect } from '../utils/answers'
 import { parseInk, buildInkToken, renderInkOverlay } from '../utils/ink'
+import useDialog from '../hooks/useDialog'
 
 // Math symbols for GATE
 const mathSymbols = [
@@ -49,7 +50,9 @@ export default function ScratchpadDrawer({
     votes,
     upvoteQuestion,
     downvoteQuestion,
-    setActiveDiscussionQuestionId,  } = useAppStore()
+    setActiveDiscussionQuestionId,
+    discussionCounts
+  } = useAppStore()
 
   // Workspace Mode: 'draw' (editing) | 'view' (read saved notes)
   const [mode, setMode] = useState('draw')
@@ -187,6 +190,9 @@ export default function ScratchpadDrawer({
   const imageFileInputRef = useRef(null)
 
   const savedNote = scratchpadOpenQuestionId ? questionNotes[scratchpadOpenQuestionId] : null
+  // Escape closes the scratchpad; focus starts in the note editor
+  const closeRef = useRef(null)
+  const dialogRef = useDialog(!!scratchpadOpenQuestionId && !!currentQuestion, () => closeRef.current?.(), { initialFocus: '[contenteditable="true"], textarea' })
 
   // Colors mapping for drawing
   const colorValues = {
@@ -199,10 +205,13 @@ export default function ScratchpadDrawer({
     purple: '#a855f7'
   }
 
-  // Keyboard shortcuts: Q for question toggle, D for draw toggle
+  // Keyboard shortcuts: Q for question toggle, D for draw toggle (only while the
+  // scratchpad is open and the student isn't typing somewhere)
   useEffect(() => {
     const handleKey = (e) => {
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+      if (!scratchpadOpenQuestionId || e.ctrlKey || e.metaKey || e.altKey) return
+      const el = document.activeElement
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
       if (e.key === 'q' || e.key === 'Q') {
         setIsQuestionCollapsed(prev => !prev)
       } else if (e.key === 'd' || e.key === 'D') {
@@ -211,7 +220,15 @@ export default function ScratchpadDrawer({
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [])
+  }, [scratchpadOpenQuestionId])
+
+  // Moving to another question closes the scratchpad of the previous one
+  useEffect(() => {
+    if (scratchpadOpenQuestionId && currentQuestion && String(scratchpadOpenQuestionId) !== String(currentQuestion.id)) {
+      setScratchpadOpenQuestionId(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id])
 
   // Close menus helper
   const closeAllMenus = () => {
@@ -927,6 +944,16 @@ export default function ScratchpadDrawer({
     setTimeout(() => setIsSaved(false), 2500)
   }
 
+  // Closing keeps what was written: anything on the sheets is saved first
+  const closeScratchpad = async () => {
+    const hasContent = (textContent && textContent.trim()) || strokes.length || images.length || sheets.length > 1 || attachments.length
+    if (hasContent) {
+      try { await handleSaveAllNotes() } catch (e) { console.warn('Could not save the note', e) }
+    }
+    setScratchpadOpenQuestionId(null)
+  }
+  closeRef.current = closeScratchpad
+
   const handleDeleteNote = () => {
     if (window.confirm('Delete this note and all associated sheets and attachments?')) {
       deleteQuestionNote(scratchpadOpenQuestionId)
@@ -956,7 +983,7 @@ export default function ScratchpadDrawer({
   const activeSheet = sheets[activeSheetIndex] || sheets[0]
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Scratchpad" className="fixed inset-0 z-[100] flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
       
       {/* =========================================================================
           ROW 1: FIRST ROW HEADER (Fixed Full-Width Header)
@@ -969,7 +996,7 @@ export default function ScratchpadDrawer({
         <div className="flex items-center gap-2 min-w-0">
           {/* Back button */}
           <button
-            onClick={() => setScratchpadOpenQuestionId(null)}
+            onClick={closeScratchpad}
             className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all active:scale-95 cursor-pointer shrink-0"
             title="Back to Practice"
           >
@@ -1030,7 +1057,8 @@ export default function ScratchpadDrawer({
 
           {/* Close Scratchpad 'X' button on far right */}
           <button
-            onClick={() => setScratchpadOpenQuestionId(null)}
+            onClick={closeScratchpad}
+            aria-label="Close scratchpad"
             className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
             title="Close Scratchpad"
           >
@@ -1661,7 +1689,7 @@ export default function ScratchpadDrawer({
                           String.fromCharCode(65 + idx)
                         )}
                       </span>
-                      <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                      <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                     </button>
                   )
                 })}
@@ -1711,7 +1739,7 @@ export default function ScratchpadDrawer({
                         <span className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 text-xs font-bold ${checkStyle}`}>
                           {isSelected && <Check size={12} strokeWidth={3} />}
                         </span>
-                        <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                        <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                       </button>
                     )
                   })}
@@ -1833,7 +1861,7 @@ export default function ScratchpadDrawer({
                 title="Open Discussion"
               >
                 <MessageSquare size={13} />
-                <span className="text-[11px]">{currentQuestion.commentsCount || 0}</span>
+                <span className="text-[11px]">{(() => { const c = discussionCountFor(discussionCounts, currentQuestion.id); return c.posts + c.replies })()}</span>
               </button>
             </div>
 
@@ -1882,7 +1910,8 @@ export default function ScratchpadDrawer({
                   }}
                   onPaste={handlePaste}
                   placeholder="Type notes, formulas ($E=mc^2$), solution steps, or click the Draw tool on the floating bar..."
-                  className="w-full shrink-0 p-5 bg-transparent resize-none overflow-hidden focus:outline-none text-slate-800 dark:text-slate-100 font-sans text-sm md:text-base leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600 z-0"
+                  aria-label="Scratchpad notes"
+                  className="w-full shrink-0 p-5 pr-20 bg-transparent resize-none overflow-hidden focus:outline-none text-slate-800 dark:text-slate-100 font-sans text-sm md:text-base leading-relaxed placeholder:text-slate-400 dark:placeholder:text-slate-600 z-0"
                 />
 
                 {/* LAYER 2: PEN DRAWING CANVAS OVERLAY */}

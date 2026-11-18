@@ -150,6 +150,7 @@ export default function Sidebar() {
                 onClick={handleLinkClick}
                 onMouseEnter={(e) => handleItemMouseEnter(e, item.name, item.badge)}
                 onMouseLeave={handleItemMouseLeave}
+                aria-label={item.badge > 0 ? `${item.name} (${item.badge})` : item.name}
                 title={isCollapsed ? `${item.name}${item.badge !== undefined && item.badge > 0 ? ` (${item.badge})` : ''}` : undefined}
                 className={({ isActive }) =>
                   `group relative flex items-center gap-3 px-4 py-3 rounded-btn text-sm font-medium transition-all ${

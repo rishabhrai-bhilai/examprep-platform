@@ -168,6 +168,7 @@ export const practiceSummary = ({ attempts = {}, days = {} } = {}, today) => {
     solved: recs.filter(r => r.solvedAt).length,
     attempted: recs.length,
     totalAnswers,
+    totalCorrect,
     accuracy: totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : null,
     practiceSec: Object.values(days).reduce((s, d) => s + num(d.timeSec), 0),
     streak: currentStreak(days, today),

@@ -28,6 +28,16 @@ export function readHistory(kind) {
   }
 }
 
+// Attempts kept but not counted (e.g. submitted in under a minute)
+export function countUncounted(kind) {
+  try {
+    const list = JSON.parse(localStorage.getItem(HISTORY_KEYS[kind]) || '[]')
+    return Array.isArray(list) ? list.filter(h => h && h.counted === false).length : 0
+  } catch {
+    return 0
+  }
+}
+
 export const formatMinutes = (sec) => {
   const s = Math.round(Number(sec) || 0)
   if (s < 60) return `${s}s`
@@ -44,7 +54,8 @@ const SHORT_SUBJECT = {
 }
 export const shortSubject = (name) => SHORT_SUBJECT[name] || String(name || '').split(/\s+/).map(w => w[0]).join('').slice(0, 4)
 
-const statusFor = (scorePct) => (scorePct >= 80 ? 'Strength' : scorePct >= 65 ? 'Solid' : scorePct >= 50 ? 'Needs Revision' : 'Weak Area')
+// Judged on the questions actually answered: skipping isn't a weakness in the subject
+const statusFor = (accuracy, attempted) => (attempted === 0 ? 'Not attempted' : accuracy >= 80 ? 'Strength' : accuracy >= 65 ? 'Solid' : accuracy >= 50 ? 'Needs Revision' : 'Weak Area')
 
 // Mistake tags students add in a test's review
 const ERROR_TAGS = {
@@ -139,7 +150,9 @@ export function buildPersonal(history, questionsById) {
     .filter(([, s]) => s.max > 0)
     .map(([name, s]) => {
       const scorePct = Math.max(0, Math.round(pct(s.obtained, s.max)))
-      return { name, scorePct, accuracy: Math.round(pct(s.correct, s.correct + s.incorrect)), attempted: s.correct + s.incorrect, correct: s.correct, status: statusFor(scorePct) }
+      const attempted = s.correct + s.incorrect
+      const accuracy = Math.round(pct(s.correct, attempted))
+      return { name, scorePct, accuracy, attempted, correct: s.correct, status: statusFor(accuracy, attempted) }
     })
     .sort((a, b) => b.scorePct - a.scorePct)
 

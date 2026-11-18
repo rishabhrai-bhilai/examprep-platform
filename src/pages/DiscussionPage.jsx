@@ -1022,7 +1022,7 @@ export default function DiscussionPage() {
                           }`}>
                             {isCorrect ? <Check size={12} strokeWidth={3} /> : String.fromCharCode(65 + idx)}
                           </span>
-                          <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                          <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                           {isCorrect && (
                             <span className="text-[8px] uppercase tracking-wide font-black bg-success/20 px-1.5 py-0.5 rounded">
                               Correct Answer
@@ -1052,7 +1052,7 @@ export default function DiscussionPage() {
                           }`}>
                             {isCorrect ? <Check size={12} strokeWidth={3} /> : null}
                           </span>
-                          <span className="flex-1 min-w-0 break-words mt-0.5">{option}</span>
+                          <span className="flex-1 min-w-0 break-words mt-0.5"><QuestionText text={option} inline /></span>
                           {isCorrect && (
                             <span className="text-[8px] uppercase tracking-wide font-black bg-success/20 px-1.5 py-0.5 rounded">
                               Key

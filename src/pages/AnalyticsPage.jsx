@@ -8,8 +8,9 @@ import { useAuthStore } from '../store/useAuthStore'
 import { useAppStore } from '../store/useAppStore'
 import { LoginToCompare } from '../components/GlobalComparison'
 import { fetchPeerAnalytics, fetchMockComparison, isSignedIn } from '../utils/engagementApi'
-import { readHistory, buildPersonal, buildPyqCoverage, buildHeatmap, buildHistoryRows } from '../utils/analyticsData'
+import { readHistory, countUncounted, buildPersonal, buildPyqCoverage, buildHeatmap, buildHistoryRows } from '../utils/analyticsData'
 import { useOriginalQuestionsState, fetchTestAnswers, hasRevealedAnswer } from '../utils/originalQuestions'
+import { ordinal } from '../utils/gateScore'
 
 // Analytics for students: their own tests and practice (Personal), and how they
 // compare with everyone else on ExamPrep (Global). Every number is real; sections
@@ -112,6 +113,11 @@ export default function AnalyticsPage() {
     needed.forEach(testId => fetchTestAnswers(testId).catch(() => {}))
   }, [isAuthenticated, originalQuestions, mockHistory])
   const pyqHistory = useMemo(() => readHistory('pyq'), [])
+  // Open on the kind of test the student has actually taken
+  useEffect(() => {
+    if (!mockHistory.length && pyqHistory.length) setActiveSpace('pyq')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const spaceHistory = activeSpace === 'mock' ? mockHistory : pyqHistory
   const personal = useMemo(() => buildPersonal(spaceHistory, questionsById), [spaceHistory, questionsById])
   const coverage = useMemo(() => buildPyqCoverage(questions, pyqHistory), [questions, pyqHistory])
@@ -262,9 +268,9 @@ export default function AnalyticsPage() {
             <EmptyCard
               icon={activeSpace === 'mock' ? BookOpen : FileText}
               title={activeSpace === 'mock' ? 'No mock tests yet' : 'No PYQ tests yet'}
-              text={activeSpace === 'mock'
+              text={(activeSpace === 'mock'
                 ? 'Finish a mock test to see your scores, subject breakdown, pacing and weakest topics here.'
-                : 'Finish a PYQ paper or a custom PYQ test to see your scores, subject breakdown, pacing and weakest topics here.'}
+                : 'Finish a PYQ paper or a custom PYQ test to see your scores, subject breakdown, pacing and weakest topics here.') + (countUncounted(activeSpace) ? ` You have ${countUncounted(activeSpace)} attempt${countUncounted(activeSpace) === 1 ? '' : 's'} submitted in under a minute, which don't count toward analytics.` : '')}
               action={<Link to={activeSpace === 'mock' ? '/mock-tests' : '/pyq-mock'} className="inline-block mt-2 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover">{activeSpace === 'mock' ? 'Take a mock test' : 'Take a PYQ test'}</Link>}
             />
           ) : (<>
@@ -274,7 +280,7 @@ export default function AnalyticsPage() {
             <div className="p-5 rounded-2xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-soft space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Average Score</span>
               <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-slate-900 dark:text-slate-100">{personal.overview.averageScore}</span>
+                <span className="text-3xl font-black text-slate-900 dark:text-slate-100">{Number.isFinite(Number(personal.overview.averageScore)) ? personal.overview.averageScore : '—'}</span>
                 <span className="text-xs text-slate-400 font-bold">/ {personal.overview.maxMarks}</span>
               </div>
               <p className="text-[11px] font-semibold text-emerald-500 flex items-center gap-1 mt-1">
@@ -310,7 +316,7 @@ export default function AnalyticsPage() {
               </div>
               <p className="text-[11px] font-bold text-indigo-400">
                 {ranked
-                  ? `${peers.cohort.percentile}th percentile of ${peers.cohort.totalParticipants} students`
+                  ? `${ordinal(peers.cohort.percentile)} percentile of ${peers.cohort.totalParticipants} students (all your tests)`
                   : peerState.status === 'guest' ? 'Sign in to compare with others' : `${personal.overview.totalTimeSpent} in ${personal.overview.testsTaken} test${personal.overview.testsTaken === 1 ? '' : 's'}`}
               </p>
             </div>
@@ -436,7 +442,8 @@ export default function AnalyticsPage() {
                         </div>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                           sub.status === 'Strength' ? 'bg-emerald-500/10 text-emerald-500' :
-                          sub.status === 'Solid' ? 'bg-primary/10 text-primary' : 'bg-rose-500/10 text-rose-500'
+                          sub.status === 'Solid' ? 'bg-primary/10 text-primary' :
+                          sub.status === 'Not attempted' ? 'bg-slate-500/10 text-slate-500' : 'bg-rose-500/10 text-rose-500'
                         }`}>
                           {sub.status}
                         </span>
@@ -1025,7 +1032,7 @@ export default function AnalyticsPage() {
                 </span>
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="text-4xl sm:text-5xl font-black text-white">
-                    {global.cohort.percentile}th
+                    {ordinal(global.cohort.percentile)}
                   </span>
                   <span className="text-xl font-bold text-indigo-200">Percentile</span>
                   <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -1352,7 +1359,7 @@ export default function AnalyticsPage() {
                         #{t.rank}
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase">
-                        {t.percentile}th pct
+                        {ordinal(t.percentile)} pct
                       </span>
                     </div>
                   </div>

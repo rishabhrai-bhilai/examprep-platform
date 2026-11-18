@@ -38,6 +38,12 @@ import OnboardingModal from './components/OnboardingModal'
 import ReportIssueModal from './components/ReportIssueModal'
 import { BadgeUnlockModal } from './components/Badges'
 
+// An address that doesn't exist sends signed-in students to their dashboard
+function UnknownPage() {
+  const isAuthenticated = useAuthStore(s => s.isAuthenticated)
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/'} replace />
+}
+
 function App() {
   const { theme, fetchQuestions, fetchDiscussions, syncUserData } = useAppStore()
   const { checkAuth } = useAuthStore()
@@ -94,7 +100,7 @@ function App() {
         </Route>
 
         {/* Fallback Redirect */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<UnknownPage />} />
       </Routes>
       </Suspense>
 

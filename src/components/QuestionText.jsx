@@ -617,6 +617,16 @@ export default function QuestionText({ text, className = '', inline = false }) {
           return <div key={idx} className="h-1.5" />
         }
 
+        // Markdown heading ("### Step-by-step") in explanations
+        const heading = block.line.match(/^\s*(#{1,6})\s+(.*)$/)
+        if (heading) {
+          return (
+            <div key={idx} role="heading" aria-level={Math.min(6, heading[1].length + 2)} className="font-bold text-text-primary-light dark:text-text-primary-dark pt-1">
+              {renderInline(heading[2], `h-${idx}`)}
+            </div>
+          )
+        }
+
         return (
           <div key={idx} className="leading-relaxed">
             {renderInline(block.line, `line-${idx}`)}

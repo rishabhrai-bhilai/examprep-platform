@@ -1437,15 +1437,16 @@ export default function PYQMockTestsPage() {
               </div>
               
               <div className="flex items-center gap-3 shrink-0">
-                {selectedSubjects.length > 0 && (
+                {(
                   <button
+                    disabled={selectedSubjects.length === 0}
                     onClick={() => {
                       const totalAvailable = selectedSubjects.reduce((sum, s) => sum + (subjectsMap[s] || 0), 0)
                       setMaxAvailableQuestions(totalAvailable)
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
                       setShowQuestionLimitModal(true)
                     }}
-                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                   >
                     <span>Configure Mock ({selectedSubjects.length})</span>
                     <ArrowRight size={12} />
@@ -1515,8 +1516,9 @@ export default function PYQMockTestsPage() {
               
               <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <TopicSchemeSwitch />
-                {selectedTopics.length > 0 && (
+                {(
                   <button
+                    disabled={selectedTopics.length === 0}
                     onClick={() => {
                       // Count each question once even if it carries several selected topics
                       const totalAvailable = questions.filter(q =>
@@ -1526,7 +1528,7 @@ export default function PYQMockTestsPage() {
                       setLimitQuestionsCount(Math.min(15, totalAvailable))
                       setShowQuestionLimitModal(true)
                     }}
-                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                    className="h-10 px-5 bg-primary hover:bg-primary-hover text-white font-extrabold text-xs rounded-btn shadow-sm transition-all active:scale-95 flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none"
                   >
                     <span>Configure Mock ({selectedTopics.length})</span>
                     <ArrowRight size={12} />
@@ -1657,6 +1659,8 @@ export default function PYQMockTestsPage() {
                 const SubjectIcon = config.icon
                 const isSelected = selectedTopics.some(t => t.subject === subjectName && t.topic === topicName)
                 const isEmpty = questionCount === 0
+                // Topics with no questions yet are not offered
+                if (isEmpty) return null
                 return (
                   <div {...clickableProps}
                     key={`${subjectName}-${topicName}`}
@@ -1758,7 +1762,7 @@ export default function PYQMockTestsPage() {
                     
                     return (
                       <div key={sub} className="border border-border-light dark:border-border-dark rounded-card bg-card-light dark:bg-card-dark overflow-hidden shadow-soft">
-                        <div
+                        <div {...clickableProps} aria-expanded={isExpanded}
                           onClick={() => setExpandedWizardSubject(isExpanded ? null : sub)}
                           className={`p-4 flex justify-between items-center bg-card-light dark:bg-card-dark cursor-pointer border-l-4 ${
                             isExpanded ? 'border-primary bg-slate-50/50 dark:bg-slate-900/30' : 'border-transparent hover:bg-slate-50/30 dark:hover:bg-slate-900/10'
@@ -1801,6 +1805,8 @@ export default function PYQMockTestsPage() {
                               const isChecked = wizardConfig.topics.includes(key)
                               const count = topicsMap[sub][topic]
                               const isEmpty = count === 0
+                              // Topics with no questions yet are not offered
+                              if (isEmpty) return null
                               return (
                                 <div {...clickableProps}
                                   key={topic}
@@ -1965,6 +1971,7 @@ export default function PYQMockTestsPage() {
                             <div className="flex items-center gap-1.5">
                               <input
                                 type="number"
+                                aria-label="Number of questions"
                                 min={1}
                                 max={availableCount}
                                 value={displayLimit}
@@ -1983,6 +1990,7 @@ export default function PYQMockTestsPage() {
 
                           <input
                             type="range"
+                            aria-label="Number of questions"
                             min={1}
                             max={availableCount}
                             value={displayLimit}
@@ -2104,6 +2112,7 @@ export default function PYQMockTestsPage() {
                     <div className="flex items-center gap-1.5">
                       <input
                         type="number"
+                        aria-label="Number of questions"
                         min={1}
                         max={maxAvailableQuestions}
                         value={limitQuestionsCount}
@@ -2122,6 +2131,7 @@ export default function PYQMockTestsPage() {
 
                   <input
                     type="range"
+                    aria-label="Number of questions"
                     min={1}
                     max={maxAvailableQuestions}
                     value={limitQuestionsCount}
